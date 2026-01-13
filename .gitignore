@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+.svelte-kit*/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*-MacBook*.ts
+*-MacBook*.js
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Misc
+*.local
+*.bat
+.claude
+CLAUDE.md
+tmpclaude-*
