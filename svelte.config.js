@@ -15,9 +15,8 @@ const config = {
 			strict: true
 		}),
 		paths: {
-			// Set base path for GitHub Pages deployment
-			// Change 'pathview' to your repo name
-			base: process.env.NODE_ENV === 'production' ? '/pathview' : ''
+			// custom domain
+			base: ''
 		}
 	}
 };
