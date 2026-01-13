@@ -27,7 +27,7 @@
 	onMount(async () => {
 		try {
 			// Fetch manifest (just a list of filenames)
-			const manifestRes = await fetch('{base}/examples/manifest.json');
+			const manifestRes = await fetch(`${base}/examples/manifest.json`);
 			if (!manifestRes.ok) throw new Error('No manifest');
 			const manifest = await manifestRes.json();
 			const files: string[] = manifest.files || [];
@@ -36,12 +36,12 @@
 			const loadedExamples: Example[] = [];
 			for (const filename of files) {
 				try {
-					const fileRes = await fetch(`{base}/examples/${filename}`);
+					const fileRes = await fetch(`${base}/examples/${filename}`);
 					if (fileRes.ok) {
 						const data = await fileRes.json();
 						loadedExamples.push({
 							name: data.metadata?.name || filename.replace('.json', ''),
-							file: `{base}/examples/${filename}`,
+							file: `${base}/examples/${filename}`,
 							nodeCount: data.graph?.nodes?.length || 0,
 							description: data.metadata?.description
 						});
