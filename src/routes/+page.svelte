@@ -759,27 +759,27 @@
 
 				let validation
 
-				if(usingPyodide) {
+				// if(usingPyodide) {
 					validation = await validateGraphSimulation(nodes, codeContext);
-				} else {
-					console.log("[Sending to Flask web server] The node registry is: ", nodeRegistry.getAll())
-					let fetchedData = await fetch(getFlaskBackendUrl()+"/validateGraphSimulation", {
-						method: "POST",
-						body: JSON.stringify({
-							nodes,
-							codeContext,
-							nodeRegistryNodes: nodeRegistry.getAll() // It is necessary to pass in the node registry to the backend since it doesn't have it
-						}),
-						headers: {
-							"Content-Type":"application/json"
-						}
-					}).then(res => res.json())
-					if(!fetchedData.success) {
-						throw Error(fetchedData.error)
-					} else {
-						validation = fetchedData.data satisfies ValidationResult
-					}
-				}
+				// } else {
+				// 	console.log("[Sending to Flask web server] The node registry is: ", nodeRegistry.getAll())
+				// 	let fetchedData = await fetch(getFlaskBackendUrl()+"/validateGraphSimulation", {
+				// 		method: "POST",
+				// 		body: JSON.stringify({
+				// 			nodes,
+				// 			codeContext,
+				// 			nodeRegistryNodes: nodeRegistry.getAll() // It is necessary to pass in the node registry to the backend since it doesn't have it
+				// 		}),
+				// 		headers: {
+				// 			"Content-Type":"application/json"
+				// 		}
+				// 	}).then(res => res.json())
+				// 	if(!fetchedData.success) {
+				// 		throw Error(fetchedData.error)
+				// 	} else {
+				// 		validation = fetchedData.data satisfies ValidationResult
+				// 	}
+				// }
 
 				if (!validation.valid) {
 					// Show validation errors

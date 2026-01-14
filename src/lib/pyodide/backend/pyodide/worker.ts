@@ -3,11 +3,14 @@
  * Executes Python code via Pyodide in a separate thread
  */
 
+// TODO: Need to replace every instance of readPythonAsync with the flask backend call based on the backend preference set
+
 import { PYODIDE_CDN_URL } from '$lib/constants/python';
 import { PROGRESS_MESSAGES, ERROR_MESSAGES } from '$lib/constants/messages';
 import type { REPLRequest, REPLResponse } from '../types';
 
 import type { PyodideInterface } from 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs';
+import { backendPreferenceStore } from '$lib/stores';
 
 let pyodide: PyodideInterface | null = null;
 let isInitialized = false;
