@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "extract-blocks": "python scripts/extract-blocks.py",
-    "extract-all": "npm run extract-blocks",
+    "extract-events": "python scripts/extract-events.py",
+    "extract-simulation": "python scripts/extract-simulation.py",
+    "extract-all": "npm run extract-blocks && npm run extract-events && npm run extract-simulation",
     "check-generated": "node scripts/check-generated.js",
     "examples": "node scripts/generate-examples-manifest.js",
     "dev": "npm run examples && vite dev",
