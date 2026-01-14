@@ -1,6 +1,13 @@
-# PathView
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pathsim/pathview/main/static/pathview_logo.png" width="300" alt="PathView Logo" />
+</p>
 
-A web-based visual node editor for building and simulating dynamic systems using [PathSim](https://docs.pathsim.org). Runs entirely in the browser via Pyodide - no server required.
+------------
+
+
+# PathView - System Modeling in the Browser
+
+A web-based visual node editor for building and simulating dynamic systems with [PathSim](https://github.com/pathsim/pathsim) as the backend. Runs entirely in the browser via Pyodide - no server required. The UI is hosted at [view.pathsim.org](view.pathsim.org), free to use for everyone.
 
 ## Tech Stack
 
