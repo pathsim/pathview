@@ -991,8 +991,7 @@
 				use:tooltip={{ text: currentBackendPreference === 'pyodide' ? 'You are using Pyodide Web Assembly' : 'You are using a Flask Web Server', shortcut: "T", position: "right" }}
 				aria-label="Toggle your backend preference"
 			>
-				Bruh
-				<!-- <Icon name={currentTheme === 'dark' ? 'sun' : 'moon'} size={18} /> -->
+				<Icon name={currentBackendPreference === 'pyodide' ? 'laptop' : 'server'} size={18} />
 			</button>
 		</div>
 
