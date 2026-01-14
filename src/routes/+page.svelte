@@ -341,8 +341,24 @@
 
 	// App state
 	let nodeCount = $state(0);
+
+	// ---- Pyodide Handling : START ----
 	let pyodideReady = $state(false);
 	let pyodideLoading = $state(false);
+	// ---- Pyodide Handling : END ----
+
+	let backendLoading = $derived.by(()=>{
+		switch (backendPreferenceStore.get()) {
+			case "pyodide":
+				return pyodideLoading
+			case "flask":
+				// We'll assume that the flask backend is always running, and we'll just handle errors as appropriate
+				return false
+			default:
+				return pyodideLoading
+		}
+	}) // Determine the loading state based on whichever backend preference is currently active
+
 	let simRunning = $state(false);
 	let isRunStarting = false; // Synchronous flag to prevent race conditions
 	let isContinuing = false; // Synchronous flag to prevent rapid continue calls
@@ -633,6 +649,10 @@
 					event.preventDefault();
 					themeStore.toggle();
 					return;
+				case 'q':
+					event.preventDefault();
+					backendPreferenceStore.toggle();
+					return;
 				case '+':
 				case '=':
 					if (!event.ctrlKey && !event.metaKey) {
@@ -685,88 +705,97 @@
 
 	// Run simulation (auto-initializes if needed)
 	async function handleRun() {
-		// Prevent concurrent simulation runs (synchronous check for rapid key presses)
-		if (simRunning || isRunStarting || pyodideLoading) return;
+		// Logging the current backend preference
+		console.log(`The current backend preference is ${currentBackendPreference}`)
 
-		// Auto-initialize if not ready
-		if (!pyodideReady) {
-			try {
-				await initPyodide();
-			} catch (error) {
-				console.error('Failed to initialize Pyodide:', error);
-				return;
-			}
-		}
+		if(currentBackendPreference == "pyodide") {
+			// Prevent concurrent simulation runs (synchronous check for rapid key presses)
+			if (simRunning || isRunStarting || pyodideLoading) return;
 
-		// Set flag synchronously to prevent race conditions during validation
-		isRunStarting = true;
-
-		try {
-			// Run simulation
-			const { nodes, connections } = graphStore.toJSON();
-			if (nodes.length === 0) {
-				statusText = 'Add nodes first';
-				return;
-			}
-
-			// Auto-open console on first run to show progress
-			if (!hasAutoOpenedConsole) {
-				showConsole = true;
-				hasAutoOpenedConsole = true;
-			}
-
-			const codeContext = codeContextStore.getCode();
-
-			// Validate before running
-			try {
-				statusText = 'Validating...';
-				const validation = await validateGraphSimulation(nodes, codeContext);
-
-				if (!validation.valid) {
-					// Show validation errors
-					showConsole = true;
-					consoleStore.error('Validation failed:');
-					for (const err of validation.errors) {
-						if (err.nodeId === '__code_context__') {
-							consoleStore.error(`  Code context: ${err.error}`);
-						} else {
-							const node = nodes.find((n) => n.id === err.nodeId);
-							const nodeName = node?.name || err.nodeId;
-							consoleStore.error(`  ${nodeName}.${err.param}: ${err.error}`);
-						}
-					}
-					statusText = 'Validation failed';
+			// Auto-initialize if not ready
+			if (!pyodideReady) {
+				try {
+					await initPyodide();
+				} catch (error) {
+					console.error('Failed to initialize Pyodide:', error);
 					return;
 				}
-			} catch (error) {
-				showConsole = true;
-				consoleStore.error(`Validation error: ${error}`);
-				statusText = 'Validation error';
-				return;
 			}
 
-			// Run streaming simulation
+			// Set flag synchronously to prevent race conditions during validation
+			isRunStarting = true;
+
 			try {
-				const events = eventStore.toJSON();
-				await runGraphStreamingSimulation(
-					nodes,
-					connections,
-					settingsStore.get(),
-					codeContext,
-					events
-				);
-				// Auto-open results panel only on first run
-				if (!hasAutoOpenedPlot) {
-					showPlot = true;
-					hasAutoOpenedPlot = true;
+				// Run simulation
+				const { nodes, connections } = graphStore.toJSON();
+				if (nodes.length === 0) {
+					statusText = 'Add nodes first';
+					return;
 				}
-			} catch (error) {
-				// Auto-open console panel to show error details
-				showConsole = true;
-				console.error('Simulation failed:', error);
+
+				// Auto-open console on first run to show progress
+				if (!hasAutoOpenedConsole) {
+					showConsole = true;
+					hasAutoOpenedConsole = true;
+				}
+
+				const codeContext = codeContextStore.getCode();
+
+				// Validate before running
+				try {
+					statusText = 'Validating...';
+					const validation = await validateGraphSimulation(nodes, codeContext);
+
+					if (!validation.valid) {
+						// Show validation errors
+						showConsole = true;
+						consoleStore.error('Validation failed:');
+						for (const err of validation.errors) {
+							if (err.nodeId === '__code_context__') {
+								consoleStore.error(`  Code context: ${err.error}`);
+							} else {
+								const node = nodes.find((n) => n.id === err.nodeId);
+								const nodeName = node?.name || err.nodeId;
+								consoleStore.error(`  ${nodeName}.${err.param}: ${err.error}`);
+							}
+						}
+						statusText = 'Validation failed';
+						return;
+					}
+				} catch (error) {
+					showConsole = true;
+					consoleStore.error(`Validation error: ${error}`);
+					statusText = 'Validation error';
+					return;
+				}
+
+				// Run streaming simulation
+				try {
+					const events = eventStore.toJSON();
+					await runGraphStreamingSimulation(
+						nodes,
+						connections,
+						settingsStore.get(),
+						codeContext,
+						events
+					);
+					// Auto-open results panel only on first run
+					if (!hasAutoOpenedPlot) {
+						showPlot = true;
+						hasAutoOpenedPlot = true;
+					}
+				} catch (error) {
+					// Auto-open console panel to show error details
+					showConsole = true;
+					console.error('Simulation failed:', error);
+				}
+			} finally {
+				isRunStarting = false;
 			}
-		} finally {
-			isRunStarting = false;
+		} else if(currentBackendPreference == "flask") {
+			setTimeout(() => {
+				
+			}, timeout);
 		}
 	}
 
@@ -988,7 +1017,7 @@
 			<button
 				class="toggle-btn"
 				onclick={() => backendPreferenceStore.toggle()}
-				use:tooltip={{ text: currentBackendPreference === 'pyodide' ? 'You are using Pyodide Web Assembly' : 'You are using a Flask Web Server', shortcut: "T", position: "right" }}
+				use:tooltip={{ text: currentBackendPreference === 'pyodide' ? 'You are using Pyodide Web Assembly' : 'You are using a Flask Web Server', shortcut: "Q", position: "right" }}
 				aria-label="Toggle your backend preference"
 			>
 				<Icon name={currentBackendPreference === 'pyodide' ? 'laptop' : 'server'} size={18} />
