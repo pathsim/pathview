@@ -2,6 +2,7 @@
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { confirmationStore } from '$lib/stores/confirmation';
+	import Icon from '$lib/components/icons/Icon.svelte';
 
 	let state = $state<{
 		open: boolean;
@@ -59,16 +60,23 @@
 			aria-labelledby="confirmation-title"
 			aria-describedby="confirmation-message"
 		>
-			<div class="confirmation-content">
-				<h2 id="confirmation-title">{state.options.title}</h2>
+			<div class="dialog-header">
+				<span id="confirmation-title">{state.options.title}</span>
+				<button class="icon-btn" onclick={handleCancel} aria-label="Close">
+					<Icon name="x" size={16} />
+				</button>
+			</div>
+
+			<div class="dialog-body">
 				<p id="confirmation-message">{state.options.message}</p>
 			</div>
-			<div class="confirmation-actions">
-				<button class="btn secondary" onclick={handleCancel}>
+
+			<div class="dialog-footer">
+				<button class="ghost" onclick={handleCancel}>
 					{state.options.cancelText}
 				</button>
 				<button
-					class="btn primary"
+					class:primary={!state.options.destructive}
 					class:destructive={state.options.destructive}
 					onclick={handleConfirm}
 				>
@@ -83,75 +91,54 @@
 	.confirmation-dialog {
 		width: 90%;
 		max-width: 400px;
-		padding: var(--space-lg);
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-lg);
+		overflow: hidden;
 	}
 
-	.confirmation-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-sm);
+	.confirmation-dialog .dialog-header {
+		padding: var(--space-sm) var(--space-md);
+		min-height: auto;
 	}
 
-	.confirmation-content h2 {
-		margin: 0;
-		font-size: 16px;
+	.confirmation-dialog .dialog-header span {
+		font-size: 13px;
 		font-weight: 600;
 		color: var(--text);
 	}
 
-	.confirmation-content p {
+	.dialog-body {
+		padding: var(--space-md);
+		padding-top: var(--space-sm);
+	}
+
+	.dialog-body p {
 		margin: 0;
 		font-size: 13px;
 		color: var(--text-muted);
 		line-height: 1.5;
 	}
 
-	.confirmation-actions {
+	.dialog-footer {
 		display: flex;
 		justify-content: flex-end;
 		gap: var(--space-sm);
+		padding: var(--space-md);
+		padding-top: 0;
 	}
 
-	.btn {
+	.dialog-footer button {
 		padding: var(--space-xs) var(--space-md);
-		border-radius: var(--radius);
 		font-size: 13px;
 		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s ease;
 	}
 
-	.btn.secondary {
-		background: var(--surface-hover);
-		border: 1px solid var(--border);
-		color: var(--text);
-	}
-
-	.btn.secondary:hover {
-		background: var(--surface-active);
-	}
-
-	.btn.primary {
-		background: var(--accent);
-		border: 1px solid var(--accent);
+	.dialog-footer button.destructive {
+		background: var(--error);
 		color: white;
 	}
 
-	.btn.primary:hover {
-		background: var(--accent-hover);
-		border-color: var(--accent-hover);
-	}
-
-	.btn.primary.destructive {
-		background: var(--error);
-		border-color: var(--error);
-	}
-
-	.btn.primary.destructive:hover {
+	.dialog-footer button.destructive:hover {
 		background: color-mix(in srgb, var(--error) 85%, black);
-		border-color: color-mix(in srgb, var(--error) 85%, black);
 	}
 </style>
