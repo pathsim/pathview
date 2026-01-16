@@ -11,7 +11,7 @@ import type { NodeInstance, Connection, SimulationSettings, GraphFile, SolverTyp
 import { GRAPH_FILE_VERSION, INITIAL_SIMULATION_SETTINGS } from '$lib/nodes/types';
 import type { ComponentFile, ComponentType, BlockContent, SubsystemContent } from '$lib/types/component';
 import type { Position } from '$lib/types';
-import { ALL_COMPONENT_EXTENSIONS } from '$lib/types/component';
+import { ALL_COMPONENT_EXTENSIONS, COMPONENT_VERSION } from '$lib/types/component';
 import { cleanNodeForExport } from './cleanParams';
 import { graphStore, regenerateGraphIds } from '$lib/stores/graph';
 import { eventStore } from '$lib/stores/events';
@@ -43,7 +43,7 @@ const currentFileNameStore = writable<string | null>(null);
 /**
  * Check if File System Access API is available
  */
-function hasFileSystemAccess(): boolean {
+export function hasFileSystemAccess(): boolean {
 	return 'showSaveFilePicker' in window && 'showOpenFilePicker' in window;
 }
 
@@ -385,8 +385,6 @@ export function setupAutoSave(intervalMs: number = 30000): () => void {
 // UNIFIED IMPORT SYSTEM
 // =============================================================================
 
-const COMPONENT_VERSION = '1.0';
-
 /** Import result type */
 export interface ImportResult {
 	success: boolean;
@@ -633,6 +631,39 @@ async function importModel(
 }
 
 /**
+ * Process parsed import content and route to appropriate handler
+ */
+async function processImportContent(
+	componentFile: ComponentFile,
+	options: ImportOptions
+): Promise<ImportResult> {
+	switch (componentFile.type) {
+		case 'block': {
+			const position = options.position || { x: 100, y: 100 };
+			const nodeIds = importBlock(componentFile.content as BlockContent, position);
+			return { success: true, type: 'block', nodeIds };
+		}
+
+		case 'subsystem': {
+			const position = options.position || { x: 100, y: 100 };
+			const nodeIds = importSubsystem(componentFile.content as SubsystemContent, position);
+			return { success: true, type: 'subsystem', nodeIds };
+		}
+
+		case 'model': {
+			return importModel(componentFile, options);
+		}
+
+		default:
+			return {
+				success: false,
+				type: componentFile.type,
+				error: `Unknown component type: ${componentFile.type}`
+			};
+	}
+}
+
+/**
  * Unified file import function
  * Handles all file types: .blk, .sub, .pvm, .json
  *
@@ -647,38 +678,14 @@ export async function importFile(
 	try {
 		const text = await file.text();
 		const componentFile = parseFileContent(text, file.name);
-
-		switch (componentFile.type) {
-			case 'block': {
-				const position = options.position || { x: 100, y: 100 };
-				const nodeIds = importBlock(componentFile.content as BlockContent, position);
-				return { success: true, type: 'block', nodeIds };
-			}
-
-			case 'subsystem': {
-				const position = options.position || { x: 100, y: 100 };
-				const nodeIds = importSubsystem(componentFile.content as SubsystemContent, position);
-				return { success: true, type: 'subsystem', nodeIds };
-			}
-
-			case 'model': {
-				return importModel(componentFile, {
-					...options,
-					fileName: options.fileName || file.name
-				});
-			}
-
-			default:
-				return {
-					success: false,
-					type: componentFile.type,
-					error: `Unknown component type: ${componentFile.type}`
-				};
-		}
+		return processImportContent(componentFile, {
+			...options,
+			fileName: options.fileName || file.name
+		});
 	} catch (error) {
 		return {
 			success: false,
-			type: 'model', // Default type for errors
+			type: 'model',
 			error: error instanceof Error ? error.message : 'Unknown error'
 		};
 	}
@@ -702,39 +709,9 @@ export async function importFromUrl(
 		}
 
 		const text = await res.text();
-
-		// Extract filename from URL if not provided
 		const fileName = options.fileName || url.split('/').pop() || 'model.pvm';
-
 		const componentFile = parseFileContent(text, fileName);
-
-		switch (componentFile.type) {
-			case 'block': {
-				const position = options.position || { x: 100, y: 100 };
-				const nodeIds = importBlock(componentFile.content as BlockContent, position);
-				return { success: true, type: 'block', nodeIds };
-			}
-
-			case 'subsystem': {
-				const position = options.position || { x: 100, y: 100 };
-				const nodeIds = importSubsystem(componentFile.content as SubsystemContent, position);
-				return { success: true, type: 'subsystem', nodeIds };
-			}
-
-			case 'model': {
-				return importModel(componentFile, {
-					...options,
-					fileName
-				});
-			}
-
-			default:
-				return {
-					success: false,
-					type: componentFile.type,
-					error: `Unknown component type: ${componentFile.type}`
-				};
-		}
+		return processImportContent(componentFile, { ...options, fileName });
 	} catch (error) {
 		return {
 			success: false,

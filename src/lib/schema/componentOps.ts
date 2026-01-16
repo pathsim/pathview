@@ -7,19 +7,12 @@
 
 import type { NodeInstance } from '$lib/nodes/types';
 import type { ComponentFile, ComponentType, BlockContent, SubsystemContent } from '$lib/types/component';
+import { COMPONENT_VERSION } from '$lib/types/component';
 import { graphStore } from '$lib/stores/graph';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import { downloadJson } from '$lib/utils/download';
 import { cleanNodeForExport } from './cleanParams';
-
-const COMPONENT_VERSION = '1.0';
-
-/**
- * Check if File System Access API is available
- */
-function hasFileSystemAccess(): boolean {
-	return 'showSaveFilePicker' in window;
-}
+import { hasFileSystemAccess } from './fileOps';
 
 /**
  * Create a block component file from a node

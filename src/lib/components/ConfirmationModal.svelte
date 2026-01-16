@@ -1,17 +1,12 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { confirmationStore } from '$lib/stores/confirmation';
+	import { confirmationStore, type ConfirmationOptions } from '$lib/stores/confirmation';
 	import Icon from '$lib/components/icons/Icon.svelte';
 
 	let state = $state<{
 		open: boolean;
-		options: {
-			title: string;
-			message: string;
-			confirmText?: string;
-			cancelText?: string;
-		} | null;
+		options: ConfirmationOptions | null;
 	}>({ open: false, options: null });
 
 	confirmationStore.subscribe((s) => {
