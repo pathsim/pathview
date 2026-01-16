@@ -114,12 +114,13 @@
 		padding: var(--space-sm) var(--space-md) var(--space-md);
 	}
 
+	/* Destructive action - ghost style with error color */
 	.dialog-footer button.destructive {
-		background: transparent;
+		background: var(--error-bg);
 		color: var(--error);
 	}
 
 	.dialog-footer button.destructive:hover {
-		background: var(--error-bg);
+		background: color-mix(in srgb, var(--error) 20%, transparent);
 	}
 </style>
