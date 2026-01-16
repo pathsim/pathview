@@ -461,7 +461,7 @@ function parseFileContent(text: string, fileName: string): ComponentFile {
  * Validate that all node types in a graph are registered
  * @returns Array of invalid type names, empty if all valid
  */
-function validateNodeTypes(nodes: NodeInstance[]): string[] {
+export function validateNodeTypes(nodes: NodeInstance[]): string[] {
 	const invalidTypes: string[] = [];
 
 	for (const node of nodes) {

@@ -13,6 +13,8 @@ import { historyStore } from '$lib/stores/history';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import { generateId } from '$lib/stores/utils';
 import { deleteSelectedItems } from '$lib/stores/selection';
+import { validateNodeTypes } from '$lib/schema/fileOps';
+import { nodeRegistry } from '$lib/nodes';
 
 // ==================== TYPES ====================
 
@@ -66,15 +68,23 @@ function calculateCenter(items: Array<{ position: Position }>): Position {
 
 /**
  * Type guard to validate system clipboard payload
+ * Checks structure to prevent runtime errors from corrupted data
  */
 function isValidPayload(data: unknown): data is SystemClipboardPayload {
 	if (typeof data !== 'object' || data === null) return false;
 	const obj = data as Record<string, unknown>;
+	if (obj.type !== CLIPBOARD_TYPE || typeof obj.version !== 'string') return false;
+
+	const content = obj.content as Record<string, unknown> | null;
+	if (!content || typeof content !== 'object') return false;
+
+	// Validate content structure
 	return (
-		obj.type === CLIPBOARD_TYPE &&
-		typeof obj.version === 'string' &&
-		typeof obj.content === 'object' &&
-		obj.content !== null
+		Array.isArray(content.nodes) &&
+		Array.isArray(content.connections) &&
+		Array.isArray(content.events) &&
+		typeof content.center === 'object' &&
+		content.center !== null
 	);
 }
 
@@ -219,6 +229,38 @@ async function paste(targetPosition: Position): Promise<{ nodeIds: string[]; eve
 
 	if (!content || (content.nodes.length === 0 && content.events.length === 0)) {
 		return { nodeIds: [], eventIds: [] };
+	}
+
+	// Validate node types and filter out unknown types (for cross-instance paste safety)
+	const invalidTypes = validateNodeTypes(content.nodes);
+	if (invalidTypes.length > 0) {
+		console.warn(`Clipboard paste: skipping unknown block types: ${invalidTypes.join(', ')}`);
+
+		// Filter out nodes with unknown types (keep subsystems, interfaces, and registered types)
+		const validNodes = content.nodes.filter(n =>
+			n.type === NODE_TYPES.SUBSYSTEM ||
+			n.type === NODE_TYPES.INTERFACE ||
+			nodeRegistry.has(n.type)
+		);
+
+		// Get IDs of valid nodes for connection filtering
+		const validNodeIds = new Set(validNodes.map(n => n.id));
+
+		// Filter connections to only include those between valid nodes
+		const validConnections = content.connections.filter(c =>
+			validNodeIds.has(c.sourceNodeId) && validNodeIds.has(c.targetNodeId)
+		);
+
+		content = {
+			...content,
+			nodes: validNodes,
+			connections: validConnections
+		};
+
+		// If all nodes were filtered out, nothing to paste
+		if (content.nodes.length === 0 && content.events.length === 0) {
+			return { nodeIds: [], eventIds: [] };
+		}
 	}
 
 	return historyStore.mutate(() => {
