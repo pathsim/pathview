@@ -75,11 +75,7 @@
 				<button class="ghost" onclick={handleCancel}>
 					{state.options.cancelText}
 				</button>
-				<button
-					class:primary={!state.options.destructive}
-					class:destructive={state.options.destructive}
-					onclick={handleConfirm}
-				>
+				<button class="primary" onclick={handleConfirm}>
 					{state.options.confirmText}
 				</button>
 			</div>
@@ -112,15 +108,5 @@
 		justify-content: flex-end;
 		gap: var(--space-sm);
 		padding: var(--space-sm) var(--space-md) var(--space-md);
-	}
-
-	/* Destructive action - ghost style with error color */
-	.dialog-footer button.destructive {
-		background: var(--error-bg);
-		color: var(--error);
-	}
-
-	.dialog-footer button.destructive:hover {
-		background: color-mix(in srgb, var(--error) 20%, transparent);
 	}
 </style>
