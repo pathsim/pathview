@@ -41,6 +41,7 @@
 	import { runGraphStreamingSimulation, validateGraphSimulation } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
 	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName } from '$lib/schema/fileOps';
+	import { confirmationStore } from '$lib/stores/confirmation';
 	import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
 	import { triggerFitView, triggerZoomIn, triggerZoomOut, triggerPan, getViewportCenter, screenToFlow, triggerClearSelection, triggerNudge, hasAnySelection, setFitViewPadding } from '$lib/stores/viewActions';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
@@ -781,8 +782,16 @@
 	}
 
 	// File operations
-	function handleNew() {
-		if (nodeCount > 0 && !confirm('Create new? Unsaved changes will be lost.')) return;
+	async function handleNew() {
+		if (nodeCount > 0) {
+			const confirmed = await confirmationStore.show({
+				title: 'Unsaved Changes',
+				message: 'Creating a new file will discard your current work. Continue?',
+				confirmText: 'Discard & Create New',
+				cancelText: 'Cancel'
+			});
+			if (!confirmed) return;
+		}
 		newGraph();
 	}
 
