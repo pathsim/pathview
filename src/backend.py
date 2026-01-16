@@ -103,7 +103,6 @@ def evaluate_expression():
         if not expr.strip():
             return jsonify({"success": False, "error": "No Python expression provided"}), 400
         
-        # temp_namespace = {}
 
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()

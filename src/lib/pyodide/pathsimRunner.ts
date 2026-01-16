@@ -24,6 +24,7 @@ import {
 	generateListDefinition,
 	sanitizeName
 } from './codeBuilder';
+import type { BackendPreference } from '$lib/types';
 
 // Re-export sanitizeName for external use
 export { sanitizeName } from './codeBuilder';
@@ -1066,10 +1067,11 @@ function extractNodeParams(nodes: NodeInstance[]): Record<string, Record<string,
  */
 export async function validateGraphSimulation(
 	nodes: NodeInstance[],
-	codeContext: string
+	codeContext: string,
+	currentBackendPreference: null | BackendPreference
 ): Promise<ValidationResult> {
 	const nodeParams = extractNodeParams(nodes);
-	return validateGraphBridge(codeContext, nodeParams);
+	return validateGraphBridge(codeContext, nodeParams, currentBackendPreference);
 }
 
 export type { ValidationResult };

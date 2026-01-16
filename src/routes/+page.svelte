@@ -762,7 +762,7 @@
 				let validation
 
 				// if(usingPyodide) {
-					validation = await validateGraphSimulation(nodes, codeContext);
+				validation = await validateGraphSimulation(nodes, codeContext, currentBackendPreference);
 				// } else {
 				// 	console.log("[Sending to Flask web server] The node registry is: ", nodeRegistry.getAll())
 				// 	let fetchedData = await fetch(getFlaskBackendUrl()+"/validateGraphSimulation", {
