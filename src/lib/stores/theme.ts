@@ -12,6 +12,7 @@ export type Theme = 'light' | 'dark';
 function getInitialTheme(): Theme {
 	if (!browser) return 'dark';
 
+	console.log("Running on the browser: ", browser)
 	const stored = localStorage.getItem('pathview-theme');
 	if (stored === 'light' || stored === 'dark') {
 		return stored;

@@ -27,7 +27,7 @@ def initialize():
     _clean_globals = set(globals().keys())
     isInitialized = True
 
-initialize()
+# initialize()
 
 app = Flask(__name__, static_folder="../static", static_url_path="")
 
@@ -183,8 +183,9 @@ def execute_python():
 #         return jsonify({"success": False, "error": f"Server-side error: {e}"}), 500
 
 @app.route("/initializationStatus", methods=["GET"])
-def initialize():
-    print("Beginning (or checking) the intialization status of the Flask web server...")
+def initializationStatus():
+    print("Checking the intialization status of the Flask web server...")
+
     try:
         # Not fully implemented yet
         if isInitialized:
@@ -194,7 +195,9 @@ def initialize():
 
             # Try three times to run the initialization program and check the status of initialization
             while count < 3 and not isInitialized:
+                print(f"Attempting to initialize...")
                 initialize()
+                print(f"This is attempt {count}")
                 count += 1
 
             if isInitialized:

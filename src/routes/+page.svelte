@@ -61,8 +61,9 @@
 	// Console Specific Settings and Actions
 	import { newGraph, openFile, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, loadGraphFromUrl, currentFileName } from '$lib/schema/fileOps';
 	import { triggerFitView, triggerZoomIn, triggerZoomOut, triggerPan, getViewportCenter, screenToFlow, triggerClearSelection, triggerNudge, hasAnySelection, setFitViewPadding } from '$lib/stores/viewActions';
-  import { getFlaskBackendUrl } from '$lib/utils/flaskRoutes';
-  import type { ValidationResult } from '$lib/types';
+  	
+	import { getFlaskBackendUrl } from '$lib/utils/flaskRoutes';
+  	import type { ValidationResult } from '$lib/types';
 
 	// --------------------------- ROOT PAGE IMPORTS | END ---------------------------
 
@@ -726,6 +727,7 @@
 		// Auto-initialize if not ready
 		if (!pyodideReady && usingPyodide) {
 			try {
+				console.log("Initializing Pyodide")
 				await initPyodide();
 			} catch (error) {
 				console.error('Failed to initialize Pyodide:', error);

@@ -28,10 +28,12 @@ function send(response: REPLResponse): void {
 }
 
 /**
- * Initialize Pyodide and install packages
+ * Initialize Pyodide and install packages (Needs FLASK Rework)
  */
 async function initialize(): Promise<void> {
-  // console.log(`We are intializing the Pyodide backend but the backend preference is: ${backendPreferenceStore.get()}`)
+
+  console.log(`We are intializing the Pyodide backend but the backend preference is: ${backendPreferenceStore.get()}`)
+
   let preference: BackendPreference = backendPreferenceStore.get();
 
   if (preference == "pyodide") {
@@ -87,13 +89,15 @@ print(f"PathSim {pathsim.__version__} loaded successfully")
 		the flask backend (if online) has already run the initialization function
 		*/
 
+	console.log("Checking the status of the Flask web server....")
+
 	if(isFlaskInitialized) {
       send({ type: "ready" });
       return;
 	}
 
 	send({ type: "progress", value: PROGRESS_MESSAGES.CHECKING_FLASK_INITIALIZATION})
-	let data = await fetch(getFlaskBackendUrl()+"/initialized").then(res => res.json())
+	let data = await fetch(getFlaskBackendUrl()+"/initializationStatus").then(res => res.json())
 	if(data.success && data.isInitialized) {
 		isFlaskInitialized = true
 		send({type: "ready"})
@@ -102,7 +106,7 @@ print(f"PathSim {pathsim.__version__} loaded successfully")
 }
 
 /**
- * Execute Python code (no return value)
+ * Execute Python code (no return value) (Needs FLASK Rework)
  */
 async function execCode(id: string, code: string): Promise<void> {
   if (!pyodide) throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
@@ -128,7 +132,7 @@ traceback.format_exc()
 
 /**
  * Evaluate Python expression and return JSON result
- * Note: _to_json helper is injected via REPL_SETUP_CODE
+ * Note: _to_json helper is injected via REPL_SETUP_CODE (Needs FLASK Rework)
  */
 async function evalExpr(id: string, expr: string): Promise<void> {
   if (!pyodide) throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
@@ -157,7 +161,7 @@ traceback.format_exc()
 
 /**
  * Run streaming loop - steps generator continuously and posts results
- * Runs autonomously until done or stopped
+ * Runs autonomously until done or stopped (Needs FLASK Rework)
  */
 async function runStreamingLoop(id: string, expr: string): Promise<void> {
   if (!pyodide) throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
@@ -226,7 +230,7 @@ traceback.format_exc()
 }
 
 /**
- * Stop streaming loop - Don't need to affect this since streaming status can still be handled by the client
+ * Stop streaming loop
  */
 function stopStreaming(): void {
   streamingActive = false;
