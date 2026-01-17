@@ -10,7 +10,7 @@
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
-	import { createRecordingDataState } from '$lib/stores/recordingData.svelte';
+	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
 	import PlotPreview from './PlotPreview.svelte';
 
 	interface Props {
@@ -32,39 +32,26 @@
 	let hasPreloaded = $state(false); // Keep mounted once preloaded
 	let showPreview = $state(false); // Control visibility
 	let previewsPinned = $state(false);
-
+	let hasPlotData = $state(false);
 
 	const unsubscribePinned = pinnedPreviewsStore.subscribe((pinned) => {
 		previewsPinned = pinned;
 	});
 
-	// Shared recording data state (simulation results, ghost traces, etc.)
-	const recordingData = createRecordingDataState();
-
-	// Preview is loading when simulation is starting/running
-	const previewLoading = $derived(recordingData.simPhase === 'starting' || recordingData.simPhase === 'running');
+	// Check if this node has plot data (from centralized store)
+	const unsubscribePlotData = plotDataStore.subscribe((state) => {
+		hasPlotData = state.plots.has(id);
+	});
 
 	onDestroy(() => {
 		unsubscribePinned();
-		recordingData.destroy();
+		unsubscribePlotData();
 		if (hoverTimeout) clearTimeout(hoverTimeout);
-	});
-
-	// Get plot data for this recording node
-	const plotData = $derived(() => {
-		if (!isRecordingNode) return null;
-		return recordingData.getPlotData(id, data.type);
-	});
-
-	// Get ghost data for this recording node
-	const ghostPlotData = $derived(() => {
-		if (!isRecordingNode) return [];
-		return recordingData.getGhostData(id, data.type);
 	});
 
 	// Sync hasPreloaded when pinned (so unpinning keeps cache)
 	$effect(() => {
-		if (previewsPinned && plotData()) {
+		if (previewsPinned && hasPlotData) {
 			hasPreloaded = true;
 		}
 	});
@@ -305,12 +292,12 @@
 	onmouseleave={handleMouseLeave}
 >
 	<!-- Plot preview for recording nodes -->
-	{#if (hasPreloaded || previewsPinned) && plotData()}
+	{#if (hasPreloaded || previewsPinned) && hasPlotData}
 		<div
 			class="plot-preview-popup preview-{previewPosition()}"
 			class:visible={showPreview || previewsPinned}
 		>
-			<PlotPreview type={plotData()!.type} nodeId={id} data={plotData()!.data} ghostData={ghostPlotData()} />
+			<PlotPreview nodeId={id} />
 		</div>
 	{/if}
 
