@@ -1,0 +1,36 @@
+{
+  "$schema": "../schemas/simulation.schema.json",
+
+  "solverConfig": {
+    "adaptive": {
+      "explicit": ["RKBS32", "RKCK54"],
+      "implicit": ["GEAR52A", "ESDIRK43"]
+    },
+    "fixed": {
+      "explicit": ["SSPRK22", "RK4"],
+      "implicit": ["BDF2"]
+    }
+  },
+
+  "paramNameMap": {
+    "tolerance_lte_rel": "rtol",
+    "tolerance_lte_abs": "atol",
+    "tolerance_fpi": "ftol",
+    "Solver": "solver"
+  },
+
+  "uiOnlyParams": {
+    "ghostTraces": {
+      "type": "integer",
+      "default": "0",
+      "description": "Number of previous simulation traces to show faded"
+    },
+    "plotResults": {
+      "type": "boolean",
+      "default": "true",
+      "description": "Auto-open plot panel after simulation"
+    }
+  },
+
+  "skipParams": ["blocks", "connections", "events", "solver_kwargs"]
+}

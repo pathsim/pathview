@@ -1,9 +1,8 @@
 /**
  * Python/Pyodide related constants
+ *
+ * Note: PYODIDE_VERSION and PYODIDE_CDN_URL are now in dependencies.ts (generated)
  */
-
-export const PYODIDE_VERSION = '0.26.2';
-export const PYODIDE_CDN_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.mjs`;
 
 /**
  * Code section headers used in generated Python code

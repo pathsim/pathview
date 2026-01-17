@@ -1,0 +1,14 @@
+{
+  "$schema": "../schemas/events.schema.json",
+  "toolbox": "pathsim",
+  "importPath": "pathsim.events",
+
+  "events": [
+    "ZeroCrossing",
+    "ZeroCrossingUp",
+    "ZeroCrossingDown",
+    "Schedule",
+    "ScheduleList",
+    "Condition"
+  ]
+}

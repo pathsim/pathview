@@ -1,0 +1,9 @@
+# Runtime dependencies for Pyodide (browser)
+# These packages are installed via micropip at runtime
+#
+# For pip install: use --pre flag to allow pre-releases
+# For Pyodide runtime: "# optional" means installation failure won't block app
+--pre
+
+pathsim
+pathsim-chem>=0.2rc2  # optional

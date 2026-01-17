@@ -64,7 +64,6 @@ export type {
 export type {
 	ExtractedParam,
 	ExtractedBlock,
-	UIOverride,
 	BlockCategory,
 	ExtractedEventParam,
 	ExtractedEvent,

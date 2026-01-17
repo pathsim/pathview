@@ -3,7 +3,12 @@
  * Executes Python code via Pyodide in a separate thread
  */
 
-import { PYODIDE_CDN_URL } from '$lib/constants/python';
+import {
+	PYODIDE_CDN_URL,
+	PYODIDE_PRELOAD,
+	PYTHON_PACKAGES,
+	type PackageConfig
+} from '$lib/constants/dependencies';
 import { PROGRESS_MESSAGES, ERROR_MESSAGES } from '$lib/constants/messages';
 import type { REPLRequest, REPLResponse } from '../types';
 
@@ -49,27 +54,35 @@ async function initialize(): Promise<void> {
 	});
 
 	send({ type: 'progress', value: PROGRESS_MESSAGES.INSTALLING_DEPS });
-	await pyodide.loadPackage(['numpy', 'scipy', 'micropip']);
+	await pyodide.loadPackage([...PYODIDE_PRELOAD]);
 
-	send({ type: 'progress', value: PROGRESS_MESSAGES.INSTALLING_PATHSIM });
-	await pyodide.runPythonAsync(`
+	// Install packages from config
+	for (const pkg of PYTHON_PACKAGES) {
+		const progressKey = `INSTALLING_${pkg.import.toUpperCase()}` as keyof typeof PROGRESS_MESSAGES;
+		send({
+			type: 'progress',
+			value: PROGRESS_MESSAGES[progressKey] ?? `Installing ${pkg.import}...`
+		});
+
+		try {
+			const preFlag = pkg.pre ? ', pre=True' : '';
+			await pyodide.runPythonAsync(`
 import micropip
-await micropip.install('pathsim')
-	`);
+await micropip.install('${pkg.pip}'${preFlag})
+			`);
 
-	send({ type: 'progress', value: PROGRESS_MESSAGES.INSTALLING_PATHSIM_CHEM });
-	await pyodide.runPythonAsync(`
-import micropip
-await micropip.install('pathsim-chem>=0.2rc2', pre=True)
-	`);
-
-	// Verify and print version
-	await pyodide.runPythonAsync(`
-import pathsim
-print(f"PathSim {pathsim.__version__} loaded successfully")
-import pathsim_chem
-print(f"PathSim-Chem {pathsim_chem.__version__} loaded successfully")
-	`);
+			// Verify installation
+			await pyodide.runPythonAsync(`
+import ${pkg.import}
+print(f"${pkg.import} {${pkg.import}.__version__} loaded successfully")
+			`);
+		} catch (error) {
+			if (pkg.required) {
+				throw new Error(`Failed to install required package ${pkg.pip}: ${error}`);
+			}
+			console.warn(`Optional package ${pkg.pip} failed to install:`, error);
+		}
+	}
 
 	// Import numpy as np and gc globally
 	await pyodide.runPythonAsync(`import numpy as np`);

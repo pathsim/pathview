@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simulation.schema.json",
+  "title": "PathSim Simulation Configuration",
+  "description": "Configuration for simulation parameter extraction",
+  "type": "object",
+  "required": ["solverConfig"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "solverConfig": {
+      "type": "object",
+      "description": "Solver categorization by step type and method",
+      "properties": {
+        "adaptive": {
+          "type": "object",
+          "properties": {
+            "explicit": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "implicit": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "fixed": {
+          "type": "object",
+          "properties": {
+            "explicit": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "implicit": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "paramNameMap": {
+      "type": "object",
+      "description": "Mapping from PathSim parameter names to UI parameter names",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "uiOnlyParams": {
+      "type": "object",
+      "description": "UI-specific parameters not from PathSim",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["integer", "number", "string", "boolean"]
+          },
+          "default": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "default"],
+        "additionalProperties": false
+      }
+    },
+    "skipParams": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Parameter names to skip during extraction"
+    }
+  },
+  "additionalProperties": false
+}

@@ -68,9 +68,14 @@ src/
 └── app.css                # Global styles with CSS variables
 
 scripts/
-├── extract-blocks.py      # Extract block definitions from PathSim
-├── extract-events.py      # Extract event definitions
-└── ...
+├── config/                # Configuration files for extraction
+│   ├── schemas/           # JSON schemas for validation
+│   ├── pathsim/           # Core PathSim blocks, events, simulation config
+│   ├── pathsim-chem/      # Chemical toolbox blocks
+│   ├── pyodide.json       # Pyodide version and preload packages
+│   ├── requirements-pyodide.txt   # Runtime Python packages
+│   └── requirements-build.txt     # Build-time Python packages
+└── extract.py             # Unified extraction script
 ```
 
 ---
@@ -145,11 +150,11 @@ import { PORT_COLORS, DIALOG_COLOR_PALETTE } from '$lib/utils/colors';
 
 ## Adding New Blocks
 
-Blocks are extracted automatically from PathSim. To add a new block:
+Blocks are extracted automatically from PathSim using the `Block.info()` classmethod. The extraction is config-driven for easy maintenance.
 
 ### 1. Ensure the block exists in PathSim
 
-The block must be importable from `pathsim.blocks`:
+The block must be importable from `pathsim.blocks` (or toolbox module):
 
 ```python
 from pathsim.blocks import YourNewBlock
@@ -157,50 +162,90 @@ from pathsim.blocks import YourNewBlock
 
 ### 2. Add to block configuration
 
-Edit `scripts/extract-blocks.py` and add the block to the appropriate category:
+Edit `scripts/config/pathsim/blocks.json` and add the block class name to the appropriate category:
 
-```python
-BLOCK_CONFIG = {
-    "Sources": [...],
-    "Dynamic": [...],
+```json
+{
+  "categories": {
     "Algebraic": [
-        ...,
-        "YourNewBlock",  # Add here
-    ],
-    ...
+      "Adder",
+      "Multiplier",
+      "YourNewBlock"
+    ]
+  }
 }
 ```
 
-### 3. (Optional) Add UI overrides
+Port configurations are automatically extracted from `Block.info()`:
+- `None` → Variable/unlimited ports (UI allows add/remove)
+- `{}` → No ports of this type
+- `{"name": index}` → Fixed labeled ports (locked count)
 
-If the block needs custom UI behavior (port limits, default ports), add to `UI_OVERRIDES`:
-
-```python
-UI_OVERRIDES = {
-    "YourNewBlock": {
-        "maxInputs": 4,           # Max number of input ports
-        "maxOutputs": 1,          # Max number of output ports
-        "defaultInputs": ["a", "b"],  # Default input port names
-        "defaultOutputs": ["out"],    # Default output port names
-    },
-    ...
-}
-```
-
-### 4. Run extraction
+### 3. Run extraction
 
 ```bash
-npm run extract-blocks
+npm run extract
 ```
 
-This generates `src/lib/nodes/generated/blocks.ts` with:
-- Block metadata (parameters, descriptions)
-- Pre-rendered docstring HTML
-- Port configurations
+This generates TypeScript files in `src/lib/*/generated/` with:
+- Block metadata (parameters, descriptions, docstrings)
+- Port configurations from `Block.info()`
+- Pyodide runtime config
 
-### 5. Verify
+### 4. Verify
 
 Start the dev server and check that your block appears in the Block Library panel.
+
+---
+
+## Adding New Toolboxes
+
+To add a new PathSim toolbox (like `pathsim-chem`):
+
+### 1. Add to requirements
+
+Edit `scripts/config/requirements-pyodide.txt`:
+
+```txt
+--pre
+pathsim
+pathsim-chem>=0.2rc2  # optional
+pathsim-controls      # optional - your new toolbox
+```
+
+The `# optional` comment means Pyodide will continue loading if this package fails to install.
+
+### 2. Create toolbox config
+
+Create `scripts/config/pathsim-controls/blocks.json`:
+
+```json
+{
+  "$schema": "../schemas/blocks.schema.json",
+  "toolbox": "pathsim-controls",
+  "importPath": "pathsim_controls.blocks",
+
+  "categories": {
+    "Controls": [
+      "PIDController",
+      "StateEstimator"
+    ]
+  }
+}
+```
+
+### 3. (Optional) Add events
+
+Create `scripts/config/pathsim-controls/events.json` if the toolbox has custom events.
+
+### 4. Run extraction and build
+
+```bash
+npm run extract
+npm run build
+```
+
+No code changes needed - the extraction script automatically discovers toolbox directories.
 
 ---
 
@@ -472,9 +517,64 @@ https://view.pathsim.org/?modelgh=pathsim/pathview/static/examples/feedback-syst
 | `npm run dev` | Start development server |
 | `npm run build` | Production build |
 | `npm run check` | TypeScript/Svelte type checking |
-| `npm run extract-blocks` | Regenerate block definitions from PathSim |
-| `npm run extract-events` | Regenerate event definitions |
+| `npm run extract` | Regenerate all definitions from PathSim |
+| `npm run extract:blocks` | Blocks only |
+| `npm run extract:events` | Events only |
+| `npm run extract:simulation` | Simulation params only |
+| `npm run extract:deps` | Dependencies only |
+| `npm run extract:validate` | Validate config files |
 | `npm run examples` | Generate examples manifest |
+
+---
+
+## Node Styling
+
+Nodes are styled based on their category, with CSS-driven shapes and colors.
+
+### Shapes by Category
+
+| Category | Shape | Border Radius |
+|----------|-------|---------------|
+| Sources | Pill | 20px |
+| Dynamic | Rectangle | 4px |
+| Algebraic | Rectangle | 4px |
+| Mixed | Asymmetric | 12px 4px 12px 4px |
+| Recording | Pill | 20px |
+| Subsystem | Rectangle | 4px |
+
+Shapes are defined in `src/lib/nodes/shapes/registry.ts` and applied via CSS classes (`.shape-pill`, `.shape-rect`, etc.).
+
+### Colors
+
+- **Default node color**: CSS variable `--accent` (#0070C0 - PathSim blue)
+- **Custom colors**: Right-click node → Properties → Color picker (12 colors available)
+- **Port colors**: `PORT_COLORS.default` (#969696 gray), customizable per-port
+
+Colors are CSS-driven - see `src/app.css` for variables and `src/lib/utils/colors.ts` for palettes.
+
+### Adding Custom Shapes
+
+1. Register the shape in `src/lib/nodes/shapes/registry.ts`:
+   ```typescript
+   registerShape({
+     id: 'hexagon',
+     name: 'Hexagon',
+     cssClass: 'shape-hexagon',
+     borderRadius: '0px'
+   });
+   ```
+
+2. Add CSS in `src/app.css` or component styles:
+   ```css
+   .shape-hexagon {
+     clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+   }
+   ```
+
+3. Optionally map categories to the new shape:
+   ```typescript
+   setCategoryShape('MyCategory', 'hexagon');
+   ```
 
 ---
 
