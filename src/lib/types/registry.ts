@@ -21,17 +21,8 @@ export interface ExtractedBlock {
 	description: string;
 	docstringHtml: string;
 	params: Record<string, ExtractedParam>;
-	inputs: string[];
-	outputs: string[];
-}
-
-/** UI overrides for block display */
-export interface UIOverride {
-	maxInputs?: number | null;
-	maxOutputs?: number | null;
-	defaultInputs?: string[];
-	defaultOutputs?: string[];
-	shape?: string;
+	inputs: string[] | null; // null = variable/unlimited, [] = none, [...] = fixed
+	outputs: string[] | null; // null = variable/unlimited, [] = none, [...] = fixed
 }
 
 /** Block category with ordering info */
