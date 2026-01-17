@@ -18,6 +18,7 @@
 	import { buildContextMenuItems, type ContextMenuCallbacks } from '$lib/components/contextMenuBuilders';
 	import ExportDialog from '$lib/components/dialogs/ExportDialog.svelte';
 	import KeyboardShortcutsDialog from '$lib/components/dialogs/KeyboardShortcutsDialog.svelte';
+	import PlotOptionsDialog from '$lib/components/dialogs/PlotOptionsDialog.svelte';
 	import SearchDialog from '$lib/components/dialogs/SearchDialog.svelte';
 	import ResizablePanel from '$lib/components/ResizablePanel.svelte';
 	import WelcomeModal from '$lib/components/WelcomeModal.svelte';
@@ -271,6 +272,7 @@
 	let exportDialogOpen = $state(false);
 	let showKeyboardShortcuts = $state(false);
 	let showSearchDialog = $state(false);
+	let showPlotOptionsDialog = $state(false);
 
 	// Context menu state
 	let contextMenuOpen = $state(false);
@@ -348,8 +350,8 @@
 	let consoleLogCount = $state(0);
 	let plotActiveTab = $state(0);
 	let plotViewMode = $state<'tabs' | 'tiles'>('tabs');
-	let showPlotLegend = $state(false);
 	let resultPlots = $state<{ id: string; type: 'scope' | 'spectrum'; title: string }[]>([]);
+	let resultTraces = $state<{ nodeId: string; nodeType: 'scope' | 'spectrum'; nodeName: string; signalIndex: number; signalLabel: string }[]>([]);
 
 	// Tooltip for continue button - simple, disabled state shows availability
 	const continueTooltip = { text: "Continue", shortcut: "Shift+Enter" };
@@ -398,21 +400,43 @@
 				statusText = 'Ready';
 			}
 
-			// Derive plots from result (use nodeNames from simulation result for subsystem support)
+			// Derive plots and traces from result (use nodeNames from simulation result for subsystem support)
 			const plots: { id: string; type: 'scope' | 'spectrum'; title: string }[] = [];
+			const traces: typeof resultTraces = [];
 			if (s.result?.scopeData) {
-				Object.entries(s.result.scopeData).forEach(([id], index) => {
+				Object.entries(s.result.scopeData).forEach(([id, data], index) => {
 					const title = s.result?.nodeNames?.[id] || `Scope ${index + 1}`;
 					plots.push({ id, type: 'scope', title });
+					// Add traces for each signal in this scope
+					for (let i = 0; i < data.signals.length; i++) {
+						traces.push({
+							nodeId: id,
+							nodeType: 'scope',
+							nodeName: title,
+							signalIndex: i,
+							signalLabel: data.labels?.[i] || `port ${i}`
+						});
+					}
 				});
 			}
 			if (s.result?.spectrumData) {
-				Object.entries(s.result.spectrumData).forEach(([id], index) => {
+				Object.entries(s.result.spectrumData).forEach(([id, data], index) => {
 					const title = s.result?.nodeNames?.[id] || `Spectrum ${index + 1}`;
 					plots.push({ id, type: 'spectrum', title });
+					// Add traces for each signal in this spectrum
+					for (let i = 0; i < data.magnitude.length; i++) {
+						traces.push({
+							nodeId: id,
+							nodeType: 'spectrum',
+							nodeName: title,
+							signalIndex: i,
+							signalLabel: data.labels?.[i] || `port ${i}`
+						});
+					}
 				});
 			}
 			resultPlots = plots;
+			resultTraces = traces;
 
 			// Reset tab if out of bounds
 			if (plotActiveTab >= plots.length && plots.length > 0) {
@@ -423,6 +447,7 @@
 		const unsubConsole = consoleStore.subscribe((logs) => {
 			consoleLogCount = logs.length;
 		});
+
 		// Always start with clean slate
 		clearAutoSave();
 
@@ -1174,14 +1199,6 @@
 				{/if}
 			{/snippet}
 			{#snippet actions()}
-				<button
-					class="icon-btn ghost"
-					onclick={() => showPlotLegend = !showPlotLegend}
-					use:tooltip={{ text: showPlotLegend ? 'Hide legend' : 'Show legend', position: 'bottom' }}
-					aria-label={showPlotLegend ? 'Hide legend' : 'Show legend'}
-				>
-					<Icon name="list" size={16} />
-				</button>
 				{#if resultPlots.length > 1}
 					<button
 						class="icon-btn ghost"
@@ -1196,8 +1213,16 @@
 						{/if}
 					</button>
 				{/if}
+				<button
+					class="icon-btn ghost"
+					onclick={() => showPlotOptionsDialog = true}
+					use:tooltip={{ text: 'Plot options', position: 'bottom' }}
+					aria-label="Plot options"
+				>
+					<Icon name="settings" size={16} />
+				</button>
 			{/snippet}
-			<PlotPanel collapsed={false} bind:activeTab={plotActiveTab} viewMode={plotViewMode} showLegend={showPlotLegend} />
+			<PlotPanel collapsed={false} bind:activeTab={plotActiveTab} viewMode={plotViewMode} />
 		</ResizablePanel>
 	{/if}
 
@@ -1242,6 +1267,7 @@
 	<!-- Keyboard Shortcuts Dialog -->
 	<KeyboardShortcutsDialog open={showKeyboardShortcuts} onClose={() => showKeyboardShortcuts = false} />
 	<SearchDialog open={showSearchDialog} onClose={() => showSearchDialog = false} />
+	<PlotOptionsDialog open={showPlotOptionsDialog} onClose={() => showPlotOptionsDialog = false} traces={resultTraces} />
 
 	<!-- Block Properties Dialog -->
 	<BlockPropertiesDialog />
