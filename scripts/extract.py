@@ -430,18 +430,23 @@ class BlockExtractor:
             "outputs": outputs
         }
 
-    def _process_port_labels(self, labels: dict | None) -> list[str]:
+    def _process_port_labels(self, labels: dict | None) -> list[str] | None:
         """Convert port_labels dict to list of names.
 
         Port label semantics from Block.info():
-        - None: Variable/unlimited ports
-        - {}: No ports of this type
-        - {"name": index, ...}: Fixed labeled ports
+        - None: Variable/unlimited ports -> return None
+        - {}: No ports of this type -> return []
+        - {"name": index, ...}: Fixed labeled ports -> return sorted list
         """
-        if labels is None or not labels:
+        if labels is None:
+            # Variable/unlimited ports - UI should allow add/remove
+            return None
+
+        if not labels:
+            # Empty dict - no ports of this type
             return []
 
-        # Sort by index value and return names
+        # Sort by index value and return names (fixed ports)
         sorted_items = sorted(labels.items(), key=lambda x: x[1])
         return [name for name, _ in sorted_items]
 
@@ -765,8 +770,8 @@ class TypeScriptGenerator:
             "  description: string;",
             "  docstringHtml: string;",
             "  params: Record<string, ExtractedParam>;",
-            "  inputs: string[];",
-            "  outputs: string[];",
+            "  inputs: string[] | null;  // null = variable/unlimited, [] = none, [...] = fixed",
+            "  outputs: string[] | null; // null = variable/unlimited, [] = none, [...] = fixed",
             "}",
             "",
             "export interface UIOverride {",

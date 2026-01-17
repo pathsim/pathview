@@ -17,8 +17,8 @@ export interface ExtractedBlock {
   description: string;
   docstringHtml: string;
   params: Record<string, ExtractedParam>;
-  inputs: string[];
-  outputs: string[];
+  inputs: string[] | null;  // null = variable/unlimited, [] = none, [...] = fixed
+  outputs: string[] | null; // null = variable/unlimited, [] = none, [...] = fixed
 }
 
 export interface UIOverride {
@@ -395,8 +395,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "initial value of integrator"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Differentiator": {
     "blockClass": "Differentiator",
@@ -409,8 +409,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "highest expected signal frequency"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Delay": {
     "blockClass": "Delay",
@@ -423,8 +423,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "delay time constant"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "ODE": {
     "blockClass": "ODE",
@@ -447,8 +447,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "jacobian of 'func' or 'None'"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "DynamicalSystem": {
     "blockClass": "DynamicalSystem",
@@ -476,8 +476,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "optional jacobian of `func_dyn` to improve convergence for implicit ode solvers"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "StateSpace": {
     "blockClass": "StateSpace",
@@ -510,8 +510,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "initial state / initial condition"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "PID": {
     "blockClass": "PID",
@@ -539,8 +539,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "highest expected signal frequency"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "AntiWindupPID": {
     "blockClass": "AntiWindupPID",
@@ -578,8 +578,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "lower and upper limit for PID output that triggers anti-windup of integrator"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "TransferFunctionNumDen": {
     "blockClass": "TransferFunctionNumDen",
@@ -597,8 +597,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "denominator polynomial coefficients"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "TransferFunctionZPG": {
     "blockClass": "TransferFunctionZPG",
@@ -621,8 +621,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "gain term of transfer function"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "ButterworthLowpassFilter": {
     "blockClass": "ButterworthLowpassFilter",
@@ -727,7 +727,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "optional string of operations to be applied before summation, i.e. '+-' will compute the difference, 'None' will just perform regular sum"
       }
     },
-    "inputs": [],
+    "inputs": null,
     "outputs": [
       "out"
     ]
@@ -737,7 +737,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
     "description": "Multiplies all signals from all input ports (MISO).",
     "docstringHtml": "<p>Multiplies all signals from all input ports (MISO).</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) = \\prod_i u_i(t)\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is purely algebraic and its operation (<cite>op_alg</cite>) will be called\nmultiple times per timestep, each time when <cite>Simulation._update(t)</cite> is\ncalled in the global simulation loop.</p>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator that wraps 'prod'</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
+    "inputs": null,
     "outputs": [
       "out"
     ]
@@ -753,8 +753,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "amplifier gain"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Function": {
     "blockClass": "Function",
@@ -767,80 +767,80 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "MIMO function that defines algebraic block IO behaviour, signature `func(*tuple)`"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Sin": {
     "blockClass": "Sin",
     "description": "Sine operator block.",
     "docstringHtml": "<p>Sine operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\sin(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Cos": {
     "blockClass": "Cos",
     "description": "Cosine operator block.",
     "docstringHtml": "<p>Cosine operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\cos(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Tan": {
     "blockClass": "Tan",
     "description": "Tangent operator block.",
     "docstringHtml": "<p>Tangent operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\tan(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Tanh": {
     "blockClass": "Tanh",
     "description": "Hyperbolic tangent operator block.",
     "docstringHtml": "<p>Hyperbolic tangent operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\tanh(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Abs": {
     "blockClass": "Abs",
     "description": "Absolute value operator block.",
     "docstringHtml": "<p>Absolute value operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\vert| \\vec{u} \\vert|\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Sqrt": {
     "blockClass": "Sqrt",
     "description": "Square root operator block.",
     "docstringHtml": "<p>Square root operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\sqrt{|\\vec{u}|}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Exp": {
     "blockClass": "Exp",
     "description": "Exponential operator block.",
     "docstringHtml": "<p>Exponential operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = e^{\\vec{u}}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Log": {
     "blockClass": "Log",
     "description": "Natural logarithm operator block.",
     "docstringHtml": "<p>Natural logarithm operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\ln(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Log10": {
     "blockClass": "Log10",
     "description": "Base-10 logarithm operator block.",
     "docstringHtml": "<p>Base-10 logarithm operator block.</p>\n<p>This block supports vector inputs. This is the operation it does:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\log_{10}(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {},
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Mod": {
     "blockClass": "Mod",
@@ -853,8 +853,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "modulus value Attributes ----------"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Clip": {
     "blockClass": "Clip",
@@ -872,8 +872,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "maximum clipping value Attributes ----------"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Pow": {
     "blockClass": "Pow",
@@ -886,8 +886,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "exponent to raise the input to the power of Attributes ----------"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Switch": {
     "blockClass": "Switch",
@@ -900,7 +900,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "state of the switch"
       }
     },
-    "inputs": [],
+    "inputs": null,
     "outputs": [
       "out"
     ]
@@ -921,8 +921,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "N-D array of data values at the corresponding points. If 1-D, represents scalar values at each point. If 2-D, each column represents a different output dimension (m output values per input point)."
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "LUT1D": {
     "blockClass": "LUT1D",
@@ -945,8 +945,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "The value to use for points outside the interpolation range. If \"extrapolate\", the interpolator will use linear extrapolation. Default is \"extrapolate\". See https://docs.scipy.org/doc/scipy-1.16.1/reference/generated/scipy.interpolate.interp1d.html for more details"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "SampleHold": {
     "blockClass": "SampleHold",
@@ -964,8 +964,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "delay Attributes ----------"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "FIR": {
     "blockClass": "FIR",
@@ -1024,7 +1024,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
     "inputs": [
       "in"
     ],
-    "outputs": []
+    "outputs": null
   },
   "DAC": {
     "blockClass": "DAC",
@@ -1052,7 +1052,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "Initial delay before the first output update. Default is 0."
       }
     },
-    "inputs": [],
+    "inputs": null,
     "outputs": [
       "out"
     ]
@@ -1180,8 +1180,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "labels for the scope traces, and for the csv, optional"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Spectrum": {
     "blockClass": "Spectrum",
@@ -1209,8 +1209,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "labels for the inputs"
       }
     },
-    "inputs": [],
-    "outputs": []
+    "inputs": null,
+    "outputs": null
   },
   "Subsystem": {
     "blockClass": "Subsystem",

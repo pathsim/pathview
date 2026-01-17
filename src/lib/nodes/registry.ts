@@ -107,27 +107,72 @@ function createNodeFromExtracted(
 		};
 	}
 
-	// Determine inputs - use override defaults, extracted ports, or let defineNode use its defaults
+	// Port semantics from Block.info():
+	// - null: Variable/unlimited ports (UI allows add/remove)
+	// - []: No ports of this type
+	// - ["in", "out"]: Fixed labeled ports (locked count)
+
+	// Determine inputs
 	let inputs: string[] | undefined;
 	if (override.defaultInputs && override.defaultInputs.length > 0) {
 		inputs = override.defaultInputs;
+	} else if (extracted.inputs === null) {
+		// Variable ports - use default, UI will allow add/remove
+		inputs = undefined; // defineNode will use ['in 0']
 	} else if (extracted.inputs.length > 0) {
+		// Fixed labeled ports
 		inputs = extracted.inputs;
 	} else if (override.maxInputs === 0) {
+		// Explicit override for no inputs
+		inputs = [];
+	} else {
+		// Empty array from Block.info() means no inputs
 		inputs = [];
 	}
-	// else: undefined - let defineNode use its default ['in 0']
 
-	// Determine outputs - use override defaults, extracted ports, or let defineNode use its defaults
+	// Determine outputs
 	let outputs: string[] | undefined;
 	if (override.defaultOutputs && override.defaultOutputs.length > 0) {
 		outputs = override.defaultOutputs;
+	} else if (extracted.outputs === null) {
+		// Variable ports - use default, UI will allow add/remove
+		outputs = undefined; // defineNode will use ['out 0']
 	} else if (extracted.outputs.length > 0) {
+		// Fixed labeled ports
 		outputs = extracted.outputs;
 	} else if (override.maxOutputs === 0) {
+		// Explicit override for no outputs
+		outputs = [];
+	} else {
+		// Empty array from Block.info() means no outputs
 		outputs = [];
 	}
-	// else: undefined - let defineNode use its default ['out 0']
+
+	// Determine max ports:
+	// - If override specifies a value, use it
+	// - If extracted.inputs is null (variable), leave unlimited
+	// - If extracted.inputs is array, lock to that count (fixed ports)
+	let maxInputs: number | null | undefined = override.maxInputs;
+	if (maxInputs === undefined) {
+		if (extracted.inputs === null) {
+			// Variable ports - unlimited
+			maxInputs = null;
+		} else {
+			// Fixed ports - lock to extracted count (or 0 if empty)
+			maxInputs = extracted.inputs.length;
+		}
+	}
+
+	let maxOutputs: number | null | undefined = override.maxOutputs;
+	if (maxOutputs === undefined) {
+		if (extracted.outputs === null) {
+			// Variable ports - unlimited
+			maxOutputs = null;
+		} else {
+			// Fixed ports - lock to extracted count (or 0 if empty)
+			maxOutputs = extracted.outputs.length;
+		}
+	}
 
 	const definition = defineNode({
 		name,
@@ -136,8 +181,8 @@ function createNodeFromExtracted(
 		description: extracted.description,
 		inputs,
 		outputs,
-		maxInputs: override.maxInputs,
-		maxOutputs: override.maxOutputs,
+		maxInputs,
+		maxOutputs,
 		params
 	});
 
