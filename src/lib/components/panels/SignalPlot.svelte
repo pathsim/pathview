@@ -12,7 +12,7 @@
 		type LayoutStyleOptions
 	} from '$lib/plotting/plotUtils';
 	import { themeStore, type Theme } from '$lib/stores/theme';
-	import { plotSettingsStore, type PlotSettings } from '$lib/stores/plotSettings';
+	import { plotSettingsStore, createTraceId, type PlotSettings } from '$lib/stores/plotSettings';
 	import { enqueuePlotUpdate, cancelPlotUpdate, isVisible } from './plotQueue';
 
 	interface ScopeData {
@@ -29,14 +29,14 @@
 
 	interface Props {
 		type: 'scope' | 'spectrum';
+		nodeId: string;
 		data: ScopeData | SpectrumData | null;
 		ghostData?: (ScopeData | SpectrumData)[];
 		title?: string;
-		showLegend?: boolean;
 		isStreaming?: boolean;
 	}
 
-	let { type, data, ghostData = [], title, showLegend = false, isStreaming = false }: Props = $props();
+	let { type, nodeId, data, ghostData = [], title, isStreaming = false }: Props = $props();
 
 	// Check if data has actual content (not just empty arrays)
 	const hasData = $derived(() => {
@@ -67,13 +67,33 @@
 	let resizeObserver: ResizeObserver | null = null;
 	let currentTheme = $state<Theme>('dark');
 	let plotSettings = $state<PlotSettings>({
-		lineStyle: 'solid',
-		showMarkers: false,
-		markerStyle: 'circle',
-		xAxisScale: 'linear',
-		yAxisScale: 'linear',
-		showLegend: false
+		traces: {},
+		blocks: {}
 	});
+
+	// Get per-trace style options
+	function getTraceStyle(signalIndex: number): TraceStyleOptions {
+		const traceId = createTraceId(nodeId, signalIndex);
+		const settings = plotSettingsStore.getTraceSettings(traceId);
+		return {
+			lineStyle: settings.lineStyle,
+			markerStyle: settings.markerStyle
+		};
+	}
+
+	// Get per-block layout options
+	function getBlockLayoutStyle(): LayoutStyleOptions {
+		const blockSettings = plotSettingsStore.getBlockSettings(nodeId);
+		return {
+			xAxisScale: blockSettings.xAxisScale,
+			yAxisScale: blockSettings.yAxisScale
+		};
+	}
+
+	// Get per-block show legend setting
+	function getBlockShowLegend(): boolean {
+		return plotSettingsStore.getBlockSettings(nodeId).showLegend;
+	}
 
 	// Unique ID for this component in the shared render queue
 	const componentId = Symbol();
@@ -94,6 +114,15 @@
 
 	onMount(async () => {
 		Plotly = await import('plotly.js-dist-min');
+
+		// Initialize spectrum blocks with log Y-axis by default
+		if (type === 'spectrum') {
+			const currentSettings = plotSettingsStore.get().blocks[nodeId];
+			if (!currentSettings) {
+				plotSettingsStore.setBlockYAxisScale(nodeId, 'log');
+			}
+		}
+
 		scheduleUpdate();
 
 		resizeObserver = new ResizeObserver(() => {
@@ -130,7 +159,6 @@
 		const _data = data;
 		const _ghostData = ghostData;
 		const _type = type;
-		const _showLegend = showLegend;
 		const _isStreaming = isStreaming;
 		const _plotSettings = plotSettings;
 		if (Plotly && plotDiv) {
@@ -159,34 +187,32 @@
 		const spectrumGhosts = ghostData as SpectrumData[];
 		const totalGhosts = spectrumGhosts.length;
 
-		// Style options from store
-		const traceStyle: TraceStyleOptions = {
-			lineStyle: plotSettings.lineStyle,
-			showMarkers: plotSettings.showMarkers,
-			markerStyle: plotSettings.markerStyle
-		};
-		const layoutStyle: LayoutStyleOptions = {
-			xAxisScale: plotSettings.xAxisScale,
-			yAxisScale: plotSettings.yAxisScale
-		};
+		const layoutStyle = getBlockLayoutStyle();
+		const blockShowLegend = getBlockShowLegend();
 
-		// Add ghost traces
+		// Add ghost traces with matching style
 		for (let ghostIdx = totalGhosts - 1; ghostIdx >= 0; ghostIdx--) {
 			const ghost = spectrumGhosts[ghostIdx];
 			if (!ghost?.magnitude || !ghost.frequency?.length) continue;
 			for (let sigIdx = 0; sigIdx < ghost.magnitude.length; sigIdx++) {
-				traces.push(createGhostSpectrumTrace(ghost.frequency, ghost.magnitude[sigIdx], sigIdx, ghostIdx, totalGhosts));
+				const traceStyle = getTraceStyle(sigIdx);
+				// Skip ghost traces if current trace is hidden
+				if (traceStyle.lineStyle === null && traceStyle.markerStyle === null) continue;
+				traces.push(createGhostSpectrumTrace(ghost.frequency, ghost.magnitude[sigIdx], sigIdx, ghostIdx, totalGhosts, traceStyle));
 			}
 		}
 
-		// Add current data traces
-		let layout = getSpectrumLayout(plotTitle, undefined, showLegend, layoutStyle);
+		// Add current data traces with per-trace settings
+		let layout = getSpectrumLayout(plotTitle, undefined, blockShowLegend, layoutStyle);
 		if (hasData()) {
 			const spectrumData = data as SpectrumData;
 			for (let i = 0; i < spectrumData.magnitude.length; i++) {
+				const traceStyle = getTraceStyle(i);
+				// Skip traces with no line and no marker
+				if (traceStyle.lineStyle === null && traceStyle.markerStyle === null) continue;
 				traces.push(createSpectrumTrace(spectrumData.frequency, spectrumData.magnitude[i], i, getSignalLabel(i), traceStyle));
 			}
-			layout = getSpectrumLayout(plotTitle, spectrumData.frequency, showLegend, layoutStyle);
+			layout = getSpectrumLayout(plotTitle, spectrumData.frequency, blockShowLegend, layoutStyle);
 		}
 
 		if (traces.length === 0) {
@@ -216,36 +242,34 @@
 	function fullScopeRender(scopeData: ScopeData | null, scopeGhosts: ScopeData[]) {
 		if (!Plotly || !plotDiv) return;
 
-		// Style options from store
-		const traceStyle: TraceStyleOptions = {
-			lineStyle: plotSettings.lineStyle,
-			showMarkers: plotSettings.showMarkers,
-			markerStyle: plotSettings.markerStyle
-		};
-		const layoutStyle: LayoutStyleOptions = {
-			xAxisScale: plotSettings.xAxisScale,
-			yAxisScale: plotSettings.yAxisScale
-		};
+		const layoutStyle = getBlockLayoutStyle();
+		const blockShowLegend = getBlockShowLegend();
 
 		const traces: Partial<Plotly.ScatterData>[] = [];
-		const layout = getScopeLayout(plotTitle, showLegend, layoutStyle);
+		const layout = getScopeLayout(plotTitle, blockShowLegend, layoutStyle);
 		const totalGhosts = scopeGhosts.length;
 
-		// Add ghost traces (rendered once, won't change during streaming)
+		// Add ghost traces with matching style (rendered once, won't change during streaming)
 		for (let ghostIdx = totalGhosts - 1; ghostIdx >= 0; ghostIdx--) {
 			const ghost = scopeGhosts[ghostIdx];
 			if (!ghost?.signals || !ghost.time?.length) continue;
 			for (let sigIdx = 0; sigIdx < ghost.signals.length; sigIdx++) {
-				traces.push(createGhostScopeTrace(ghost.time, ghost.signals[sigIdx], sigIdx, ghostIdx, totalGhosts));
+				const traceStyle = getTraceStyle(sigIdx);
+				// Skip ghost traces if current trace is hidden
+				if (traceStyle.lineStyle === null && traceStyle.markerStyle === null) continue;
+				traces.push(createGhostScopeTrace(ghost.time, ghost.signals[sigIdx], sigIdx, ghostIdx, totalGhosts, traceStyle));
 			}
 		}
 
 		// Track ghost trace count for extendTraces indexing
 		ghostTraceCount = traces.length;
 
-		// Add current data traces
+		// Add current data traces with per-trace settings
 		if (scopeData && scopeData.time?.length > 0) {
 			for (let i = 0; i < scopeData.signals.length; i++) {
+				const traceStyle = getTraceStyle(i);
+				// Skip traces with no line and no marker
+				if (traceStyle.lineStyle === null && traceStyle.markerStyle === null) continue;
 				traces.push(createScopeTrace(scopeData.time, scopeData.signals[i], i, getSignalLabel(i), traceStyle));
 			}
 		}
@@ -293,7 +317,7 @@
 		const annotationColor = getComputedStyle(document.documentElement).getPropertyValue('--text-disabled').trim();
 		layout.annotations = [
 			{
-				text: 'Run simulation to see data',
+				text: 'No data',
 				xref: 'paper',
 				yref: 'paper',
 				x: 0.5,

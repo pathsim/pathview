@@ -7,9 +7,8 @@ import type { LineStyle, MarkerStyle, AxisScale } from '$lib/stores/plotSettings
 
 /** Style options for trace rendering */
 export interface TraceStyleOptions {
-	lineStyle?: LineStyle;
-	showMarkers?: boolean;
-	markerStyle?: MarkerStyle;
+	lineStyle?: LineStyle | null; // null = no line
+	markerStyle?: MarkerStyle | null; // null = no markers
 }
 
 /** Style options for layout */
@@ -18,23 +17,90 @@ export interface LayoutStyleOptions {
 	yAxisScale?: AxisScale;
 }
 
-/** Map our line style names to Plotly dash values (none excluded - handled separately) */
-const LINE_DASH_MAP: Record<Exclude<LineStyle, 'none'>, Plotly.Dash> = {
+/** Map our line style names to Plotly dash values */
+const LINE_DASH_MAP: Record<LineStyle, Plotly.Dash> = {
 	solid: 'solid',
 	dash: 'dash',
-	dot: 'dot',
-	dashdot: 'dashdot'
+	dot: 'dot'
+};
+
+/** Map our line style names to SVG stroke-dasharray values (for preview rendering) */
+export const LINE_DASH_SVG: Record<LineStyle, string> = {
+	solid: '',
+	dash: '6,3',
+	dot: '2,2'
 };
 
 /** Map our marker style names to Plotly symbol values */
 const MARKER_SYMBOL_MAP: Record<MarkerStyle, string> = {
 	circle: 'circle',
 	square: 'square',
-	diamond: 'diamond',
-	'triangle-up': 'triangle-up',
-	cross: 'cross',
-	x: 'x'
+	'triangle-up': 'triangle-up'
 };
+
+/** Resolved style options with non-null defaults applied */
+interface ResolvedStyle {
+	lineStyle: LineStyle | null;
+	markerStyle: MarkerStyle | null;
+	showLines: boolean;
+	showMarkers: boolean;
+	mode: 'lines' | 'markers' | 'lines+markers';
+}
+
+/** Resolve style options to concrete values with defaults */
+function resolveStyleOptions(styleOptions?: TraceStyleOptions): ResolvedStyle {
+	// null means no line/marker, undefined means use default
+	const lineStyle = styleOptions?.lineStyle === undefined ? 'solid' : styleOptions.lineStyle;
+	const markerStyle = styleOptions?.markerStyle === undefined ? null : styleOptions.markerStyle;
+	const showLines = lineStyle !== null;
+	const showMarkers = markerStyle !== null;
+
+	// Determine mode based on line and marker settings
+	let mode: 'lines' | 'markers' | 'lines+markers';
+	if (showLines && showMarkers) {
+		mode = 'lines+markers';
+	} else if (showMarkers) {
+		mode = 'markers';
+	} else {
+		mode = 'lines';
+	}
+
+	return { lineStyle, markerStyle, showLines, showMarkers, mode };
+}
+
+/** Apply line config to trace if lines are shown */
+function applyLineConfig(
+	trace: Partial<Plotly.ScatterData>,
+	style: ResolvedStyle,
+	color: string,
+	width: number = 1.5
+): void {
+	if (style.showLines && style.lineStyle) {
+		trace.line = {
+			color,
+			width,
+			dash: LINE_DASH_MAP[style.lineStyle]
+		};
+	}
+}
+
+/** Apply marker config to trace if markers are shown */
+function applyMarkerConfig(
+	trace: Partial<Plotly.ScatterData>,
+	style: ResolvedStyle,
+	color: string,
+	size: number = 6
+): void {
+	if (style.showMarkers && style.markerStyle) {
+		trace.marker = {
+			symbol: MARKER_SYMBOL_MAP[style.markerStyle],
+			size,
+			color
+		};
+		// Allow markers to extend beyond axis without expanding range
+		trace.cliponaxis = false;
+	}
+}
 
 /**
  * Read a CSS variable value from the document root
@@ -115,17 +181,21 @@ export function getScopeLayout(
 	const baseLayout = getBaseLayout();
 	// Format y-axis label as "Scope: Name" or just "Scope" if no custom name
 	const yAxisLabel = title.toLowerCase().startsWith('scope') ? title : `Scope: ${title}`;
+
+	const xAxisScale = styleOptions?.xAxisScale ?? 'linear';
+	const yAxisScale = styleOptions?.yAxisScale ?? 'linear';
+
 	return {
 		...baseLayout,
 		xaxis: {
 			...baseLayout.xaxis,
 			title: { text: 'Time (s)', font: { size: 11 }, standoff: 10 },
-			type: styleOptions?.xAxisScale ?? 'linear'
+			type: xAxisScale
 		},
 		yaxis: {
 			...baseLayout.yaxis,
 			title: { text: yAxisLabel, font: { size: 11 }, standoff: 5 },
-			type: styleOptions?.yAxisScale ?? 'linear'
+			type: yAxisScale
 		},
 		showlegend: showLegend,
 		legend: {
@@ -278,48 +348,20 @@ export function createScopeTrace(
 ): Partial<Plotly.ScatterData> {
 	const traceName = name || `port ${index}`;
 	const color = getSignalColor(index);
-
-	const lineStyle = styleOptions?.lineStyle ?? 'solid';
-	const showMarkers = styleOptions?.showMarkers ?? false;
-	const showLines = lineStyle !== 'none';
-
-	// Determine mode based on line and marker settings
-	let mode: 'lines' | 'markers' | 'lines+markers';
-	if (showLines && showMarkers) {
-		mode = 'lines+markers';
-	} else if (showMarkers) {
-		mode = 'markers';
-	} else {
-		mode = 'lines';
-	}
+	const style = resolveStyleOptions(styleOptions);
 
 	const trace: Partial<Plotly.ScatterData> = {
 		x: time,
 		y: signal,
 		type: TRACE_TYPE,
-		mode,
+		mode: style.mode,
 		name: traceName,
 		legendgroup: `signal-${index}`,
 		hovertemplate: `<b style="color:${color}">${traceName}</b><br>t = %{x:.4g} s<br>y = %{y:.4g}<extra></extra>`
 	};
 
-	// Only add line config when lines are shown
-	if (showLines) {
-		trace.line = {
-			color,
-			width: 1.5,
-			dash: LINE_DASH_MAP[lineStyle]
-		};
-	}
-
-	// Only add marker config when markers are shown
-	if (showMarkers) {
-		trace.marker = {
-			symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
-			size: 6,
-			color
-		};
-	}
+	applyLineConfig(trace, style, color);
+	applyMarkerConfig(trace, style, color);
 
 	return trace;
 }
@@ -330,27 +372,31 @@ export function createGhostScopeTrace(
 	signal: number[],
 	signalIndex: number,
 	ghostIndex: number,
-	totalGhosts: number
+	totalGhosts: number,
+	styleOptions?: TraceStyleOptions
 ): Partial<Plotly.ScatterData> {
 	// Linear opacity: 50% for most recent ghost, 20% for oldest
 	const opacity = totalGhosts === 1
 		? 0.5
 		: 0.5 - (ghostIndex / (totalGhosts - 1)) * 0.3;
-	const baseColor = getSignalColor(signalIndex);
-	return {
+	const color = getSignalColor(signalIndex);
+	const style = resolveStyleOptions(styleOptions);
+
+	const trace: Partial<Plotly.ScatterData> = {
 		x: time,
 		y: signal,
 		type: TRACE_TYPE,
-		mode: 'lines',
+		mode: style.mode,
 		showlegend: false,
 		hoverinfo: 'skip',
 		legendgroup: `signal-${signalIndex}`,
-		line: {
-			color: baseColor,
-			width: 1,
-		},
 		opacity
 	};
+
+	applyLineConfig(trace, style, color, 1); // Thinner line for ghosts
+	applyMarkerConfig(trace, style, color, 5); // Smaller markers for ghosts
+
+	return trace;
 }
 
 // Create spectrum trace - uses indices for equal spacing
@@ -365,26 +411,13 @@ export function createSpectrumTrace(
 	const color = getSignalColor(index);
 	// Use indices for x-axis (equal spacing)
 	const indices = Array.from({ length: magnitude.length }, (_, i) => i);
-
-	const lineStyle = styleOptions?.lineStyle ?? 'solid';
-	const showMarkers = styleOptions?.showMarkers ?? false;
-	const showLines = lineStyle !== 'none';
-
-	// Determine mode based on line and marker settings
-	let mode: 'lines' | 'markers' | 'lines+markers';
-	if (showLines && showMarkers) {
-		mode = 'lines+markers';
-	} else if (showMarkers) {
-		mode = 'markers';
-	} else {
-		mode = 'lines';
-	}
+	const style = resolveStyleOptions(styleOptions);
 
 	const trace: Partial<Plotly.ScatterData> = {
 		x: indices,
 		y: magnitude,
 		type: TRACE_TYPE,
-		mode,
+		mode: style.mode,
 		name: traceName,
 		legendgroup: `signal-${index}`,
 		// Store frequency in customdata for hover
@@ -392,23 +425,8 @@ export function createSpectrumTrace(
 		hovertemplate: `<b style="color:${color}">${traceName}</b><br>f = %{customdata:.2f} Hz<br>mag = %{y:.4g}<extra></extra>`
 	};
 
-	// Only add line config when lines are shown
-	if (showLines) {
-		trace.line = {
-			color,
-			width: 1.5,
-			dash: LINE_DASH_MAP[lineStyle]
-		};
-	}
-
-	// Only add marker config when markers are shown
-	if (showMarkers) {
-		trace.marker = {
-			symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
-			size: 6,
-			color
-		};
-	}
+	applyLineConfig(trace, style, color);
+	applyMarkerConfig(trace, style, color);
 
 	return trace;
 }
@@ -419,27 +437,31 @@ export function createGhostSpectrumTrace(
 	magnitude: number[],
 	signalIndex: number,
 	ghostIndex: number,
-	totalGhosts: number
+	totalGhosts: number,
+	styleOptions?: TraceStyleOptions
 ): Partial<Plotly.ScatterData> {
 	// Linear opacity: 50% for most recent ghost, 20% for oldest
 	const opacity = totalGhosts === 1
 		? 0.5
 		: 0.5 - (ghostIndex / (totalGhosts - 1)) * 0.3;
-	const baseColor = getSignalColor(signalIndex);
+	const color = getSignalColor(signalIndex);
 	// Use indices for x-axis (equal spacing)
 	const indices = Array.from({ length: magnitude.length }, (_, i) => i);
-	return {
+	const style = resolveStyleOptions(styleOptions);
+
+	const trace: Partial<Plotly.ScatterData> = {
 		x: indices,
 		y: magnitude,
 		type: TRACE_TYPE,
-		mode: 'lines',
+		mode: style.mode,
 		showlegend: false,
 		hoverinfo: 'skip',
 		legendgroup: `signal-${signalIndex}`,
-		line: {
-			color: baseColor,
-			width: 1,
-		},
 		opacity
 	};
+
+	applyLineConfig(trace, style, color, 1); // Thinner line for ghosts
+	applyMarkerConfig(trace, style, color, 5); // Smaller markers for ghosts
+
+	return trace;
 }

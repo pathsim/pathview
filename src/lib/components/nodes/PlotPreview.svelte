@@ -1,22 +1,47 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { SIGNAL_COLORS } from '$lib/plotting/plotUtils';
+	import { SIGNAL_COLORS, LINE_DASH_SVG } from '$lib/plotting/plotUtils';
+	import { plotSettingsStore, createTraceId, type PlotSettings } from '$lib/stores/plotSettings';
 	import { enqueueRender, cancelRender } from './previewQueue';
 
 	type PlotData = { time?: number[]; signals?: number[][]; frequency?: number[]; magnitude?: number[][] };
 
 	interface Props {
 		type: 'scope' | 'spectrum';
+		nodeId: string;
 		data: PlotData | null;
 		ghostData?: PlotData[];
 	}
 
-	let { type, data, ghostData = [] }: Props = $props();
+	let { type, nodeId, data, ghostData = [] }: Props = $props();
+
+	// Subscribe to plot settings for trace styles
+	let plotSettings = $state<PlotSettings>({ traces: {}, blocks: {} });
+	const unsubscribe = plotSettingsStore.subscribe((s) => {
+		plotSettings = s;
+	});
+
+	// Check if trace is visible (has line or marker)
+	function isTraceVisible(signalIndex: number): boolean {
+		const traceId = createTraceId(nodeId, signalIndex);
+		const settings = plotSettings.traces[traceId];
+		if (!settings) return true; // Default: visible
+		return settings.lineStyle !== null || settings.markerStyle !== null;
+	}
+
+	// Get line dash pattern for SVG
+	function getLineDash(signalIndex: number): string {
+		const traceId = createTraceId(nodeId, signalIndex);
+		const settings = plotSettings.traces[traceId];
+		const lineStyle = settings?.lineStyle ?? 'solid';
+		return lineStyle ? LINE_DASH_SVG[lineStyle] : '';
+	}
 
 	// Unique ID for this component instance in the render queue
 	const componentId = Symbol();
 
 	onDestroy(() => {
+		unsubscribe();
 		cancelRender(componentId);
 	});
 
@@ -26,7 +51,7 @@
 	const padding = 8;
 
 	// Cached paths - only recompute when data changes
-	let cachedPaths = $state<{ d: string; color: string; opacity: number; strokeWidth: number }[]>([]);
+	let cachedPaths = $state<{ d: string; color: string; opacity: number; strokeWidth: number; dasharray: string }[]>([]);
 
 	// Non-reactive refs to prevent effect re-triggering
 	let cachedDataRef: unknown = null;
@@ -145,7 +170,7 @@
 	}
 
 	// Compute all paths (ghost + main) with proper scaling
-	function computeAllPaths(mainData: PlotData | null, ghosts: PlotData[]): { d: string; color: string; opacity: number; strokeWidth: number }[] {
+	function computeAllPaths(mainData: PlotData | null, ghosts: PlotData[]): { d: string; color: string; opacity: number; strokeWidth: number; dasharray: string }[] {
 		// Check if we have any data to display (main or ghosts)
 		const mainExtracted = mainData ? extractData(mainData) : { xData: [], yDataArrays: [] };
 		const hasMainData = mainExtracted.xData.length > 0 && mainExtracted.yDataArrays.some(arr => arr.length > 0);
@@ -174,6 +199,9 @@
 				: 0.4 - (ghostIdx / (totalGhosts - 1)) * 0.25;
 
 			for (let sigIdx = 0; sigIdx < yDataArrays.length; sigIdx++) {
+				// Skip hidden traces (ghost follows main trace visibility)
+				if (!isTraceVisible(sigIdx)) continue;
+
 				const ds = downsampleMinMax(xData, yDataArrays[sigIdx]);
 				allDownsampled.push({ x: ds.x, y: ds.y, signalIdx: sigIdx, opacity, strokeWidth: 0.7 });
 				if (ds.xMin < globalXMin) globalXMin = ds.xMin;
@@ -186,6 +214,9 @@
 		// Process main data (rendered on top) if available
 		if (hasMainData) {
 			for (let sigIdx = 0; sigIdx < mainExtracted.yDataArrays.length; sigIdx++) {
+				// Skip hidden traces
+				if (!isTraceVisible(sigIdx)) continue;
+
 				const ds = downsampleMinMax(mainExtracted.xData, mainExtracted.yDataArrays[sigIdx]);
 				allDownsampled.push({ x: ds.x, y: ds.y, signalIdx: sigIdx, opacity: 1, strokeWidth: 1 });
 				if (ds.xMin < globalXMin) globalXMin = ds.xMin;
@@ -212,7 +243,8 @@
 				d: pathPoints.join(' '),
 				color: SIGNAL_COLORS[ds.signalIdx % SIGNAL_COLORS.length],
 				opacity: ds.opacity,
-				strokeWidth: ds.strokeWidth
+				strokeWidth: ds.strokeWidth,
+				dasharray: getLineDash(ds.signalIdx)
 			};
 		});
 	}
@@ -249,14 +281,23 @@
 		return false;
 	}
 
-	// Update cache when data or ghostData changes
+	// Update cache when data, ghostData, or plotSettings changes
 	$effect(() => {
 		// Access props to track them
-		const _ = [data, ghostData];
+		const _ = [data, ghostData, plotSettings];
 
 		if (dataChanged()) {
 			scheduleUpdate();
 		}
+	});
+
+	// Re-render when plot settings change (even if data hasn't)
+	let cachedSettingsRef: PlotSettings | null = null;
+	$effect(() => {
+		if (cachedSettingsRef !== null && cachedSettingsRef !== plotSettings) {
+			scheduleUpdate();
+		}
+		cachedSettingsRef = plotSettings;
 	});
 
 
@@ -279,6 +320,7 @@
 					fill="none"
 					stroke={path.color}
 					stroke-width={path.strokeWidth}
+					stroke-dasharray={path.dasharray}
 					stroke-linecap="round"
 					stroke-linejoin="round"
 					opacity={path.opacity}

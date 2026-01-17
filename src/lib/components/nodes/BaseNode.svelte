@@ -310,7 +310,7 @@
 			class="plot-preview-popup preview-{previewPosition()}"
 			class:visible={showPreview || previewsPinned}
 		>
-			<PlotPreview type={plotData()!.type} data={plotData()!.data} ghostData={ghostPlotData()} />
+			<PlotPreview type={plotData()!.type} nodeId={id} data={plotData()!.data} ghostData={ghostPlotData()} />
 		</div>
 	{/if}
 

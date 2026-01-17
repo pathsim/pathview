@@ -4,60 +4,38 @@
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import {
 		plotSettingsStore,
+		createTraceId,
+		DEFAULT_TRACE_SETTINGS,
+		DEFAULT_BLOCK_SETTINGS,
 		type LineStyle,
 		type MarkerStyle,
-		type AxisScale
+		type PlotSettings
 	} from '$lib/stores/plotSettings';
+	import { getSignalColor, LINE_DASH_SVG } from '$lib/plotting/plotUtils';
+
+	interface TraceInfo {
+		nodeId: string;
+		nodeType: 'scope' | 'spectrum';
+		nodeName: string;
+		signalIndex: number;
+		signalLabel: string;
+	}
 
 	interface Props {
 		open: boolean;
 		onClose: () => void;
+		traces?: TraceInfo[];
 	}
 
-	let { open, onClose }: Props = $props();
+	let { open, onClose, traces = [] }: Props = $props();
 
-	// Local state bound to store
-	let lineStyle = $state<LineStyle>('solid');
-	let showMarkers = $state(false);
-	let markerStyle = $state<MarkerStyle>('circle');
-	let xAxisScale = $state<AxisScale>('linear');
-	let yAxisScale = $state<AxisScale>('linear');
-	let showLegend = $state(false);
+	// Store the entire settings for reactivity
+	let settings = $state<PlotSettings>({ traces: {}, blocks: {} });
 
-	// Sync from store
+	// Sync from store - update entire settings object for reactivity
 	const unsubscribe = plotSettingsStore.subscribe((s) => {
-		lineStyle = s.lineStyle;
-		showMarkers = s.showMarkers;
-		markerStyle = s.markerStyle;
-		xAxisScale = s.xAxisScale;
-		yAxisScale = s.yAxisScale;
-		showLegend = s.showLegend;
+		settings = s;
 	});
-
-	// Update store when values change
-	function updateLineStyle(value: LineStyle) {
-		plotSettingsStore.setLineStyle(value);
-	}
-
-	function updateShowMarkers(value: boolean) {
-		plotSettingsStore.setShowMarkers(value);
-	}
-
-	function updateMarkerStyle(value: MarkerStyle) {
-		plotSettingsStore.setMarkerStyle(value);
-	}
-
-	function updateXAxisScale(value: AxisScale) {
-		plotSettingsStore.setXAxisScale(value);
-	}
-
-	function updateYAxisScale(value: AxisScale) {
-		plotSettingsStore.setYAxisScale(value);
-	}
-
-	function updateShowLegend(value: boolean) {
-		plotSettingsStore.setShowLegend(value);
-	}
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
@@ -65,22 +43,83 @@
 		}
 	}
 
-	const lineStyles: { value: LineStyle; label: string; preview: string }[] = [
-		{ value: 'none', label: 'None', preview: '—' },
-		{ value: 'solid', label: 'Solid', preview: '━━━' },
-		{ value: 'dash', label: 'Dashed', preview: '─ ─' },
-		{ value: 'dot', label: 'Dotted', preview: '···' },
-		{ value: 'dashdot', label: 'Dash-dot', preview: '─·─' }
+	// Get trace settings reactively from local state
+	function getTraceSettings(traceId: string) {
+		return settings.traces[traceId] ?? { ...DEFAULT_TRACE_SETTINGS };
+	}
+
+	// Get block settings reactively from local state
+	function getBlockSettings(nodeId: string) {
+		return settings.blocks[nodeId] ?? { ...DEFAULT_BLOCK_SETTINGS };
+	}
+
+	// Line style options
+	const lineStyles: { value: LineStyle; label: string }[] = [
+		{ value: 'solid', label: 'Solid' },
+		{ value: 'dash', label: 'Dash' },
+		{ value: 'dot', label: 'Dot' }
 	];
 
+	// Marker style options
 	const markerStyles: { value: MarkerStyle; label: string }[] = [
 		{ value: 'circle', label: 'Circle' },
 		{ value: 'square', label: 'Square' },
-		{ value: 'diamond', label: 'Diamond' },
-		{ value: 'triangle-up', label: 'Triangle' },
-		{ value: 'cross', label: 'Cross' },
-		{ value: 'x', label: 'X' }
+		{ value: 'triangle-up', label: 'Triangle' }
 	];
+
+	// Toggle line style for a trace (clicking same = deselect)
+	function toggleLineStyle(traceId: string, style: LineStyle) {
+		const current = getTraceSettings(traceId);
+		if (current.lineStyle === style) {
+			plotSettingsStore.setTraceLineStyle(traceId, null);
+		} else {
+			plotSettingsStore.setTraceLineStyle(traceId, style);
+		}
+	}
+
+	// Toggle marker style for a trace (clicking same = deselect)
+	function toggleMarkerStyle(traceId: string, style: MarkerStyle) {
+		const current = getTraceSettings(traceId);
+		if (current.markerStyle === style) {
+			plotSettingsStore.setTraceMarkerStyle(traceId, null);
+		} else {
+			plotSettingsStore.setTraceMarkerStyle(traceId, style);
+		}
+	}
+
+	// Block axis scale handlers
+	function toggleBlockXAxisScale(nodeId: string) {
+		const current = getBlockSettings(nodeId);
+		plotSettingsStore.setBlockXAxisScale(nodeId, current.xAxisScale === 'linear' ? 'log' : 'linear');
+	}
+
+	function toggleBlockYAxisScale(nodeId: string) {
+		const current = getBlockSettings(nodeId);
+		plotSettingsStore.setBlockYAxisScale(nodeId, current.yAxisScale === 'linear' ? 'log' : 'linear');
+	}
+
+	function toggleBlockShowLegend(nodeId: string) {
+		const current = getBlockSettings(nodeId);
+		plotSettingsStore.setBlockShowLegend(nodeId, !current.showLegend);
+	}
+
+	// Group traces by node for display
+	const tracesByNode = $derived(() => {
+		const grouped = new Map<string, TraceInfo[]>();
+		for (const trace of traces) {
+			const key = trace.nodeId;
+			if (!grouped.has(key)) {
+				grouped.set(key, []);
+			}
+			grouped.get(key)!.push(trace);
+		}
+		return grouped;
+	});
+
+	// Get dash pattern for SVG line
+	function getLineDash(style: LineStyle | null): string {
+		return style ? LINE_DASH_SVG[style] : '';
+	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -106,123 +145,139 @@
 			</div>
 
 			<div class="dialog-body">
-				<!-- Line Style Section -->
-				<div class="setting-item">
-					<span class="setting-label">Line Style</span>
-					<div class="pill-group">
-						{#each lineStyles as style}
-							<button
-								class="style-pill"
-								class:active={lineStyle === style.value}
-								onclick={() => updateLineStyle(style.value)}
-								title={style.label}
-							>
-								<span class="preview">{style.preview}</span>
-							</button>
-						{/each}
+				{#if traces.length === 0}
+					<div class="empty-state">
+						<p>Run simulation to see trace options</p>
 					</div>
-				</div>
+				{:else}
+					<!-- Blocks -->
+					{#each [...tracesByNode()] as [nodeId, nodeTraces]}
+						{@const firstTrace = nodeTraces[0]}
+						{@const blockSettings = getBlockSettings(nodeId)}
+						<div class="block-card">
+							<!-- Block header -->
+							<div class="block-header">
+								<div class="block-title">
+									<Icon name={firstTrace.nodeType === 'scope' ? 'activity' : 'bar-chart-2'} size={14} />
+									<span>{firstTrace.nodeName}</span>
+								</div>
+								<div class="block-controls">
+									<button
+										class="scale-btn"
+										class:active={blockSettings.showLegend}
+										onclick={() => toggleBlockShowLegend(nodeId)}
+										title="Show legend"
+									>
+										Legend
+									</button>
+									<button
+										class="scale-btn"
+										class:log={blockSettings.xAxisScale === 'log'}
+										onclick={() => toggleBlockXAxisScale(nodeId)}
+										title="X-Axis: {blockSettings.xAxisScale}"
+									>
+										X:{blockSettings.xAxisScale === 'log' ? 'log' : 'lin'}
+									</button>
+									<button
+										class="scale-btn"
+										class:log={blockSettings.yAxisScale === 'log'}
+										onclick={() => toggleBlockYAxisScale(nodeId)}
+										title="Y-Axis: {blockSettings.yAxisScale}"
+									>
+										Y:{blockSettings.yAxisScale === 'log' ? 'log' : 'lin'}
+									</button>
+								</div>
+							</div>
 
-				<!-- Markers Section -->
-				<div class="setting-item">
-					<span class="setting-label">Markers</span>
-					<div class="pill-group">
-						<button
-							class="style-pill"
-							class:active={!showMarkers}
-							onclick={() => updateShowMarkers(false)}
-						>
-							None
-						</button>
-						{#each markerStyles as style}
-							<button
-								class="style-pill marker-pill"
-								class:active={showMarkers && markerStyle === style.value}
-								onclick={() => { updateShowMarkers(true); updateMarkerStyle(style.value); }}
-								title={style.label}
-							>
-								<svg width="12" height="12" viewBox="0 0 14 14">
-									{#if style.value === 'circle'}
-										<circle cx="7" cy="7" r="4" fill="currentColor" />
-									{:else if style.value === 'square'}
-										<rect x="3" y="3" width="8" height="8" fill="currentColor" />
-									{:else if style.value === 'diamond'}
-										<polygon points="7,2 12,7 7,12 2,7" fill="currentColor" />
-									{:else if style.value === 'triangle-up'}
-										<polygon points="7,2 12,11 2,11" fill="currentColor" />
-									{:else if style.value === 'cross'}
-										<path d="M5,2 h4 v3 h3 v4 h-3 v3 h-4 v-3 h-3 v-4 h3 z" fill="currentColor" />
-									{:else if style.value === 'x'}
-										<path d="M2,2 L12,12 M12,2 L2,12" stroke="currentColor" stroke-width="2.5" fill="none" />
-									{/if}
-								</svg>
-							</button>
-						{/each}
-					</div>
-				</div>
+							<!-- Traces table -->
+							<div class="traces-table">
+								<div class="table-header">
+									<div class="col-preview">Preview</div>
+									<div class="col-name"></div>
+									<div class="col-line">Line</div>
+									<div></div>
+									<div class="col-marker">Marker</div>
+								</div>
 
-				<!-- X-Axis Scale Section -->
-				<div class="setting-item">
-					<span class="setting-label">X-Axis Scale</span>
-					<div class="pill-group">
-						<button
-							class="style-pill"
-							class:active={xAxisScale === 'linear'}
-							onclick={() => updateXAxisScale('linear')}
-						>
-							Linear
-						</button>
-						<button
-							class="style-pill"
-							class:active={xAxisScale === 'log'}
-							onclick={() => updateXAxisScale('log')}
-						>
-							Log
-						</button>
-					</div>
-				</div>
-
-				<!-- Y-Axis Scale Section -->
-				<div class="setting-item">
-					<span class="setting-label">Y-Axis Scale</span>
-					<div class="pill-group">
-						<button
-							class="style-pill"
-							class:active={yAxisScale === 'linear'}
-							onclick={() => updateYAxisScale('linear')}
-						>
-							Linear
-						</button>
-						<button
-							class="style-pill"
-							class:active={yAxisScale === 'log'}
-							onclick={() => updateYAxisScale('log')}
-						>
-							Log
-						</button>
-					</div>
-				</div>
-
-				<!-- Display Section -->
-				<div class="setting-item">
-					<span class="setting-label">Legend</span>
-					<div class="pill-group">
-						<button
-							class="style-pill"
-							class:active={!showLegend}
-							onclick={() => updateShowLegend(false)}
-						>
-							Hide
-						</button>
-						<button
-							class="style-pill"
-							class:active={showLegend}
-							onclick={() => updateShowLegend(true)}
-						>
-							Show
-						</button>
-					</div>
-				</div>
+								{#each nodeTraces as trace}
+									{@const traceId = createTraceId(trace.nodeId, trace.signalIndex)}
+									{@const settings = getTraceSettings(traceId)}
+									{@const color = getSignalColor(trace.signalIndex)}
+									<div class="trace-row">
+										<div class="col-preview">
+											<!-- SVG preview of line + marker -->
+											<svg width="32" height="16" viewBox="0 0 32 16">
+												{#if settings.lineStyle}
+													<line
+														x1="2" y1="8" x2="30" y2="8"
+														stroke={color}
+														stroke-width="2"
+														stroke-dasharray={getLineDash(settings.lineStyle)}
+													/>
+												{/if}
+												{#if settings.markerStyle}
+													{#if settings.markerStyle === 'circle'}
+														<circle cx="16" cy="8" r="3" fill={color} />
+													{:else if settings.markerStyle === 'square'}
+														<rect x="13" y="5" width="6" height="6" fill={color} />
+													{:else if settings.markerStyle === 'triangle-up'}
+														<polygon points="16,3 20,11 12,11" fill={color} />
+													{/if}
+												{/if}
+												{#if !settings.lineStyle && !settings.markerStyle}
+													<line x1="2" y1="8" x2="30" y2="8" stroke="var(--text-disabled)" stroke-width="1" stroke-dasharray="2,2" />
+												{/if}
+											</svg>
+										</div>
+										<div class="col-name">
+											<span class="signal-label">{trace.signalLabel}</span>
+										</div>
+										<div class="col-line">
+											{#each lineStyles as style}
+												<button
+													class="style-pill"
+													class:active={settings.lineStyle === style.value}
+													onclick={() => toggleLineStyle(traceId, style.value)}
+													title={style.label}
+												>
+													<svg width="20" height="10" viewBox="0 0 20 10">
+														<line
+															x1="2" y1="5" x2="18" y2="5"
+															stroke="currentColor"
+															stroke-width="2"
+															stroke-dasharray={getLineDash(style.value)}
+														/>
+													</svg>
+												</button>
+											{/each}
+										</div>
+										<div></div>
+										<div class="col-marker">
+											{#each markerStyles as style}
+												<button
+													class="style-pill marker-pill"
+													class:active={settings.markerStyle === style.value}
+													onclick={() => toggleMarkerStyle(traceId, style.value)}
+													title={style.label}
+												>
+													<svg width="10" height="10" viewBox="0 0 14 14">
+														{#if style.value === 'circle'}
+															<circle cx="7" cy="7" r="4" fill="currentColor" />
+														{:else if style.value === 'square'}
+															<rect x="3" y="3" width="8" height="8" fill="currentColor" />
+														{:else if style.value === 'triangle-up'}
+															<polygon points="7,2 12,11 2,11" fill="currentColor" />
+														{/if}
+													</svg>
+												</button>
+											{/each}
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/each}
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -230,7 +285,7 @@
 
 <style>
 	.dialog {
-		width: 280px;
+		width: 480px;
 		max-width: 90vw;
 		max-height: 80vh;
 		overflow: hidden;
@@ -246,32 +301,144 @@
 		gap: var(--space-md);
 	}
 
-	.setting-item {
+	.empty-state {
 		display: flex;
-		flex-direction: column;
-		gap: var(--space-xs);
+		align-items: center;
+		justify-content: center;
+		padding: var(--space-xl);
+		color: var(--text-disabled);
+		font-size: 12px;
 	}
 
-	.setting-label {
-		font-size: 10px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
+	/* Block card */
+	.block-card {
+		flex-shrink: 0;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+
+	.block-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-sm) var(--space-md);
+		background: var(--surface-raised);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.block-title {
+		display: flex;
+		align-items: center;
+		gap: var(--space-xs);
+		font-size: 12px;
+		font-weight: 500;
 		color: var(--text-muted);
 	}
 
-	.pill-group {
+	.block-controls {
 		display: flex;
 		gap: 4px;
-		flex-wrap: wrap;
 	}
 
+	.scale-btn {
+		padding: 4px 8px;
+		font-size: 10px;
+		font-weight: 500;
+		font-family: var(--font-mono);
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-sm);
+		color: var(--text-muted);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.scale-btn:hover {
+		background: var(--surface-hover);
+		color: var(--text);
+	}
+
+	.scale-btn.log,
+	.scale-btn.active {
+		background: color-mix(in srgb, var(--accent) 15%, transparent);
+		color: var(--accent);
+	}
+
+	.scale-btn.log:hover,
+	.scale-btn.active:hover {
+		background: color-mix(in srgb, var(--accent) 25%, transparent);
+	}
+
+	/* Traces table */
+	.traces-table {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.table-header {
+		display: grid;
+		grid-template-columns: auto 1fr 90px 24px 78px;
+		gap: var(--space-sm);
+		padding: var(--space-sm) var(--space-md);
+		font-size: 9px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		color: var(--text-disabled);
+		border-bottom: 1px solid var(--border-subtle);
+	}
+
+	.trace-row {
+		display: grid;
+		grid-template-columns: auto 1fr 90px 24px 78px;
+		gap: var(--space-sm);
+		padding: var(--space-sm) var(--space-md);
+		align-items: center;
+	}
+
+	.trace-row:not(:last-child) {
+		border-bottom: 1px solid var(--border-subtle);
+	}
+
+	.col-preview {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.col-name {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+	}
+
+	.signal-label {
+		font-size: 11px;
+		color: var(--text-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.col-line {
+		display: flex;
+		gap: var(--space-xs);
+	}
+
+	.col-marker {
+		display: flex;
+		gap: var(--space-xs);
+	}
+
+	/* Pills */
 	.style-pill {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 4px 8px;
-		min-width: 40px;
+		padding: 4px 6px;
+		min-width: 28px;
 		height: 24px;
 		font-size: 10px;
 		font-weight: 500;
@@ -295,14 +462,7 @@
 		color: var(--accent);
 	}
 
-	.style-pill .preview {
-		font-family: var(--font-mono);
-		font-size: 10px;
-		letter-spacing: -0.5px;
-	}
-
 	.marker-pill {
-		padding: 4px 6px;
-		min-width: 28px;
+		min-width: 24px;
 	}
 </style>

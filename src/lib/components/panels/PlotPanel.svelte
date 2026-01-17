@@ -10,10 +10,9 @@
 		onToggle?: () => void;
 		activeTab?: number;
 		viewMode?: 'tabs' | 'tiles';
-		showLegend?: boolean;
 	}
 
-	let { collapsed = false, onToggle, activeTab = $bindable(0), viewMode = 'tabs', showLegend = false }: Props = $props();
+	let { collapsed = false, onToggle, activeTab = $bindable(0), viewMode = 'tabs' }: Props = $props();
 
 	// Smart grid layout calculation
 	let plotContent: HTMLDivElement | undefined = $state();
@@ -195,10 +194,10 @@
 							<div class="plot-tile">
 								<SignalPlot
 									type={plot.type}
+									nodeId={plot.id}
 									data={plot.data}
 									ghostData={plot.type === 'scope' ? ghostScopeDataMap().get(plot.id) ?? [] : ghostSpectrumDataMap().get(plot.id) ?? []}
 									title={plot.title}
-									{showLegend}
 									{isStreaming}
 								/>
 							</div>
@@ -211,10 +210,10 @@
 							{#if activeTab === i}
 								<SignalPlot
 									type={plot.type}
+									nodeId={plot.id}
 									data={plot.data}
 									ghostData={plot.type === 'scope' ? ghostScopeDataMap().get(plot.id) ?? [] : ghostSpectrumDataMap().get(plot.id) ?? []}
 									title={plot.title}
-									{showLegend}
 									{isStreaming}
 								/>
 							{/if}
