@@ -49,9 +49,10 @@ function computeScaledBounds(
 	scale: AxisScale
 ): { scaledMin: number; scaledMax: number; range: number } {
 	if (scale === 'log') {
-		// For log scale, ensure positive values
-		const safeMin = Math.max(min, LOG_MIN_VALUE);
-		const safeMax = Math.max(max, LOG_MIN_VALUE);
+		// For log scale, use 1 as minimum if min <= 0 (common for index-based data)
+		// This prevents huge empty space from log10(tiny) = very negative
+		const safeMin = min > 0 ? min : 1;
+		const safeMax = Math.max(max, safeMin);
 		const scaledMin = Math.log10(safeMin);
 		const scaledMax = Math.log10(safeMax);
 		const range = scaledMax - scaledMin || 1;
