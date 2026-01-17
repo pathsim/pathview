@@ -5,19 +5,19 @@
 
   "categories": {
     "Sources": [
-      { "class": "Constant", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "Source", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "SinusoidalSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "StepSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "PulseSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "TriangleWaveSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "SquareWaveSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "GaussianPulseSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "ChirpPhaseNoiseSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "ClockSource", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "WhiteNoise", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "PinkNoise", "maxInputs": 0, "maxOutputs": 1 },
-      { "class": "RandomNumberGenerator", "maxInputs": 0, "maxOutputs": 1 }
+      { "class": "Constant" },
+      { "class": "Source" },
+      { "class": "SinusoidalSource" },
+      { "class": "StepSource" },
+      { "class": "PulseSource" },
+      { "class": "TriangleWaveSource" },
+      { "class": "SquareWaveSource" },
+      { "class": "GaussianPulseSource" },
+      { "class": "ChirpPhaseNoiseSource" },
+      { "class": "ClockSource" },
+      { "class": "WhiteNoise" },
+      { "class": "PinkNoise" },
+      { "class": "RandomNumberGenerator" }
     ],
 
     "Dynamic": [
@@ -27,10 +27,10 @@
       { "class": "ODE" },
       { "class": "DynamicalSystem" },
       { "class": "StateSpace" },
-      { "class": "PID", "maxInputs": 1, "maxOutputs": 1 },
-      { "class": "AntiWindupPID", "maxInputs": 1, "maxOutputs": 1 },
-      { "class": "TransferFunctionNumDen", "maxInputs": 1, "maxOutputs": 1 },
-      { "class": "TransferFunctionZPG", "maxInputs": 1, "maxOutputs": 1 },
+      { "class": "PID" },
+      { "class": "AntiWindupPID" },
+      { "class": "TransferFunctionNumDen" },
+      { "class": "TransferFunctionZPG" },
       { "class": "ButterworthLowpassFilter" },
       { "class": "ButterworthHighpassFilter" },
       { "class": "ButterworthBandpassFilter" },
@@ -38,8 +38,8 @@
     ],
 
     "Algebraic": [
-      { "class": "Adder", "maxOutputs": 1 },
-      { "class": "Multiplier", "maxOutputs": 1 },
+      { "class": "Adder" },
+      { "class": "Multiplier" },
       { "class": "Amplifier" },
       { "class": "Function" },
       { "class": "Sin" },
@@ -54,9 +54,9 @@
       { "class": "Mod" },
       { "class": "Clip" },
       { "class": "Pow" },
-      { "class": "Switch", "maxOutputs": 1 },
+      { "class": "Switch" },
       { "class": "LUT" },
-      { "class": "LUT1D", "maxInputs": 1, "maxOutputs": 1 }
+      { "class": "LUT1D" }
     ],
 
     "Mixed": [
@@ -64,10 +64,10 @@
       { "class": "FIR" },
       { "class": "ADC" },
       { "class": "DAC" },
-      { "class": "Counter", "maxInputs": 1, "maxOutputs": 1 },
-      { "class": "CounterUp", "maxInputs": 1, "maxOutputs": 1 },
-      { "class": "CounterDown", "maxInputs": 1, "maxOutputs": 1 },
-      { "class": "Relay", "maxInputs": 1, "maxOutputs": 1 }
+      { "class": "Counter" },
+      { "class": "CounterUp" },
+      { "class": "CounterDown" },
+      { "class": "Relay" }
     ],
 
     "Recording": [

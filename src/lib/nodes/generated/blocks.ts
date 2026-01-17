@@ -1227,120 +1227,172 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
     "params": {},
     "inputs": [],
     "outputs": []
+  },
+  "Process": {
+    "blockClass": "Process",
+    "description": "Simplified version of the `ResidenceTime` model block",
+    "docstringHtml": "<p>Simplified version of the <cite>ResidenceTime</cite> model block\nwith all inputs being summed equally and only the state\nand the flux being returned to the output</p>\n<p>This block implements an internal 1st order linear ode with\nmultiple inputs, outputs and no direct passthrough.</p>\n<p>The internal ODE with inputs <span class=\"math\">\\(u_i\\)</span> :</p>\n<div class=\"math\">\n\\begin{equation*}\n\\dot{x} = - x / \\tau + \\mathrm{src} + \\sum_i u_i\n\\end{equation*}\n</div>\n<p>And the output equations for output <cite>i=0</cite> and <cite>i=1</cite>:</p>\n<div class=\"math\">\n\\begin{equation*}\ny_0 = x\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\ny_1 = x / \\tau\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>residence time, inverse natural frequency (eigenvalue)</dd>\n<dt>initial_value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>initial value of state / initial quantity of process</dd>\n<dt>source_term <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>constant source term / generation term of the process</dd>\n</dl>\n</div>\n",
+    "params": {
+      "tau": {
+        "type": "integer",
+        "default": "1",
+        "description": "residence time, inverse natural frequency (eigenvalue)"
+      },
+      "initial_value": {
+        "type": "integer",
+        "default": "0",
+        "description": "initial value of state / initial quantity of process"
+      },
+      "source_term": {
+        "type": "integer",
+        "default": "0",
+        "description": "constant source term / generation term of the process"
+      }
+    },
+    "inputs": null,
+    "outputs": [
+      "x",
+      "x/tau"
+    ]
+  },
+  "Bubbler4": {
+    "blockClass": "Bubbler4",
+    "description": "Tritium bubbling system with sequential vial collection stages.",
+    "docstringHtml": "<p>Tritium bubbling system with sequential vial collection stages.</p>\n<p>This block models a tritium collection system used in fusion reactor blanket\npurge gas processing. The system bubbles tritium-containing gas through a series\nof liquid-filled vials to capture and concentrate tritium for measurement and\ninventory tracking.</p>\n<div class=\"section\" id=\"physical-description\">\n<h3>Physical Description</h3>\n<p>The bubbler consists of two parallel processing chains:</p>\n<p><strong>Soluble Chain (Vials 1-2):</strong>\nTritium already in soluble forms (HTO, HT) flows sequentially through\nvials 1 and 2. Each vial has a collection efficiency <span class=\"math\">\\(\\eta_{vial}\\)</span>,\nrepresenting the fraction of tritium that dissolves into the liquid phase\nand is retained.</p>\n<p><strong>Insoluble Chain (Vials 3-4):</strong>\nTritium in insoluble forms (T₂, organically bound) first undergoes catalytic\nconversion to soluble forms with efficiency <span class=\"math\">\\(\\alpha_{conv}\\)</span>. The\nconverted tritium, along with uncaptured soluble tritium from the first chain,\nthen flows through vials 3 and 4 with the same collection efficiency.</p>\n</div>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>The system is governed by the following differential equations for the\nvial inventories <span class=\"math\">\\(x_i\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_1}{dt} &amp;= \\eta_{vial} \\cdot u_{sol}\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_2}{dt} &amp;= \\eta_{vial} \\cdot (1-\\eta_{vial}) \\cdot u_{sol}\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_3}{dt} &amp;= \\eta_{vial} \\cdot [\\alpha_{conv} \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot u_{sol}]\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_4}{dt} &amp;= \\eta_{vial} \\cdot (1-\\eta_{vial}) \\cdot [\\alpha_{conv} \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot u_{sol}]\n\\end{equation*}\n</div>\n<p>The sample output represents uncaptured tritium exiting the system:</p>\n<div class=\"math\">\n\\begin{equation*}\ny_{sample} = (1-\\alpha_{conv}) \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot [\\alpha_{conv} \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot u_{sol}]\n\\end{equation*}\n</div>\n<dl class=\"docutils\">\n<dt>Where:</dt>\n<dd><ul class=\"first last simple\">\n<li><span class=\"math\">\\(u_{sol}\\)</span> = soluble tritium input flow rate</li>\n<li><span class=\"math\">\\(u_{insol}\\)</span> = insoluble tritium input flow rate</li>\n<li><span class=\"math\">\\(\\eta_{vial}\\)</span> = vial collection efficiency</li>\n<li><span class=\"math\">\\(\\alpha_{conv}\\)</span> = conversion efficiency from insoluble to soluble</li>\n<li><span class=\"math\">\\(x_i\\)</span> = tritium inventory in vial i</li>\n</ul>\n</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>conversion_efficiency <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Conversion efficiency from insoluble to soluble forms (<span class=\"math\">\\(\\alpha_{conv}\\)</span>),\nbetween 0 and 1.</dd>\n<dt>vial_efficiency <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Collection efficiency of each vial (<span class=\"math\">\\(\\eta_{vial}\\)</span>), between 0 and 1.</dd>\n<dt>replacement_times <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float | list[float] | list[list[float]]</span></dt>\n<dd>Times at which each vial is replaced with a fresh one. If None, no\nreplacement events are created. If a single value is provided, it is\nused for all vials. If a single list of floats is provided, it will be\nused for all vials. If a list of lists is provided, each sublist\ncorresponds to the replacement times for each vial.</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"notes\">\n<h3>Notes</h3>\n<p>Vial replacement is modeled as instantaneous reset events that set the\ncorresponding vial inventory to zero, simulating the physical replacement\nof a full vial with an empty one.</p>\n</div>\n",
+    "params": {
+      "conversion_efficiency": {
+        "type": "number",
+        "default": "0.9",
+        "description": "Conversion efficiency from insoluble to soluble forms (:math:`\\alpha_{conv}`), between 0 and 1."
+      },
+      "vial_efficiency": {
+        "type": "number",
+        "default": "0.9",
+        "description": "Collection efficiency of each vial (:math:`\\eta_{vial}`), between 0 and 1."
+      },
+      "replacement_times": {
+        "type": "any",
+        "default": null,
+        "description": "Times at which each vial is replaced with a fresh one. If None, no replacement events are created. If a single value is provided, it is used for all vials. If a single list of floats is provided, it will be used for all vials. If a list of lists is provided, each sublist corresponds to the replacement times for each vial."
+      }
+    },
+    "inputs": [
+      "sample_in_soluble",
+      "sample_in_insoluble"
+    ],
+    "outputs": [
+      "vial1",
+      "vial2",
+      "vial3",
+      "vial4",
+      "sample_out"
+    ]
+  },
+  "Splitter": {
+    "blockClass": "Splitter",
+    "description": "Splitter block that splits the input signal into multiple",
+    "docstringHtml": "<p>Splitter block that splits the input signal into multiple\noutputs weighted with the specified fractions.</p>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>The output fractions must sum to one.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>fractions <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">np.ndarray | list</span></dt>\n<dd>fractions to split the input signal into,\nmust sum up to one</dd>\n</dl>\n</div>\n",
+    "params": {
+      "fractions": {
+        "type": "any",
+        "default": null,
+        "description": "fractions to split the input signal into, must sum up to one"
+      }
+    },
+    "inputs": [
+      "in"
+    ],
+    "outputs": null
+  },
+  "GLC": {
+    "blockClass": "GLC",
+    "description": "Gas Liquid Contactor model block.",
+    "docstringHtml": "<p>Gas Liquid Contactor model block. Inherits from Function block.</p>\n<p>More details about the model can be found in: <a class=\"reference external\" href=\"https://doi.org/10.13182/FST95-A30485\">https://doi.org/10.13182/FST95-A30485</a></p>\n<dl class=\"docutils\">\n<dt>Args:</dt>\n<dd>P_in: Inlet operating pressure [Pa]\nL: Column height [m]\nD: Column diameter [m]\nT: Temperature [K]\ng: Gravitational acceleration [m/s^2], default is 9.81\ninitial_nb_of_elements: Initial number of elements for BVP solver\nBCs: Boundary conditions type, &quot;C-C&quot; (Closed-Closed) or &quot;O-C&quot; (Open-Closed), default is &quot;C-C&quot;</dd>\n</dl>\n",
+    "params": {
+      "P_in": {
+        "type": "any",
+        "default": null,
+        "description": "L: Column height [m]"
+      },
+      "L": {
+        "type": "any",
+        "default": null,
+        "description": "D: Column diameter [m]"
+      },
+      "D": {
+        "type": "any",
+        "default": null,
+        "description": "T: Temperature [K]"
+      },
+      "T": {
+        "type": "any",
+        "default": null,
+        "description": "g: Gravitational acceleration [m/s^2], default is 9.81"
+      },
+      "BCs": {
+        "type": "any",
+        "default": null,
+        "description": ""
+      },
+      "g": {
+        "type": "number",
+        "default": "9.80665",
+        "description": "initial_nb_of_elements: Initial number of elements for BVP solver"
+      },
+      "initial_nb_of_elements": {
+        "type": "integer",
+        "default": "20",
+        "description": "BCs: Boundary conditions type, \"C-C\" (Closed-Closed) or \"O-C\" (Open-Closed), default is \"C-C\""
+      }
+    },
+    "inputs": [
+      "c_T_in",
+      "flow_l",
+      "y_T2_inlet",
+      "flow_g"
+    ],
+    "outputs": [
+      "c_T_out",
+      "y_T2_out",
+      "eff",
+      "P_out",
+      "Q_l",
+      "Q_g_out",
+      "n_T_out_liquid",
+      "n_T_out_gas"
+    ]
   }
 };
 
-export const blockConfig: Record<Exclude<NodeCategory, 'Subsystem'>, string[]> = {
+export const blockConfig: Record<string, string[]> = {
   Sources: ["Constant", "Source", "SinusoidalSource", "StepSource", "PulseSource", "TriangleWaveSource", "SquareWaveSource", "GaussianPulseSource", "ChirpPhaseNoiseSource", "ClockSource", "WhiteNoise", "PinkNoise", "RandomNumberGenerator"],
   Dynamic: ["Integrator", "Differentiator", "Delay", "ODE", "DynamicalSystem", "StateSpace", "PID", "AntiWindupPID", "TransferFunctionNumDen", "TransferFunctionZPG", "ButterworthLowpassFilter", "ButterworthHighpassFilter", "ButterworthBandpassFilter", "ButterworthBandstopFilter"],
   Algebraic: ["Adder", "Multiplier", "Amplifier", "Function", "Sin", "Cos", "Tan", "Tanh", "Abs", "Sqrt", "Exp", "Log", "Log10", "Mod", "Clip", "Pow", "Switch", "LUT", "LUT1D"],
   Mixed: ["SampleHold", "FIR", "ADC", "DAC", "Counter", "CounterUp", "CounterDown", "Relay"],
   Recording: ["Scope", "Spectrum"],
+  Chemical: ["Process", "Bubbler4", "Splitter", "GLC"],
 };
 
 export const uiOverrides: Record<string, UIOverride> = 
 {
-  "Constant": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "Source": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "SinusoidalSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "StepSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "PulseSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "TriangleWaveSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "SquareWaveSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "GaussianPulseSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "ChirpPhaseNoiseSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "ClockSource": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "WhiteNoise": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "PinkNoise": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "RandomNumberGenerator": {
-    "maxInputs": 0,
-    "maxOutputs": 1
-  },
-  "PID": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "AntiWindupPID": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "TransferFunctionNumDen": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "TransferFunctionZPG": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "Adder": {
-    "maxOutputs": 1
-  },
-  "Multiplier": {
-    "maxOutputs": 1
-  },
-  "Switch": {
-    "maxOutputs": 1
-  },
-  "LUT1D": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "Counter": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "CounterUp": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "CounterDown": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
-  "Relay": {
-    "maxInputs": 1,
-    "maxOutputs": 1
-  },
   "Scope": {
     "maxOutputs": 0
   },
   "Spectrum": {
     "maxOutputs": 0
+  },
+  "Process": {
+    "maxOutputs": 2
+  },
+  "Bubbler4": {
+    "maxInputs": 2,
+    "maxOutputs": 5
+  },
+  "Splitter": {
+    "maxInputs": 1
+  },
+  "GLC": {
+    "maxInputs": 4,
+    "maxOutputs": 8
   }
 };

@@ -788,7 +788,7 @@ class TypeScriptGenerator:
         lines.append(json.dumps(blocks, indent=2, ensure_ascii=False) + ";")
         lines.append("")
 
-        lines.append("export const blockConfig: Record<Exclude<NodeCategory, 'Subsystem'>, string[]> = {")
+        lines.append("export const blockConfig: Record<string, string[]> = {")
         for category, block_names in config.items():
             names_str = ", ".join(f'"{name}"' for name in block_names)
             lines.append(f"  {category}: [{names_str}],")
