@@ -30,14 +30,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install PathSim
-        run: pip install pathsim "pathsim-chem>=0.2rc2" docutils
+      - name: Install Python dependencies
+        run: |
+          pip install -r scripts/config/requirements-pyodide.txt
+          pip install -r scripts/config/requirements-build.txt
 
-      - name: Install dependencies
+      - name: Install Node dependencies
         run: npm ci
 
       - name: Extract blocks from PathSim
-        run: npm run extract-all
+        run: npm run extract
 
       - name: Build
         run: npm run build

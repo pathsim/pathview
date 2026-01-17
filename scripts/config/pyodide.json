@@ -1,0 +1,4 @@
+{
+  "version": "0.26.2",
+  "preload": ["numpy", "scipy", "micropip"]
+}

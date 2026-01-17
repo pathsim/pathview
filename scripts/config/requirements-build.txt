@@ -1,0 +1,7 @@
+# Build-time dependencies for extraction scripts
+# These are NOT installed in Pyodide - only needed on developer machine
+#
+# Install with: pip install -r scripts/config/requirements-build.txt
+
+docutils  # optional - RST to HTML conversion for docstrings
+jsonschema  # optional - config validation
