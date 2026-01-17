@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
+	import { themeStore } from '$lib/stores/theme';
 	import {
 		toPlotlyTrace,
 		toPlotlySpectrumTrace,
 		toPlotlyLayout,
+		getBaseLayout,
 		createEmptyLayout,
 		PLOTLY_CONFIG
 	} from '$lib/plotting/renderers/plotly';
@@ -29,6 +31,32 @@
 	let renderedTimeLength = 0;
 	let ghostTraceCount = 0;
 	let wasStreaming = false;
+
+	// Subscribe to theme changes and update Plotly layout colors
+	const unsubscribeTheme = themeStore.subscribe(() => {
+		if (Plotly && plotDiv) {
+			// Update layout with new theme colors (using dot-notation paths)
+			const baseLayout = getBaseLayout();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			Plotly.relayout(plotDiv, {
+				'font.color': baseLayout.font?.color,
+				'xaxis.gridcolor': baseLayout.xaxis?.gridcolor,
+				'xaxis.linecolor': baseLayout.xaxis?.linecolor,
+				'xaxis.tickfont.color': baseLayout.xaxis?.tickfont?.color,
+				'yaxis.gridcolor': baseLayout.yaxis?.gridcolor,
+				'yaxis.linecolor': baseLayout.yaxis?.linecolor,
+				'yaxis.tickfont.color': baseLayout.yaxis?.tickfont?.color,
+				'legend.bgcolor': baseLayout.legend?.bgcolor,
+				'legend.bordercolor': baseLayout.legend?.bordercolor,
+				'legend.font.color': baseLayout.legend?.font?.color,
+				'modebar.color': baseLayout.modebar?.color,
+				'modebar.activecolor': baseLayout.modebar?.activecolor,
+				'hoverlabel.bgcolor': baseLayout.hoverlabel?.bgcolor,
+				'hoverlabel.bordercolor': baseLayout.hoverlabel?.bordercolor,
+				'hoverlabel.font.color': baseLayout.hoverlabel?.font?.color
+			} as Partial<Plotly.Layout>);
+		}
+	});
 
 	const unsubscribe = plotDataStore.subscribe((state) => {
 		processedPlot = state.plots.get(nodeId) ?? null;
@@ -69,6 +97,7 @@
 
 	onDestroy(() => {
 		unsubscribe();
+		unsubscribeTheme();
 		resizeObserver?.disconnect();
 		if (Plotly && plotDiv) {
 			Plotly.purge(plotDiv);
