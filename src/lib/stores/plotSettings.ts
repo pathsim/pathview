@@ -13,6 +13,7 @@ export interface PlotSettings {
 	lineStyle: LineStyle;
 	showMarkers: boolean;
 	markerStyle: MarkerStyle;
+	xAxisScale: AxisScale;
 	yAxisScale: AxisScale;
 	showLegend: boolean;
 }
@@ -21,6 +22,7 @@ const DEFAULT_PLOT_SETTINGS: PlotSettings = {
 	lineStyle: 'solid',
 	showMarkers: false,
 	markerStyle: 'circle',
+	xAxisScale: 'linear',
 	yAxisScale: 'linear',
 	showLegend: false
 };
@@ -44,6 +46,10 @@ export const plotSettingsStore = {
 
 	setMarkerStyle(markerStyle: MarkerStyle): void {
 		settings.update((s) => ({ ...s, markerStyle }));
+	},
+
+	setXAxisScale(xAxisScale: AxisScale): void {
+		settings.update((s) => ({ ...s, xAxisScale }));
 	},
 
 	setYAxisScale(yAxisScale: AxisScale): void {

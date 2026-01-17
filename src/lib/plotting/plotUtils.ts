@@ -14,6 +14,7 @@ export interface TraceStyleOptions {
 
 /** Style options for layout */
 export interface LayoutStyleOptions {
+	xAxisScale?: AxisScale;
 	yAxisScale?: AxisScale;
 }
 
@@ -118,7 +119,8 @@ export function getScopeLayout(
 		...baseLayout,
 		xaxis: {
 			...baseLayout.xaxis,
-			title: { text: 'Time (s)', font: { size: 11 }, standoff: 10 }
+			title: { text: 'Time (s)', font: { size: 11 }, standoff: 10 },
+			type: styleOptions?.xAxisScale ?? 'linear'
 		},
 		yaxis: {
 			...baseLayout.yaxis,
@@ -172,7 +174,8 @@ export function getSpectrumLayout(
 	// Format y-axis label as "Spectrum: Name" or just "Spectrum" if no custom name
 	const yAxisLabel = title.toLowerCase().startsWith('spectrum') ? title : `Spectrum: ${title}`;
 
-	// Spectrum defaults to log scale if not specified
+	// Spectrum defaults to log scale for y-axis if not specified
+	const xAxisScale = styleOptions?.xAxisScale ?? 'linear';
 	const yAxisScale = styleOptions?.yAxisScale ?? 'log';
 
 	return {
@@ -182,7 +185,8 @@ export function getSpectrumLayout(
 			title: { text: 'Frequency (Hz)', font: { size: 11 }, standoff: 10 },
 			tickvals,
 			ticktext,
-			tickangle: 0
+			tickangle: 0,
+			type: xAxisScale
 		},
 		yaxis: {
 			...baseLayout.yaxis,
@@ -282,14 +286,7 @@ export function createScopeTrace(
 	// Line dash style
 	const dash = LINE_DASH_MAP[styleOptions?.lineStyle ?? 'solid'];
 
-	// Marker configuration
-	const marker = showMarkers ? {
-		symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
-		size: 6,
-		color
-	} : undefined;
-
-	return {
+	const trace: Partial<Plotly.ScatterData> = {
 		x: time,
 		y: signal,
 		type: TRACE_TYPE,
@@ -301,9 +298,19 @@ export function createScopeTrace(
 			width: 1.5,
 			dash
 		},
-		marker,
 		hovertemplate: `<b style="color:${color}">${traceName}</b><br>t = %{x:.4g} s<br>y = %{y:.4g}<extra></extra>`
 	};
+
+	// Only add marker config when markers are shown
+	if (showMarkers) {
+		trace.marker = {
+			symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
+			size: 6,
+			color
+		};
+	}
+
+	return trace;
 }
 
 // Create ghost scope trace (previous run) with reduced opacity
@@ -355,14 +362,7 @@ export function createSpectrumTrace(
 	// Line dash style
 	const dash = LINE_DASH_MAP[styleOptions?.lineStyle ?? 'solid'];
 
-	// Marker configuration
-	const marker = showMarkers ? {
-		symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
-		size: 6,
-		color
-	} : undefined;
-
-	return {
+	const trace: Partial<Plotly.ScatterData> = {
 		x: indices,
 		y: magnitude,
 		type: TRACE_TYPE,
@@ -374,11 +374,21 @@ export function createSpectrumTrace(
 			width: 1.5,
 			dash
 		},
-		marker,
 		// Store frequency in customdata for hover
 		customdata: frequency,
 		hovertemplate: `<b style="color:${color}">${traceName}</b><br>f = %{customdata:.2f} Hz<br>mag = %{y:.4g}<extra></extra>`
 	};
+
+	// Only add marker config when markers are shown
+	if (showMarkers) {
+		trace.marker = {
+			symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
+			size: 6,
+			color
+		};
+	}
+
+	return trace;
 }
 
 // Create ghost spectrum trace (previous run) with reduced opacity

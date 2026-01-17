@@ -1183,22 +1183,6 @@
 				{/if}
 			{/snippet}
 			{#snippet actions()}
-				<button
-					class="icon-btn ghost"
-					onclick={() => showPlotOptionsDialog = true}
-					use:tooltip={{ text: 'Plot options', position: 'bottom' }}
-					aria-label="Plot options"
-				>
-					<Icon name="settings" size={16} />
-				</button>
-				<button
-					class="icon-btn ghost"
-					onclick={() => plotSettingsStore.setShowLegend(!showPlotLegend)}
-					use:tooltip={{ text: showPlotLegend ? 'Hide legend' : 'Show legend', position: 'bottom' }}
-					aria-label={showPlotLegend ? 'Hide legend' : 'Show legend'}
-				>
-					<Icon name="list" size={16} />
-				</button>
 				{#if resultPlots.length > 1}
 					<button
 						class="icon-btn ghost"
@@ -1213,6 +1197,14 @@
 						{/if}
 					</button>
 				{/if}
+				<button
+					class="icon-btn ghost"
+					onclick={() => showPlotOptionsDialog = true}
+					use:tooltip={{ text: 'Plot options', position: 'bottom' }}
+					aria-label="Plot options"
+				>
+					<Icon name="settings" size={16} />
+				</button>
 			{/snippet}
 			<PlotPanel collapsed={false} bind:activeTab={plotActiveTab} viewMode={plotViewMode} showLegend={showPlotLegend} />
 		</ResizablePanel>

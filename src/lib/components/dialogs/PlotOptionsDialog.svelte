@@ -20,6 +20,7 @@
 	let lineStyle = $state<LineStyle>('solid');
 	let showMarkers = $state(false);
 	let markerStyle = $state<MarkerStyle>('circle');
+	let xAxisScale = $state<AxisScale>('linear');
 	let yAxisScale = $state<AxisScale>('linear');
 	let showLegend = $state(false);
 
@@ -28,33 +29,33 @@
 		lineStyle = s.lineStyle;
 		showMarkers = s.showMarkers;
 		markerStyle = s.markerStyle;
+		xAxisScale = s.xAxisScale;
 		yAxisScale = s.yAxisScale;
 		showLegend = s.showLegend;
 	});
 
 	// Update store when values change
 	function updateLineStyle(value: LineStyle) {
-		lineStyle = value;
 		plotSettingsStore.setLineStyle(value);
 	}
 
 	function updateShowMarkers(value: boolean) {
-		showMarkers = value;
 		plotSettingsStore.setShowMarkers(value);
 	}
 
 	function updateMarkerStyle(value: MarkerStyle) {
-		markerStyle = value;
 		plotSettingsStore.setMarkerStyle(value);
 	}
 
+	function updateXAxisScale(value: AxisScale) {
+		plotSettingsStore.setXAxisScale(value);
+	}
+
 	function updateYAxisScale(value: AxisScale) {
-		yAxisScale = value;
 		plotSettingsStore.setYAxisScale(value);
 	}
 
 	function updateShowLegend(value: boolean) {
-		showLegend = value;
 		plotSettingsStore.setShowLegend(value);
 	}
 
@@ -65,10 +66,10 @@
 	}
 
 	const lineStyles: { value: LineStyle; label: string; preview: string }[] = [
-		{ value: 'solid', label: 'Solid', preview: '━━━━' },
-		{ value: 'dash', label: 'Dashed', preview: '─ ─ ─' },
-		{ value: 'dot', label: 'Dotted', preview: '· · · ·' },
-		{ value: 'dashdot', label: 'Dash-dot', preview: '─ · ─' }
+		{ value: 'solid', label: 'Solid', preview: '━━━' },
+		{ value: 'dash', label: 'Dashed', preview: '─ ─' },
+		{ value: 'dot', label: 'Dotted', preview: '···' },
+		{ value: 'dashdot', label: 'Dash-dot', preview: '─·─' }
 	];
 
 	const markerStyles: { value: MarkerStyle; label: string }[] = [
@@ -105,12 +106,12 @@
 
 			<div class="dialog-body">
 				<!-- Line Style Section -->
-				<div class="section">
-					<div class="section-header">Line Style</div>
-					<div class="button-group">
+				<div class="setting-item">
+					<span class="setting-label">Line Style</span>
+					<div class="pill-group">
 						{#each lineStyles as style}
 							<button
-								class="style-btn"
+								class="style-pill"
 								class:active={lineStyle === style.value}
 								onclick={() => updateLineStyle(style.value)}
 								title={style.label}
@@ -122,59 +123,77 @@
 				</div>
 
 				<!-- Markers Section -->
-				<div class="section">
-					<div class="section-header">Markers</div>
-					<label class="toggle-row">
-						<input
-							type="checkbox"
-							checked={showMarkers}
-							onchange={(e) => updateShowMarkers(e.currentTarget.checked)}
-						/>
-						<span>Show markers</span>
-					</label>
-					{#if showMarkers}
-						<div class="button-group marker-group">
-							{#each markerStyles as style}
-								<button
-									class="style-btn marker-btn"
-									class:active={markerStyle === style.value}
-									onclick={() => updateMarkerStyle(style.value)}
-									title={style.label}
-								>
-									<svg width="14" height="14" viewBox="0 0 14 14">
-										{#if style.value === 'circle'}
-											<circle cx="7" cy="7" r="4" fill="currentColor" />
-										{:else if style.value === 'square'}
-											<rect x="3" y="3" width="8" height="8" fill="currentColor" />
-										{:else if style.value === 'diamond'}
-											<polygon points="7,2 12,7 7,12 2,7" fill="currentColor" />
-										{:else if style.value === 'triangle-up'}
-											<polygon points="7,2 12,11 2,11" fill="currentColor" />
-										{:else if style.value === 'cross'}
-											<path d="M5,2 h4 v3 h3 v4 h-3 v3 h-4 v-3 h-3 v-4 h3 z" fill="currentColor" />
-										{:else if style.value === 'x'}
-											<path d="M2,2 L12,12 M12,2 L2,12" stroke="currentColor" stroke-width="2.5" fill="none" />
-										{/if}
-									</svg>
-								</button>
-							{/each}
-						</div>
-					{/if}
+				<div class="setting-item">
+					<span class="setting-label">Markers</span>
+					<div class="pill-group">
+						<button
+							class="style-pill"
+							class:active={!showMarkers}
+							onclick={() => updateShowMarkers(false)}
+						>
+							None
+						</button>
+						{#each markerStyles as style}
+							<button
+								class="style-pill marker-pill"
+								class:active={showMarkers && markerStyle === style.value}
+								onclick={() => { updateShowMarkers(true); updateMarkerStyle(style.value); }}
+								title={style.label}
+							>
+								<svg width="12" height="12" viewBox="0 0 14 14">
+									{#if style.value === 'circle'}
+										<circle cx="7" cy="7" r="4" fill="currentColor" />
+									{:else if style.value === 'square'}
+										<rect x="3" y="3" width="8" height="8" fill="currentColor" />
+									{:else if style.value === 'diamond'}
+										<polygon points="7,2 12,7 7,12 2,7" fill="currentColor" />
+									{:else if style.value === 'triangle-up'}
+										<polygon points="7,2 12,11 2,11" fill="currentColor" />
+									{:else if style.value === 'cross'}
+										<path d="M5,2 h4 v3 h3 v4 h-3 v3 h-4 v-3 h-3 v-4 h3 z" fill="currentColor" />
+									{:else if style.value === 'x'}
+										<path d="M2,2 L12,12 M12,2 L2,12" stroke="currentColor" stroke-width="2.5" fill="none" />
+									{/if}
+								</svg>
+							</button>
+						{/each}
+					</div>
 				</div>
 
-				<!-- Axis Scale Section -->
-				<div class="section">
-					<div class="section-header">Y-Axis Scale</div>
-					<div class="button-group">
+				<!-- X-Axis Scale Section -->
+				<div class="setting-item">
+					<span class="setting-label">X-Axis Scale</span>
+					<div class="pill-group">
 						<button
-							class="style-btn scale-btn"
+							class="style-pill"
+							class:active={xAxisScale === 'linear'}
+							onclick={() => updateXAxisScale('linear')}
+						>
+							Linear
+						</button>
+						<button
+							class="style-pill"
+							class:active={xAxisScale === 'log'}
+							onclick={() => updateXAxisScale('log')}
+						>
+							Log
+						</button>
+					</div>
+				</div>
+
+				<!-- Y-Axis Scale Section -->
+				<div class="setting-item">
+					<span class="setting-label">Y-Axis Scale</span>
+					<div class="pill-group">
+						<button
+							class="style-pill"
 							class:active={yAxisScale === 'linear'}
 							onclick={() => updateYAxisScale('linear')}
 						>
 							Linear
 						</button>
 						<button
-							class="style-btn scale-btn"
+							class="style-pill"
 							class:active={yAxisScale === 'log'}
 							onclick={() => updateYAxisScale('log')}
 						>
@@ -184,16 +203,24 @@
 				</div>
 
 				<!-- Display Section -->
-				<div class="section">
-					<div class="section-header">Display</div>
-					<label class="toggle-row">
-						<input
-							type="checkbox"
-							checked={showLegend}
-							onchange={(e) => updateShowLegend(e.currentTarget.checked)}
-						/>
-						<span>Show legend</span>
-					</label>
+				<div class="setting-item">
+					<span class="setting-label">Legend</span>
+					<div class="pill-group">
+						<button
+							class="style-pill"
+							class:active={!showLegend}
+							onclick={() => updateShowLegend(false)}
+						>
+							Hide
+						</button>
+						<button
+							class="style-pill"
+							class:active={showLegend}
+							onclick={() => updateShowLegend(true)}
+						>
+							Show
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -213,91 +240,68 @@
 	.dialog-body {
 		padding: var(--space-md);
 		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
 	}
 
-	.section {
-		margin-bottom: var(--space-lg);
+	.setting-item {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
 	}
 
-	.section:last-child {
-		margin-bottom: 0;
-	}
-
-	.section-header {
+	.setting-label {
 		font-size: 10px;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		color: var(--text-disabled);
-		margin-bottom: var(--space-sm);
+		color: var(--text-muted);
 	}
 
-	.button-group {
+	.pill-group {
 		display: flex;
 		gap: 4px;
+		flex-wrap: wrap;
 	}
 
-	.style-btn {
+	.style-pill {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 6px 10px;
+		padding: 4px 8px;
+		min-width: 40px;
+		height: 24px;
+		font-size: 10px;
+		font-weight: 500;
 		background: var(--surface-raised);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
 		color: var(--text-muted);
-		font-size: 11px;
 		cursor: pointer;
 		transition: all var(--transition-fast);
 	}
 
-	.style-btn:hover {
+	.style-pill:hover {
 		background: var(--surface-hover);
+		border-color: var(--border-focus);
 		color: var(--text);
 	}
 
-	.style-btn.active {
-		background: var(--accent-bg);
+	.style-pill.active {
+		background: color-mix(in srgb, var(--accent) 15%, var(--surface-raised));
 		border-color: var(--accent);
-		color: var(--text);
+		color: var(--accent);
 	}
 
-	.style-btn .preview {
+	.style-pill .preview {
 		font-family: var(--font-mono);
 		font-size: 10px;
 		letter-spacing: -0.5px;
 	}
 
-	.marker-btn {
-		padding: 6px 8px;
-	}
-
-	.marker-group {
-		margin-top: var(--space-sm);
-	}
-
-	.scale-btn {
-		flex: 1;
-	}
-
-	.toggle-row {
-		display: flex;
-		align-items: center;
-		gap: var(--space-sm);
-		font-size: 11px;
-		color: var(--text-muted);
-		cursor: pointer;
-	}
-
-	.toggle-row input[type="checkbox"] {
-		width: 14px;
-		height: 14px;
-		margin: 0;
-		accent-color: var(--accent);
-		cursor: pointer;
-	}
-
-	.toggle-row:hover span {
-		color: var(--text);
+	.marker-pill {
+		padding: 4px 6px;
+		min-width: 28px;
 	}
 </style>

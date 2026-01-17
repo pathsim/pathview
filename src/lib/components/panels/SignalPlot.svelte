@@ -70,6 +70,7 @@
 		lineStyle: 'solid',
 		showMarkers: false,
 		markerStyle: 'circle',
+		xAxisScale: 'linear',
 		yAxisScale: 'linear',
 		showLegend: false
 	});
@@ -165,6 +166,7 @@
 			markerStyle: plotSettings.markerStyle
 		};
 		const layoutStyle: LayoutStyleOptions = {
+			xAxisScale: plotSettings.xAxisScale,
 			yAxisScale: plotSettings.yAxisScale
 		};
 
@@ -221,6 +223,7 @@
 			markerStyle: plotSettings.markerStyle
 		};
 		const layoutStyle: LayoutStyleOptions = {
+			xAxisScale: plotSettings.xAxisScale,
 			yAxisScale: plotSettings.yAxisScale
 		};
 
