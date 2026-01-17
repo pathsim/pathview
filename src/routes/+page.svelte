@@ -18,6 +18,8 @@
 	import { buildContextMenuItems, type ContextMenuCallbacks } from '$lib/components/contextMenuBuilders';
 	import ExportDialog from '$lib/components/dialogs/ExportDialog.svelte';
 	import KeyboardShortcutsDialog from '$lib/components/dialogs/KeyboardShortcutsDialog.svelte';
+	import PlotOptionsDialog from '$lib/components/dialogs/PlotOptionsDialog.svelte';
+	import { plotSettingsStore } from '$lib/stores/plotSettings';
 	import SearchDialog from '$lib/components/dialogs/SearchDialog.svelte';
 	import ResizablePanel from '$lib/components/ResizablePanel.svelte';
 	import WelcomeModal from '$lib/components/WelcomeModal.svelte';
@@ -271,6 +273,7 @@
 	let exportDialogOpen = $state(false);
 	let showKeyboardShortcuts = $state(false);
 	let showSearchDialog = $state(false);
+	let showPlotOptionsDialog = $state(false);
 
 	// Context menu state
 	let contextMenuOpen = $state(false);
@@ -348,7 +351,7 @@
 	let consoleLogCount = $state(0);
 	let plotActiveTab = $state(0);
 	let plotViewMode = $state<'tabs' | 'tiles'>('tabs');
-	let showPlotLegend = $state(false);
+	let showPlotLegend = $state(false); // Synced with plotSettingsStore
 	let resultPlots = $state<{ id: string; type: 'scope' | 'spectrum'; title: string }[]>([]);
 
 	// Tooltip for continue button - simple, disabled state shows availability
@@ -423,6 +426,11 @@
 		const unsubConsole = consoleStore.subscribe((logs) => {
 			consoleLogCount = logs.length;
 		});
+
+		const unsubPlotSettings = plotSettingsStore.subscribe((s) => {
+			showPlotLegend = s.showLegend;
+		});
+
 		// Always start with clean slate
 		clearAutoSave();
 
@@ -459,6 +467,7 @@
 			unsubPyodide();
 			unsubSimulation();
 			unsubConsole();
+			unsubPlotSettings();
 			// Cleanup autosave subscriptions
 			cleanupAutoSave();
 			unsubNodes();
@@ -1176,7 +1185,15 @@
 			{#snippet actions()}
 				<button
 					class="icon-btn ghost"
-					onclick={() => showPlotLegend = !showPlotLegend}
+					onclick={() => showPlotOptionsDialog = true}
+					use:tooltip={{ text: 'Plot options', position: 'bottom' }}
+					aria-label="Plot options"
+				>
+					<Icon name="settings" size={16} />
+				</button>
+				<button
+					class="icon-btn ghost"
+					onclick={() => plotSettingsStore.setShowLegend(!showPlotLegend)}
 					use:tooltip={{ text: showPlotLegend ? 'Hide legend' : 'Show legend', position: 'bottom' }}
 					aria-label={showPlotLegend ? 'Hide legend' : 'Show legend'}
 				>
@@ -1242,6 +1259,7 @@
 	<!-- Keyboard Shortcuts Dialog -->
 	<KeyboardShortcutsDialog open={showKeyboardShortcuts} onClose={() => showKeyboardShortcuts = false} />
 	<SearchDialog open={showSearchDialog} onClose={() => showSearchDialog = false} />
+	<PlotOptionsDialog open={showPlotOptionsDialog} onClose={() => showPlotOptionsDialog = false} />
 
 	<!-- Block Properties Dialog -->
 	<BlockPropertiesDialog />

@@ -3,6 +3,38 @@
  * Uses CSS variables from app.css for consistent theming
  */
 
+import type { LineStyle, MarkerStyle, AxisScale } from '$lib/stores/plotSettings';
+
+/** Style options for trace rendering */
+export interface TraceStyleOptions {
+	lineStyle?: LineStyle;
+	showMarkers?: boolean;
+	markerStyle?: MarkerStyle;
+}
+
+/** Style options for layout */
+export interface LayoutStyleOptions {
+	yAxisScale?: AxisScale;
+}
+
+/** Map our line style names to Plotly dash values */
+const LINE_DASH_MAP: Record<LineStyle, Plotly.Dash> = {
+	solid: 'solid',
+	dash: 'dash',
+	dot: 'dot',
+	dashdot: 'dashdot'
+};
+
+/** Map our marker style names to Plotly symbol values */
+const MARKER_SYMBOL_MAP: Record<MarkerStyle, string> = {
+	circle: 'circle',
+	square: 'square',
+	diamond: 'diamond',
+	'triangle-up': 'triangle-up',
+	cross: 'cross',
+	x: 'x'
+};
+
 /**
  * Read a CSS variable value from the document root
  * Automatically reflects current theme (light/dark)
@@ -74,7 +106,11 @@ export function getBaseLayout(): Partial<Plotly.Layout> {
 }
 
 // Scope plot (time-domain) layout
-export function getScopeLayout(title: string = 'Scope', showLegend: boolean = false): Partial<Plotly.Layout> {
+export function getScopeLayout(
+	title: string = 'Scope',
+	showLegend: boolean = false,
+	styleOptions?: LayoutStyleOptions
+): Partial<Plotly.Layout> {
 	const baseLayout = getBaseLayout();
 	// Format y-axis label as "Scope: Name" or just "Scope" if no custom name
 	const yAxisLabel = title.toLowerCase().startsWith('scope') ? title : `Scope: ${title}`;
@@ -86,7 +122,8 @@ export function getScopeLayout(title: string = 'Scope', showLegend: boolean = fa
 		},
 		yaxis: {
 			...baseLayout.yaxis,
-			title: { text: yAxisLabel, font: { size: 11 }, standoff: 5 }
+			title: { text: yAxisLabel, font: { size: 11 }, standoff: 5 },
+			type: styleOptions?.yAxisScale ?? 'linear'
 		},
 		showlegend: showLegend,
 		legend: {
@@ -105,7 +142,8 @@ export function getScopeLayout(title: string = 'Scope', showLegend: boolean = fa
 export function getSpectrumLayout(
 	title: string = 'Spectrum',
 	frequencies?: number[],
-	showLegend: boolean = false
+	showLegend: boolean = false,
+	styleOptions?: LayoutStyleOptions
 ): Partial<Plotly.Layout> {
 	const baseLayout = getBaseLayout();
 
@@ -134,6 +172,9 @@ export function getSpectrumLayout(
 	// Format y-axis label as "Spectrum: Name" or just "Spectrum" if no custom name
 	const yAxisLabel = title.toLowerCase().startsWith('spectrum') ? title : `Spectrum: ${title}`;
 
+	// Spectrum defaults to log scale if not specified
+	const yAxisScale = styleOptions?.yAxisScale ?? 'log';
+
 	return {
 		...baseLayout,
 		xaxis: {
@@ -146,7 +187,7 @@ export function getSpectrumLayout(
 		yaxis: {
 			...baseLayout.yaxis,
 			title: { text: yAxisLabel, font: { size: 11 }, standoff: 5 },
-			type: 'log'
+			type: yAxisScale
 		},
 		showlegend: showLegend,
 		legend: {
@@ -228,21 +269,39 @@ export function createScopeTrace(
 	time: number[],
 	signal: number[],
 	index: number,
-	name?: string
+	name?: string,
+	styleOptions?: TraceStyleOptions
 ): Partial<Plotly.ScatterData> {
 	const traceName = name || `port ${index}`;
 	const color = getSignalColor(index);
+
+	// Determine mode based on marker settings
+	const showMarkers = styleOptions?.showMarkers ?? false;
+	const mode = showMarkers ? 'lines+markers' : 'lines';
+
+	// Line dash style
+	const dash = LINE_DASH_MAP[styleOptions?.lineStyle ?? 'solid'];
+
+	// Marker configuration
+	const marker = showMarkers ? {
+		symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
+		size: 6,
+		color
+	} : undefined;
+
 	return {
 		x: time,
 		y: signal,
 		type: TRACE_TYPE,
-		mode: 'lines',
+		mode,
 		name: traceName,
 		legendgroup: `signal-${index}`,
 		line: {
 			color,
-			width: 1.5
+			width: 1.5,
+			dash
 		},
+		marker,
 		hovertemplate: `<b style="color:${color}">${traceName}</b><br>t = %{x:.4g} s<br>y = %{y:.4g}<extra></extra>`
 	};
 }
@@ -281,23 +340,41 @@ export function createSpectrumTrace(
 	frequency: number[],
 	magnitude: number[],
 	index: number,
-	name?: string
+	name?: string,
+	styleOptions?: TraceStyleOptions
 ): Partial<Plotly.ScatterData> {
 	const traceName = name || `port ${index}`;
 	const color = getSignalColor(index);
 	// Use indices for x-axis (equal spacing)
 	const indices = Array.from({ length: magnitude.length }, (_, i) => i);
+
+	// Determine mode based on marker settings
+	const showMarkers = styleOptions?.showMarkers ?? false;
+	const mode = showMarkers ? 'lines+markers' : 'lines';
+
+	// Line dash style
+	const dash = LINE_DASH_MAP[styleOptions?.lineStyle ?? 'solid'];
+
+	// Marker configuration
+	const marker = showMarkers ? {
+		symbol: MARKER_SYMBOL_MAP[styleOptions?.markerStyle ?? 'circle'],
+		size: 6,
+		color
+	} : undefined;
+
 	return {
 		x: indices,
 		y: magnitude,
 		type: TRACE_TYPE,
-		mode: 'lines',
+		mode,
 		name: traceName,
 		legendgroup: `signal-${index}`,
 		line: {
 			color,
-			width: 1.5
+			width: 1.5,
+			dash
 		},
+		marker,
 		// Store frequency in customdata for hover
 		customdata: frequency,
 		hovertemplate: `<b style="color:${color}">${traceName}</b><br>f = %{customdata:.2f} Hz<br>mag = %{y:.4g}<extra></extra>`

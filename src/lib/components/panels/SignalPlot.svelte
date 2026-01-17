@@ -7,9 +7,12 @@
 		createSpectrumTrace,
 		createGhostScopeTrace,
 		createGhostSpectrumTrace,
-		plotConfig
+		plotConfig,
+		type TraceStyleOptions,
+		type LayoutStyleOptions
 	} from '$lib/plotting/plotUtils';
 	import { themeStore, type Theme } from '$lib/stores/theme';
+	import { plotSettingsStore, type PlotSettings } from '$lib/stores/plotSettings';
 	import { enqueuePlotUpdate, cancelPlotUpdate, isVisible } from './plotQueue';
 
 	interface ScopeData {
@@ -63,6 +66,13 @@
 	let Plotly: typeof import('plotly.js-dist-min') | null = null;
 	let resizeObserver: ResizeObserver | null = null;
 	let currentTheme = $state<Theme>('dark');
+	let plotSettings = $state<PlotSettings>({
+		lineStyle: 'solid',
+		showMarkers: false,
+		markerStyle: 'circle',
+		yAxisScale: 'linear',
+		showLegend: false
+	});
 
 	// Unique ID for this component in the shared render queue
 	const componentId = Symbol();
@@ -75,6 +85,10 @@
 
 	const unsubscribeTheme = themeStore.subscribe((theme) => {
 		currentTheme = theme;
+	});
+
+	const unsubscribePlotSettings = plotSettingsStore.subscribe((s) => {
+		plotSettings = s;
 	});
 
 	onMount(async () => {
@@ -117,6 +131,7 @@
 		const _type = type;
 		const _showLegend = showLegend;
 		const _isStreaming = isStreaming;
+		const _plotSettings = plotSettings;
 		if (Plotly && plotDiv) {
 			// Always update - handles empty data with ghosts, etc.
 			scheduleUpdate();
@@ -143,6 +158,16 @@
 		const spectrumGhosts = ghostData as SpectrumData[];
 		const totalGhosts = spectrumGhosts.length;
 
+		// Style options from store
+		const traceStyle: TraceStyleOptions = {
+			lineStyle: plotSettings.lineStyle,
+			showMarkers: plotSettings.showMarkers,
+			markerStyle: plotSettings.markerStyle
+		};
+		const layoutStyle: LayoutStyleOptions = {
+			yAxisScale: plotSettings.yAxisScale
+		};
+
 		// Add ghost traces
 		for (let ghostIdx = totalGhosts - 1; ghostIdx >= 0; ghostIdx--) {
 			const ghost = spectrumGhosts[ghostIdx];
@@ -153,13 +178,13 @@
 		}
 
 		// Add current data traces
-		let layout = getSpectrumLayout(plotTitle, undefined, showLegend);
+		let layout = getSpectrumLayout(plotTitle, undefined, showLegend, layoutStyle);
 		if (hasData()) {
 			const spectrumData = data as SpectrumData;
 			for (let i = 0; i < spectrumData.magnitude.length; i++) {
-				traces.push(createSpectrumTrace(spectrumData.frequency, spectrumData.magnitude[i], i, getSignalLabel(i)));
+				traces.push(createSpectrumTrace(spectrumData.frequency, spectrumData.magnitude[i], i, getSignalLabel(i), traceStyle));
 			}
-			layout = getSpectrumLayout(plotTitle, spectrumData.frequency, showLegend);
+			layout = getSpectrumLayout(plotTitle, spectrumData.frequency, showLegend, layoutStyle);
 		}
 
 		if (traces.length === 0) {
@@ -189,8 +214,18 @@
 	function fullScopeRender(scopeData: ScopeData | null, scopeGhosts: ScopeData[]) {
 		if (!Plotly || !plotDiv) return;
 
+		// Style options from store
+		const traceStyle: TraceStyleOptions = {
+			lineStyle: plotSettings.lineStyle,
+			showMarkers: plotSettings.showMarkers,
+			markerStyle: plotSettings.markerStyle
+		};
+		const layoutStyle: LayoutStyleOptions = {
+			yAxisScale: plotSettings.yAxisScale
+		};
+
 		const traces: Partial<Plotly.ScatterData>[] = [];
-		const layout = getScopeLayout(plotTitle, showLegend);
+		const layout = getScopeLayout(plotTitle, showLegend, layoutStyle);
 		const totalGhosts = scopeGhosts.length;
 
 		// Add ghost traces (rendered once, won't change during streaming)
@@ -208,7 +243,7 @@
 		// Add current data traces
 		if (scopeData && scopeData.time?.length > 0) {
 			for (let i = 0; i < scopeData.signals.length; i++) {
-				traces.push(createScopeTrace(scopeData.time, scopeData.signals[i], i, getSignalLabel(i)));
+				traces.push(createScopeTrace(scopeData.time, scopeData.signals[i], i, getSignalLabel(i), traceStyle));
 			}
 		}
 
@@ -269,6 +304,7 @@
 
 	onDestroy(() => {
 		unsubscribeTheme();
+		unsubscribePlotSettings();
 		cancelPlotUpdate(componentId);
 		if (resizeObserver) {
 			resizeObserver.disconnect();
