@@ -103,6 +103,8 @@
 			<img src="{base}/pathview_logo.png" alt="PathView" class="logo" />
 		</div>
 
+		<div class="separator"></div>
+
 		<div class="actions">
 			<button class="action-card" onclick={handleNew}>
 				<Icon name="new-canvas" size={20} />
@@ -134,6 +136,8 @@
 				<span class="action-label">Sponsor</span>
 			</a>
 		</div>
+
+		<div class="separator"></div>
 
 		{#if loading}
 			<div class="examples-section">
@@ -174,6 +178,7 @@
 
 	.header {
 		text-align: center;
+		padding: 24px 0;
 	}
 
 	.logo {
@@ -191,29 +196,34 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 6px;
-		padding: 14px 12px;
+		padding: 6px 12px;
 		background: transparent;
-		border: 1px solid transparent;
+		border: none;
 		border-radius: var(--radius-md);
 		color: var(--text-muted);
 		cursor: pointer;
-		transition: all 0.15s ease;
 		text-decoration: none;
 		font-family: inherit;
 	}
 
-	.action-card:hover {
-		background: var(--surface-hover);
-		border-color: var(--border);
-	}
-
 	.action-card :global(svg) {
 		color: var(--accent);
+		transition: transform 0.15s ease;
+	}
+
+	.action-card:hover :global(svg) {
+		transform: scale(1.2);
 	}
 
 	.action-label {
 		font-size: 11px;
 		font-weight: 500;
+	}
+
+	.separator {
+		height: 1px;
+		background: var(--border);
+		margin: 0 -24px;
 	}
 
 	.examples-section {
