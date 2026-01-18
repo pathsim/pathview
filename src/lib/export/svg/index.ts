@@ -1,8 +1,9 @@
 /**
  * SVG Export Module
  *
- * Pure SVG rendering from graph state - no DOM scraping.
- * Single source of truth for dimensions, handle paths, and theme colors.
+ * Hybrid approach for accurate SVG export:
+ * - Edges: cloned from SvelteFlow's SVG (already vector graphics)
+ * - Nodes/Events: pure SVG with dimensions and styles read from DOM
  */
 
 export { exportToSVG } from './renderer';

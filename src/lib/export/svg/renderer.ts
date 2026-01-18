@@ -1,17 +1,21 @@
 /**
  * SVG Renderer
  *
- * Renders the current graph view as SVG by reading from the DOM.
- * Uses centralized constants for theme colors and handle paths.
+ * Renders the current graph view as SVG using a hybrid approach:
+ * - Edges: cloned directly from SvelteFlow's SVG (already vector graphics)
+ * - Nodes/Events: pure SVG with dimensions and styles read from DOM
+ *
+ * This approach ensures pixel-perfect accuracy while producing clean SVG output.
  */
 
 import { get } from 'svelte/store';
 import { graphStore } from '$lib/stores/graph';
 import { eventStore } from '$lib/stores/events';
 import { getThemeColors } from '$lib/constants/theme';
-import { EXPORT_PADDING, EVENT } from '$lib/constants/dimensions';
+import { EVENT } from '$lib/constants/dimensions';
 import { getHandlePath } from '$lib/constants/handlePaths';
 import type { ExportOptions, RenderContext, Bounds } from './types';
+import { DEFAULT_OPTIONS } from './types';
 import type { NodeInstance } from '$lib/types/nodes';
 import type { EventInstance } from '$lib/types/events';
 
@@ -19,7 +23,6 @@ import type { EventInstance } from '$lib/types/events';
 // DOM UTILITIES
 // ============================================================================
 
-/** Get current viewport zoom level */
 function getZoom(): number {
 	const viewport = document.querySelector('.svelte-flow__viewport') as HTMLElement;
 	if (!viewport) return 1;
@@ -27,7 +30,15 @@ function getZoom(): number {
 	return match ? parseFloat(match[1]) : 1;
 }
 
-/** Get node dimensions from DOM */
+function escapeXml(str: string): string {
+	return str
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;');
+}
+
 function getNodeDimensions(nodeId: string): { width: number; height: number } | null {
 	const wrapper = document.querySelector(`[data-id="${nodeId}"]`) as HTMLElement;
 	if (!wrapper) return null;
@@ -37,47 +48,57 @@ function getNodeDimensions(nodeId: string): { width: number; height: number } | 
 }
 
 // ============================================================================
-// EDGE RENDERING (clone from DOM)
+// EDGE RENDERING - Clone from DOM
 // ============================================================================
 
-/** Clone edges SVG from SvelteFlow and restyle */
 function renderEdges(ctx: RenderContext): string {
-	const edgesSvg = document.querySelector('.svelte-flow__edges') as SVGElement;
-	if (!edgesSvg) return '';
+	const container = document.querySelector('.svelte-flow__edges');
+	if (!container) return '';
 
-	// Clone the entire edges SVG content
-	const clone = edgesSvg.cloneNode(true) as SVGElement;
+	const parts: string[] = [];
 
-	// Restyle all paths to use theme colors (remove any inline styles/classes)
-	clone.querySelectorAll('path').forEach((path) => {
-		// Edge paths have class svelte-flow__edge-path
-		if (path.classList.contains('svelte-flow__edge-path')) {
-			path.setAttribute('stroke', ctx.theme.edge);
-			path.setAttribute('stroke-width', '1.5');
-			path.setAttribute('fill', 'none');
-		} else {
-			// Arrow paths
-			path.setAttribute('fill', ctx.theme.edge);
+	container.querySelectorAll('.svelte-flow__edge').forEach((edge) => {
+		const edgeParts: string[] = [];
+
+		// Get all paths and groups within this edge
+		edge.querySelectorAll('path').forEach((pathEl) => {
+			const d = pathEl.getAttribute('d');
+			if (!d) return;
+
+			// Check if it's the main edge path or arrow
+			if (pathEl.classList.contains('svelte-flow__edge-path')) {
+				edgeParts.push(
+					`<path d="${d}" fill="none" stroke="${ctx.theme.edge}" stroke-width="1.5"/>`
+				);
+			}
+		});
+
+		// Find arrow groups (have transform with rotate)
+		edge.querySelectorAll('g').forEach((g) => {
+			const transform = g.getAttribute('transform');
+			if (transform && transform.includes('rotate')) {
+				const arrowPath = g.querySelector('path');
+				if (arrowPath) {
+					const d = arrowPath.getAttribute('d');
+					if (d) {
+						edgeParts.push(`<g transform="${transform}"><path d="${d}" fill="${ctx.theme.edge}"/></g>`);
+					}
+				}
+			}
+		});
+
+		if (edgeParts.length > 0) {
+			parts.push(`<g class="edge">${edgeParts.join('')}</g>`);
 		}
-		path.removeAttribute('class');
-		path.removeAttribute('style');
 	});
 
-	// Remove wrapper classes/styles
-	clone.querySelectorAll('g').forEach((g) => {
-		g.removeAttribute('class');
-		g.removeAttribute('style');
-	});
-
-	// Get inner content (skip the outer <svg> wrapper)
-	return `<g class="edges">${clone.innerHTML}</g>`;
+	return parts.length > 0 ? `<g class="edges">\n${parts.join('\n')}\n</g>` : '';
 }
 
 // ============================================================================
-// HANDLE RENDERING (from DOM positions + constants for shape)
+// HANDLE RENDERING
 // ============================================================================
 
-/** Extract and render handles for a node */
 function renderHandles(nodeId: string, nodeX: number, nodeY: number, ctx: RenderContext): string {
 	const wrapper = document.querySelector(`[data-id="${nodeId}"]`);
 	if (!wrapper) return '';
@@ -92,28 +113,24 @@ function renderHandles(nodeId: string, nodeX: number, nodeY: number, ctx: Render
 
 	nodeEl.querySelectorAll('.svelte-flow__handle').forEach((handle) => {
 		const rect = handle.getBoundingClientRect();
-		// Get center of handle relative to node
 		const cx = (rect.left + rect.width / 2 - nodeRect.left) / zoom;
 		const cy = (rect.top + rect.height / 2 - nodeRect.top) / zoom;
-		// Position handle path centered on this point
 		const x = nodeX + cx - paths.width / 2;
 		const y = nodeY + cy - paths.height / 2;
 
-		// Two-layer hollow handle
 		handles.push(`<g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
-		<path d="${paths.outer}" fill="${ctx.theme.edge}"/>
-		<path d="${paths.inner}" fill="${ctx.theme.surfaceRaised}" transform="translate(1, 1)"/>
-	</g>`);
+	<path d="${paths.outer}" fill="${ctx.theme.edge}"/>
+	<path d="${paths.inner}" fill="${ctx.theme.surfaceRaised}" transform="translate(1, 1)"/>
+</g>`);
 	});
 
-	return handles.join('\n\t');
+	return handles.join('\n');
 }
 
 // ============================================================================
-// NODE RENDERING (clone HTML into foreignObject)
+// NODE RENDERING - Pure SVG with DOM-read styles
 // ============================================================================
 
-/** Clone a node's HTML and embed in SVG foreignObject */
 function renderNode(node: NodeInstance, ctx: RenderContext): string {
 	const { x, y } = node.position;
 	const wrapper = document.querySelector(`[data-id="${node.id}"]`) as HTMLElement;
@@ -123,97 +140,122 @@ function renderNode(node: NodeInstance, ctx: RenderContext): string {
 	if (!dims) return '';
 	const { width, height } = dims;
 
-	// Clone the node's inner .node element
 	const nodeEl = wrapper.querySelector('.node') as HTMLElement;
 	if (!nodeEl) return '';
 
-	const clone = nodeEl.cloneNode(true) as HTMLElement;
-
-	// Inline critical styles since CSS won't apply in standalone SVG
+	// Read styles from DOM
 	const computed = getComputedStyle(nodeEl);
-	clone.style.cssText = `
-		background: ${computed.backgroundColor};
-		border: ${computed.border};
-		border-radius: ${computed.borderRadius};
-		font-size: ${computed.fontSize};
-		min-width: ${width}px;
-		min-height: ${height}px;
-		color: ${computed.color};
-		--node-color: ${node.color || ctx.theme.accent};
-		--edge: ${ctx.theme.edge};
-		--surface-raised: ${ctx.theme.surfaceRaised};
-		--text-muted: ${ctx.theme.textMuted};
-	`;
+	const borderRadius = parseFloat(computed.borderRadius) || 8;
+	const isSubsystem = node.type === 'Subsystem' || node.type === 'Interface';
+	const color = node.color || ctx.theme.accent;
 
-	// Remove any hover/preview related classes
-	clone.classList.remove('preview-hovered', 'selected');
+	// Get text content
+	const nameEl = nodeEl.querySelector('.node-name');
+	const typeEl = nodeEl.querySelector('.node-type');
+	const nodeName = nameEl?.textContent || node.name;
+	const nodeType = typeEl?.textContent || '';
 
-	// Remove plot preview popups
-	clone.querySelectorAll('.plot-preview-popup').forEach((el) => el.remove());
+	const parts: string[] = [];
 
-	// Remove handles (we'll render them separately as SVG)
-	clone.querySelectorAll('.svelte-flow__handle').forEach((el) => el.remove());
+	// Background fill
+	parts.push(
+		`<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${borderRadius}" fill="${ctx.theme.surfaceRaised}"/>`
+	);
 
-	const html = clone.outerHTML;
+	// Border
+	const strokeDasharray = isSubsystem ? ' stroke-dasharray="4 2"' : '';
+	parts.push(
+		`<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${borderRadius}" fill="none" stroke="${ctx.theme.edge}" stroke-width="1"${strokeDasharray}/>`
+	);
 
-	// Build foreignObject with embedded HTML
-	const parts: string[] = [
-		`<foreignObject x="${x}" y="${y}" width="${width}" height="${height}">`,
-		`<div xmlns="http://www.w3.org/1999/xhtml">${html}</div>`,
-		`</foreignObject>`
-	];
+	// Labels
+	if (ctx.options.showLabels) {
+		const centerX = x + width / 2;
+		const centerY = y + height / 2;
 
-	// Add handles as SVG paths
+		if (ctx.options.showTypeLabels && nodeType) {
+			// Name above center
+			parts.push(
+				`<text x="${centerX}" y="${centerY - 4}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="10" font-weight="600" font-family="system-ui, -apple-system, sans-serif">${escapeXml(nodeName)}</text>`
+			);
+			// Type below center
+			parts.push(
+				`<text x="${centerX}" y="${centerY + 8}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(nodeType)}</text>`
+			);
+		} else {
+			// Just name, centered
+			parts.push(
+				`<text x="${centerX}" y="${centerY}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="10" font-weight="600" font-family="system-ui, -apple-system, sans-serif">${escapeXml(nodeName)}</text>`
+			);
+		}
+	}
+
+	// Handles
 	if (ctx.options.showHandles) {
 		const handles = renderHandles(node.id, x, y, ctx);
 		if (handles) parts.push(handles);
 	}
 
-	return `<g class="node" data-id="${node.id}">\n\t${parts.join('\n\t')}\n</g>`;
+	return `<g class="node" data-id="${node.id}">\n${parts.join('\n')}\n</g>`;
 }
 
 // ============================================================================
-// EVENT RENDERING (clone HTML into foreignObject)
+// EVENT RENDERING - Pure SVG
 // ============================================================================
 
-/** Clone an event's HTML and embed in SVG foreignObject */
 function renderEvent(event: EventInstance, ctx: RenderContext): string {
-	const { x, y } = event.position;
 	const wrapper = document.querySelector(`[data-id="${event.id}"]`) as HTMLElement;
-	if (!wrapper) return '';
 
-	// Clone the event-node element
-	const eventEl = wrapper.querySelector('.event-node') as HTMLElement;
-	if (!eventEl) return '';
+	// Get text from DOM or fallback to data
+	let eventName = event.name;
+	let eventType = '';
 
-	const clone = eventEl.cloneNode(true) as HTMLElement;
+	if (wrapper) {
+		const nameEl = wrapper.querySelector('.event-name');
+		const typeEl = wrapper.querySelector('.event-type');
+		eventName = nameEl?.textContent || event.name;
+		eventType = typeEl?.textContent || '';
+	}
 
-	// Inline critical styles
+	const cx = event.position.x + EVENT.center;
+	const cy = event.position.y + EVENT.center;
 	const color = event.color || ctx.theme.accent;
-	clone.style.cssText = `
-		--event-color: ${color};
-		--edge: ${ctx.theme.edge};
-		--surface-raised: ${ctx.theme.surfaceRaised};
-		--text-muted: ${ctx.theme.textMuted};
-	`;
 
-	// Remove selection state
-	clone.classList.remove('selected');
+	const parts: string[] = [];
 
-	const html = clone.outerHTML;
+	// Diamond background
+	parts.push(
+		`<rect x="${cx - EVENT.diamondOffset}" y="${cy - EVENT.diamondOffset}" width="${EVENT.diamondSize}" height="${EVENT.diamondSize}" rx="4" fill="${ctx.theme.surfaceRaised}" transform="rotate(45 ${cx} ${cy})"/>`
+	);
 
-	return `<g class="event" data-id="${event.id}">
-	<foreignObject x="${x}" y="${y}" width="${EVENT.size}" height="${EVENT.size}">
-		<div xmlns="http://www.w3.org/1999/xhtml">${html}</div>
-	</foreignObject>
-</g>`;
+	// Diamond border
+	parts.push(
+		`<rect x="${cx - EVENT.diamondOffset}" y="${cy - EVENT.diamondOffset}" width="${EVENT.diamondSize}" height="${EVENT.diamondSize}" rx="4" fill="none" stroke="${ctx.theme.edge}" stroke-width="1" transform="rotate(45 ${cx} ${cy})"/>`
+	);
+
+	// Labels
+	if (ctx.options.showLabels) {
+		if (ctx.options.showTypeLabels && eventType) {
+			parts.push(
+				`<text x="${cx}" y="${cy - 4}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="10" font-weight="600" font-family="system-ui, -apple-system, sans-serif">${escapeXml(eventName)}</text>`
+			);
+			parts.push(
+				`<text x="${cx}" y="${cy + 8}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(eventType)}</text>`
+			);
+		} else {
+			parts.push(
+				`<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="10" font-weight="600" font-family="system-ui, -apple-system, sans-serif">${escapeXml(eventName)}</text>`
+			);
+		}
+	}
+
+	return `<g class="event" data-id="${event.id}">\n${parts.join('\n')}\n</g>`;
 }
 
 // ============================================================================
-// BOUNDS CALCULATION
+// BOUNDS & MAIN EXPORT
 // ============================================================================
 
-/** Calculate bounds from nodes and events */
 function calculateBounds(nodes: NodeInstance[], events: EventInstance[]): Bounds {
 	const bounds: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 
@@ -237,25 +279,8 @@ function calculateBounds(nodes: NodeInstance[], events: EventInstance[]): Bounds
 	return isFinite(bounds.minX) ? bounds : { minX: 0, minY: 0, maxX: 200, maxY: 200 };
 }
 
-// ============================================================================
-// MAIN EXPORT
-// ============================================================================
-
-/** Default options */
-const DEFAULTS: Required<ExportOptions> = {
-	theme: 'auto',
-	background: 'transparent',
-	padding: EXPORT_PADDING,
-	showLabels: true,
-	showTypeLabels: true,
-	showHandles: true
-};
-
-/**
- * Export the current graph as SVG string
- */
 export function exportToSVG(options: ExportOptions = {}): string {
-	const opts: Required<ExportOptions> = { ...DEFAULTS, ...options };
+	const opts: Required<ExportOptions> = { ...DEFAULT_OPTIONS, ...options };
 	const themeColors = getThemeColors(opts.theme);
 	const ctx: RenderContext = { theme: themeColors, options: opts };
 
@@ -279,7 +304,7 @@ export function exportToSVG(options: ExportOptions = {}): string {
 		);
 	}
 
-	// Edges (from DOM)
+	// Edges
 	const edges = renderEdges(ctx);
 	if (edges) parts.push(edges);
 

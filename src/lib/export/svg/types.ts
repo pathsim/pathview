@@ -3,6 +3,7 @@
  */
 
 import type { ThemeColors, ThemeName } from '$lib/constants/theme';
+import { EXPORT_PADDING } from '$lib/constants/dimensions';
 
 /** SVG export options */
 export interface ExportOptions {
@@ -40,7 +41,7 @@ export interface Bounds {
 export const DEFAULT_OPTIONS: Required<ExportOptions> = {
 	theme: 'auto',
 	background: 'transparent',
-	padding: 40,
+	padding: EXPORT_PADDING,
 	showLabels: true,
 	showTypeLabels: true,
 	showHandles: true

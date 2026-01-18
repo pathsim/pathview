@@ -9,7 +9,7 @@
  *
  * The hollow effect is created by layering:
  * 1. Outer path filled with border color
- * 2. Inner path filled with background color, offset by ~1.5px
+ * 2. Inner path filled with background color, offset by 1px (matches CSS inset: 1px)
  */
 
 export interface HandlePathDef {
