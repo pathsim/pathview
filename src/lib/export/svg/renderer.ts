@@ -11,10 +11,10 @@ import { eventStore } from '$lib/stores/events';
 import { getThemeColors } from '$lib/constants/theme';
 import { EXPORT_PADDING, EVENT } from '$lib/constants/dimensions';
 import { renderNode, getNodeDimensions } from './nodes';
-import { renderEdge } from './edges';
+import { renderConnection } from './edges';
 import { renderEvent } from './events';
-import type { ExportOptions, RenderContext, Bounds, DEFAULT_OPTIONS } from './types';
-import type { NodeInstance } from '$lib/types/nodes';
+import type { ExportOptions, RenderContext, Bounds } from './types';
+import type { NodeInstance, Connection } from '$lib/types/nodes';
 import type { EventInstance } from '$lib/types/events';
 
 /** Calculate bounding box for all elements */
@@ -100,10 +100,10 @@ export function exportToSVG(options: ExportOptions = {}): string {
 
 	// Get graph data
 	const nodes = get(graphStore.nodesArray);
-	const edges = get(graphStore.edgesArray);
+	const connections = get(graphStore.connections);
 	const events = get(eventStore.eventsArray);
 
-	// Create nodes map for edge lookups
+	// Create nodes map for connection lookups
 	const nodesMap = new Map<string, NodeInstance>();
 	for (const node of nodes) {
 		nodesMap.set(node.id, node);
@@ -123,11 +123,11 @@ export function exportToSVG(options: ExportOptions = {}): string {
 		parts.push(renderBackground(bounds, opts.padding, ctx));
 	}
 
-	// Edges (rendered below nodes)
-	if (edges.length > 0) {
+	// Connections (rendered below nodes)
+	if (connections.length > 0) {
 		parts.push('<g class="edges">');
-		for (const edge of edges) {
-			parts.push(renderEdge(edge, nodesMap, ctx));
+		for (const connection of connections) {
+			parts.push(renderConnection(connection, nodesMap, ctx));
 		}
 		parts.push('</g>');
 	}
