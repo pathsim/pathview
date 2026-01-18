@@ -29,6 +29,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update version from release tag
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Strip 'v' prefix if present
+          echo "Updating package.json version to $VERSION"
+          npm version $VERSION --no-git-tag-version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "Bump version to $VERSION"
+          git push origin main
 
       - name: Setup Node
         uses: actions/setup-node@v4
