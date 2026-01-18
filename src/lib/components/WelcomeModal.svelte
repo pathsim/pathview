@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-    import { base } from '$app/paths';
+	import { base } from '$app/paths';
 	import { scale, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
@@ -8,8 +8,7 @@
 	interface Example {
 		name: string;
 		file: string;
-		nodeCount: number;
-		description?: string;
+		previewBase: string;
 	}
 
 	interface Props {
@@ -23,40 +22,53 @@
 
 	let examples = $state<Example[]>([]);
 	let loading = $state(true);
+	let isDark = $state(true);
 
-	onMount(async () => {
-		try {
-			// Fetch manifest (just a list of filenames)
-			const manifestRes = await fetch(`${base}/examples/manifest.json`);
-			if (!manifestRes.ok) throw new Error('No manifest');
-			const manifest = await manifestRes.json();
-			const files: string[] = manifest.files || [];
+	onMount(() => {
+		// Detect theme and watch for changes
+		const updateTheme = () => {
+			isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+		};
+		updateTheme();
 
-			// Fetch all files in parallel to get metadata
-			const loadedExamples = await Promise.all(
-				files.map(async (filename): Promise<Example | null> => {
-					try {
-						const fileRes = await fetch(`${base}/examples/${filename}`);
-						if (fileRes.ok) {
-							const data = await fileRes.json();
-							return {
-								name: data.metadata?.name || filename.replace('.json', ''),
-								file: `${base}/examples/${filename}`,
-								nodeCount: data.graph?.nodes?.length || 0,
-								description: data.metadata?.description
-							};
+		const observer = new MutationObserver(updateTheme);
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+		// Load examples
+		(async () => {
+			try {
+				const manifestRes = await fetch(`${base}/examples/manifest.json`);
+				if (!manifestRes.ok) throw new Error('No manifest');
+				const manifest = await manifestRes.json();
+				const files: string[] = manifest.files || [];
+
+				const loadedExamples = await Promise.all(
+					files.map(async (filename): Promise<Example | null> => {
+						try {
+							const fileRes = await fetch(`${base}/examples/${filename}`);
+							if (fileRes.ok) {
+								const data = await fileRes.json();
+								const baseName = filename.replace('.json', '');
+								return {
+									name: data.metadata?.name || baseName,
+									file: `${base}/examples/${filename}`,
+									previewBase: `${base}/examples/${baseName}`
+								};
+							}
+						} catch (e) {
+							console.warn(`Could not load example: ${filename}`);
 						}
-					} catch (e) {
-						console.warn(`Could not load example: ${filename}`);
-					}
-					return null;
-				})
-			);
-			examples = loadedExamples.filter((e): e is Example => e !== null);
-		} catch (e) {
-			console.warn('Could not load examples');
-		}
-		loading = false;
+						return null;
+					})
+				);
+				examples = loadedExamples.filter((e): e is Example => e !== null);
+			} catch (e) {
+				console.warn('Could not load examples');
+			}
+			loading = false;
+		})();
+
+		return () => observer.disconnect();
 	});
 
 	function handleNew() {
@@ -120,17 +132,19 @@
 
 		{#if loading}
 			<div class="examples-section">
-				<h3>Examples</h3>
 				<div class="loading-text">Loading examples...</div>
 			</div>
 		{:else if examples.length > 0}
 			<div class="examples-section">
-				<h3>Examples</h3>
 				<div class="examples-grid">
 					{#each examples as example}
 						<button class="example-card" onclick={() => handleExample(example.file)}>
-							<span class="example-name">{example.name}</span>
-							<span class="example-desc">{example.description || `${example.nodeCount} nodes`}</span>
+							<div class="example-info">
+								<div class="example-name">{example.name}</div>
+							</div>
+							<div class="example-preview">
+								<img src="{example.previewBase}-{isDark ? 'dark' : 'light'}.svg" alt="{example.name} preview" />
+							</div>
 						</button>
 					{/each}
 				</div>
@@ -145,11 +159,13 @@
 
 	.modal {
 		width: 90%;
-		max-width: 580px;
+		max-width: 780px;
 		padding: 24px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+		background: var(--surface-raised);
+		overflow: hidden;
 	}
 
 	.header {
@@ -172,8 +188,8 @@
 		align-items: center;
 		gap: 6px;
 		padding: 14px 12px;
-		background: var(--surface-raised);
-		border: 1px solid var(--border);
+		background: transparent;
+		border: 1px solid transparent;
 		border-radius: var(--radius-md);
 		color: var(--text-muted);
 		cursor: pointer;
@@ -184,8 +200,7 @@
 
 	.action-card:hover {
 		background: var(--surface-hover);
-		border-color: var(--accent);
-		transform: translateY(-1px);
+		border-color: var(--border);
 	}
 
 	.action-card :global(svg) {
@@ -200,16 +215,9 @@
 	.examples-section {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-	}
-
-	.examples-section h3 {
-		font-size: 11px;
-		font-weight: 500;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin: 0;
+		min-height: 0;
+		flex: 1;
+		margin: 0 -24px -24px -24px;
 	}
 
 	.loading-text {
@@ -222,38 +230,69 @@
 	.examples-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 6px;
+		grid-auto-rows: min-content;
+		align-items: start;
+		gap: 10px;
+		overflow-y: auto;
+		max-height: 320px;
+		padding: 0 24px 24px 24px;
 	}
 
 	.example-card {
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
-		gap: 2px;
-		padding: 8px 10px;
-		background: var(--surface-raised);
+		align-items: stretch;
+		justify-content: flex-start;
+		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		cursor: pointer;
 		transition: all 0.15s ease;
 		text-align: left;
+		overflow: hidden;
+		font-family: inherit;
 	}
 
 	.example-card:hover {
-		background: var(--surface-hover);
 		border-color: var(--accent);
+	}
+
+	.example-preview {
+		background: var(--surface);
+		width: 100%;
+	}
+
+	.example-preview img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.example-info {
+		padding: 0;
+		text-align: left;
 	}
 
 	.example-name {
 		font-size: 11px;
 		font-weight: 500;
-		color: var(--accent);
+		color: var(--text-muted);
 	}
 
-	.example-desc {
-		font-size: 10px;
-		color: var(--text-muted);
-		line-height: 1.3;
+	@media (max-width: 700px) {
+		.examples-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (max-width: 500px) {
+		.examples-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.actions {
+			grid-template-columns: repeat(3, 1fr);
+		}
 	}
 
 </style>
