@@ -164,6 +164,18 @@ function getRoundedRectPath(
 		Z`;
 }
 
+/** Get shape for a node (matches getShapeCssClass logic) */
+function getNodeShape(typeDef: ReturnType<typeof nodeRegistry.get>) {
+	// First check if type definition has explicit shape override
+	if (typeDef?.shape) {
+		const shape = getShape(typeDef.shape);
+		if (shape) return shape;
+	}
+	// Fall back to category-based shape
+	const shapeId = getShapeForCategory(typeDef?.category || 'default');
+	return getShape(shapeId);
+}
+
 /** Render node shape (rectangle with border radius) */
 function renderNodeShape(
 	x: number,
@@ -175,8 +187,7 @@ function renderNodeShape(
 ): string {
 	const typeDef = nodeRegistry.get(node.type);
 	const category = typeDef?.category || 'default';
-	const shapeId = getShapeForCategory(category);
-	const shape = getShape(shapeId);
+	const shape = getNodeShape(typeDef);
 
 	const isSubsystem = node.type === 'Subsystem' || node.type === 'Interface';
 	const strokeDasharray = isSubsystem ? 'stroke-dasharray="4 2"' : '';
