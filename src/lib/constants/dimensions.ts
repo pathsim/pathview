@@ -9,8 +9,8 @@ import { GRID_SIZE, G } from './grid';
 
 /** Node dimension constants (grid-aligned) */
 export const NODE = {
-	/** Base width: 10 grid units = 100px */
-	baseWidth: G.x10,
+	/** Base width: 8 grid units = 80px */
+	baseWidth: G.px(8),
 	/** Base height: 4 grid units = 40px */
 	baseHeight: G.x4,
 	/** Spacing between ports: 2 grid units = 20px */
@@ -92,9 +92,9 @@ export function calculateNodeDimensions(
 	const pinnedParamsHeight = pinnedParamCount > 0 ? 7 + 24 * pinnedParamCount : 0;
 
 	// Width: base, name estimate, type name estimate, pinned params minimum, port dimension (if vertical)
-	// Name uses 10px font (~6px per char), type uses 8px font (~5px per char)
-	const nameWidth = name.length * 6 + 24;
-	const typeWidth = typeName ? typeName.length * 5 + 24 : 0;
+	// Name uses 10px font (~5px per char), type uses 8px font (~4px per char), plus padding for node margins
+	const nameWidth = name.length * 5 + 20;
+	const typeWidth = typeName ? typeName.length * 4 + 20 : 0;
 	const pinnedParamsWidth = pinnedParamCount > 0 ? 160 : 0;
 	const width = snapTo2G(Math.max(
 		NODE.baseWidth,
