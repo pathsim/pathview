@@ -288,9 +288,6 @@
 		transition: padding 0.15s ease;
 	}
 
-	.example-card:hover .example-info {
-		border-radius: var(--radius-md);
-	}
 
 	.example-name {
 		font-size: 11px;
