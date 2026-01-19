@@ -65,14 +65,17 @@
 				<p id="confirmation-message">{state.options.message}</p>
 			</div>
 
-			<div class="dialog-footer">
-				<span class="hint">Press <kbd>↵</kbd> to confirm</span>
+			<div class="dialog-actions">
 				<button class="ghost" onclick={handleCancel}>
 					{state.options.cancelText}
 				</button>
 				<button onclick={handleConfirm}>
 					{state.options.confirmText}
 				</button>
+			</div>
+
+			<div class="dialog-footer">
+				Press <kbd>↵</kbd> to confirm
 			</div>
 		</div>
 	</div>
@@ -98,20 +101,52 @@
 		line-height: 1.5;
 	}
 
-	.dialog-footer {
+	.dialog-actions {
 		display: flex;
-		align-items: center;
+		justify-content: flex-end;
 		gap: var(--space-sm);
+		padding: var(--space-sm) var(--space-md);
+	}
+
+	.dialog-actions button {
+		padding: var(--space-sm) var(--space-md);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		font-size: 11px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.dialog-actions button.ghost {
+		background: transparent;
+		color: var(--text-muted);
+	}
+
+	.dialog-actions button.ghost:hover {
+		background: var(--surface-hover);
+		color: var(--text);
+		border-color: var(--border-focus);
+	}
+
+	.dialog-actions button:not(.ghost) {
+		background: var(--surface-raised);
+		color: var(--text);
+	}
+
+	.dialog-actions button:not(.ghost):hover {
+		background: var(--surface-hover);
+		border-color: var(--border-focus);
+	}
+
+	.dialog-footer {
 		padding: var(--space-xs) var(--space-md);
 		background: var(--surface-raised);
 		border-top: 1px solid var(--border);
 		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-	}
-
-	.dialog-footer .hint {
 		font-size: 10px;
 		color: var(--text-disabled);
-		margin-right: auto;
+		text-align: center;
 	}
 
 	.dialog-footer kbd {
@@ -124,36 +159,5 @@
 		border-radius: 3px;
 		color: var(--text-muted);
 		margin: 0 2px;
-	}
-
-	.dialog-footer button {
-		padding: var(--space-sm) var(--space-md);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-md);
-		font-size: 11px;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.dialog-footer button.ghost {
-		background: transparent;
-		color: var(--text-muted);
-	}
-
-	.dialog-footer button.ghost:hover {
-		background: var(--surface-hover);
-		color: var(--text);
-		border-color: var(--border-focus);
-	}
-
-	.dialog-footer button:not(.ghost) {
-		background: var(--surface-raised);
-		color: var(--text);
-	}
-
-	.dialog-footer button:not(.ghost):hover {
-		background: var(--surface-hover);
-		border-color: var(--border-focus);
 	}
 </style>
