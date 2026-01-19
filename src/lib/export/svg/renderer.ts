@@ -280,17 +280,15 @@ function renderNode(node: NodeInstance, ctx: RenderContext): string {
 
 function renderEvent(event: EventInstance, ctx: RenderContext): string {
 	const wrapper = document.querySelector(`[data-id="${event.id}"]`) as HTMLElement;
+	if (!wrapper) return '';
 
-	// Get text from DOM or fallback to data
-	let eventName = event.name;
-	let eventType = '';
+	const zoom = getZoom();
 
-	if (wrapper) {
-		const nameEl = wrapper.querySelector('.event-name');
-		const typeEl = wrapper.querySelector('.event-type');
-		eventName = nameEl?.textContent || event.name;
-		eventType = typeEl?.textContent || '';
-	}
+	// Get text from DOM
+	const nameEl = wrapper.querySelector('.event-name');
+	const typeEl = wrapper.querySelector('.event-type');
+	const eventName = nameEl?.textContent || event.name;
+	const eventType = typeEl?.textContent || '';
 
 	// Position is center-origin, so position IS the center
 	const cx = event.position.x;
@@ -299,15 +297,24 @@ function renderEvent(event: EventInstance, ctx: RenderContext): string {
 
 	const parts: string[] = [];
 
-	// Diamond background
-	parts.push(
-		`<rect x="${cx - EVENT.diamondOffset}" y="${cy - EVENT.diamondOffset}" width="${EVENT.diamondSize}" height="${EVENT.diamondSize}" rx="4" fill="${ctx.theme.surfaceRaised}" transform="rotate(45 ${cx} ${cy})"/>`
-	);
+	// Get diamond element and its dimensions from DOM
+	const diamondEl = wrapper.querySelector('.diamond') as HTMLElement;
+	if (diamondEl) {
+		const diamondRect = diamondEl.getBoundingClientRect();
+		const diamondSize = diamondRect.width / zoom; // Diamond is square
+		const diamondOffset = diamondSize / 2;
+		const borderRadius = parseFloat(getComputedStyle(diamondEl).borderRadius) || 4;
 
-	// Diamond border
-	parts.push(
-		`<rect x="${cx - EVENT.diamondOffset}" y="${cy - EVENT.diamondOffset}" width="${EVENT.diamondSize}" height="${EVENT.diamondSize}" rx="4" fill="none" stroke="${ctx.theme.edge}" stroke-width="1" transform="rotate(45 ${cx} ${cy})"/>`
-	);
+		// Diamond background
+		parts.push(
+			`<rect x="${cx - diamondOffset}" y="${cy - diamondOffset}" width="${diamondSize}" height="${diamondSize}" rx="${borderRadius}" fill="${ctx.theme.surfaceRaised}" transform="rotate(45 ${cx} ${cy})"/>`
+		);
+
+		// Diamond border
+		parts.push(
+			`<rect x="${cx - diamondOffset}" y="${cy - diamondOffset}" width="${diamondSize}" height="${diamondSize}" rx="${borderRadius}" fill="none" stroke="${ctx.theme.edge}" stroke-width="1" transform="rotate(45 ${cx} ${cy})"/>`
+		);
+	}
 
 	// Labels
 	if (ctx.options.showLabels) {
