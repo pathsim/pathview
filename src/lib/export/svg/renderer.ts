@@ -12,7 +12,7 @@ import { get } from 'svelte/store';
 import { graphStore } from '$lib/stores/graph';
 import { eventStore } from '$lib/stores/events';
 import { getThemeColors } from '$lib/constants/theme';
-import { EVENT } from '$lib/constants/dimensions';
+import { NODE, EVENT } from '$lib/constants/dimensions';
 import { getHandlePath } from '$lib/constants/handlePaths';
 import type { ExportOptions, RenderContext, Bounds } from './types';
 import { DEFAULT_OPTIONS } from './types';
@@ -261,8 +261,8 @@ function calculateBounds(nodes: NodeInstance[], events: EventInstance[]): Bounds
 
 	for (const node of nodes) {
 		const dims = getNodeDimensions(node.id);
-		const width = dims?.width ?? 90;
-		const height = dims?.height ?? 36;
+		const width = dims?.width ?? NODE.baseWidth;
+		const height = dims?.height ?? NODE.baseHeight;
 		bounds.minX = Math.min(bounds.minX, node.position.x);
 		bounds.minY = Math.min(bounds.minY, node.position.y);
 		bounds.maxX = Math.max(bounds.maxX, node.position.x + width);

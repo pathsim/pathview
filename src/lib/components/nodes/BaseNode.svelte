@@ -11,7 +11,7 @@
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
-	import { NODE } from '$lib/constants/dimensions';
+	import { NODE, calculatePortPosition } from '$lib/constants/dimensions';
 	import PlotPreview from './PlotPreview.svelte';
 
 	interface Props {
@@ -128,15 +128,15 @@
 	const maxPortsOnSide = $derived(Math.max(data.inputs.length, data.outputs.length));
 
 	// For horizontal layout: height grows with ports; for vertical: width grows
-	const nodeHeight = $derived(isVertical ? NODE.baseHeight : Math.max(NODE.baseHeight, maxPortsOnSide * NODE.portSpacing + 10));
-	const nodeWidth = $derived(isVertical ? Math.max(NODE.baseWidth, maxPortsOnSide * NODE.portSpacing + 20) : NODE.baseWidth);
+	// Node dimensions are grid-aligned: min dimension = max(baseSize, maxPorts * portSpacing)
+	const minPortDimension = $derived(Math.max(1, maxPortsOnSide) * NODE.portSpacing);
+	const nodeHeight = $derived(isVertical ? NODE.baseHeight : Math.max(NODE.baseHeight, minPortDimension));
+	const nodeWidth = $derived(isVertical ? Math.max(NODE.baseWidth, minPortDimension) : NODE.baseWidth);
 
-	// Calculate port positions using percentages for proper centering
-	function getPortPosition(index: number, total: number): string {
-		if (total === 1) return '50%';
-		// Distribute evenly with padding from edges
-		const percent = ((index + 1) / (total + 1)) * 100;
-		return `${percent}%`;
+	// Calculate port position in pixels (grid-aligned)
+	function getPortPositionPx(index: number, total: number, edgeLength: number): string {
+		const position = calculatePortPosition(index, total, edgeLength);
+		return `${position}px`;
 	}
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
@@ -361,7 +361,7 @@
 				type="target"
 				position={inputPosition()}
 				id={port.id}
-				style={isVertical ? `left: ${getPortPosition(i, data.inputs.length)};` : `top: ${getPortPosition(i, data.inputs.length)};`}
+				style={isVertical ? `left: ${getPortPositionPx(i, data.inputs.length, nodeWidth)};` : `top: ${getPortPositionPx(i, data.inputs.length, nodeHeight)};`}
 				class="handle handle-input"
 				onmouseenter={(e) => handleInputMouseEnter(e, port)}
 				onmouseleave={() => handleInputMouseLeave(port)}
@@ -376,7 +376,7 @@
 				type="source"
 				position={outputPosition()}
 				id={port.id}
-				style={isVertical ? `left: ${getPortPosition(i, data.outputs.length)};` : `top: ${getPortPosition(i, data.outputs.length)};`}
+				style={isVertical ? `left: ${getPortPositionPx(i, data.outputs.length, nodeWidth)};` : `top: ${getPortPositionPx(i, data.outputs.length, nodeHeight)};`}
 				class="handle handle-output"
 				onmouseenter={(e) => handleOutputMouseEnter(e, port)}
 				onmouseleave={() => handleOutputMouseLeave(port)}
@@ -388,8 +388,7 @@
 <style>
 	.node {
 		position: relative;
-		min-width: 90px;
-		min-height: 36px;
+		/* Dimensions set via inline style using grid constants */
 		background: var(--surface-raised);
 		border: 1px solid var(--edge);
 		font-size: 10px;
