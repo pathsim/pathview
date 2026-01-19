@@ -66,6 +66,7 @@
 			</div>
 
 			<div class="dialog-footer">
+				<span class="hint"><kbd>↵</kbd> to confirm</span>
 				<button class="ghost" onclick={handleCancel}>
 					{state.options.cancelText}
 				</button>
@@ -99,9 +100,26 @@
 
 	.dialog-footer {
 		display: flex;
-		justify-content: flex-end;
+		align-items: center;
 		gap: var(--space-sm);
 		padding: var(--space-sm) var(--space-md) var(--space-md);
+	}
+
+	.dialog-footer .hint {
+		font-size: 10px;
+		color: var(--text-disabled);
+		margin-right: auto;
+	}
+
+	.dialog-footer kbd {
+		display: inline-block;
+		padding: 1px 4px;
+		font-family: inherit;
+		font-size: 9px;
+		background: var(--surface-raised);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		color: var(--text-muted);
 	}
 
 	.dialog-footer button {
@@ -126,12 +144,13 @@
 	}
 
 	.dialog-footer button:not(.ghost) {
-		background: var(--accent);
-		color: var(--surface);
+		background: var(--surface-raised);
+		color: var(--text);
 		border-color: var(--accent);
 	}
 
 	.dialog-footer button:not(.ghost):hover {
-		filter: brightness(1.1);
+		background: var(--surface-hover);
+		border-color: var(--accent);
 	}
 </style>
