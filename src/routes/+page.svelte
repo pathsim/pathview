@@ -705,18 +705,19 @@
 		// Prevent concurrent simulation runs (synchronous check for rapid key presses)
 		if (simRunning || isRunStarting || pyodideLoading) return;
 
+		// Set flag before any async operations to prevent race conditions
+		isRunStarting = true;
+
 		// Auto-initialize if not ready
 		if (!pyodideReady) {
 			try {
 				await initPyodide();
 			} catch (error) {
 				console.error('Failed to initialize Pyodide:', error);
+				isRunStarting = false;
 				return;
 			}
 		}
-
-		// Set flag synchronously to prevent race conditions during validation
-		isRunStarting = true;
 
 		try {
 			// Run simulation
