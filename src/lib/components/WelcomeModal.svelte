@@ -283,8 +283,7 @@
 		left: 0;
 		right: 0;
 		padding: 6px 8px;
-		background: color-mix(in srgb, var(--surface) 90%, transparent);
-		backdrop-filter: blur(4px);
+		background: var(--surface);
 		border-top: 1px solid var(--border);
 		border-radius: 0 0 var(--radius-md) var(--radius-md);
 		font-size: 10px;
