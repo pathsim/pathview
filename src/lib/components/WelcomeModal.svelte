@@ -231,7 +231,7 @@
 		flex-direction: column;
 		min-height: 0;
 		flex: 1;
-		margin: 0 -24px -24px -24px;
+		margin: -16px -24px -24px -24px;
 	}
 
 	.loading-text {
@@ -249,7 +249,7 @@
 		gap: 10px;
 		overflow-y: auto;
 		max-height: 320px;
-		padding: 0 24px 24px 24px;
+		padding: 16px;
 	}
 
 	.example-card {
