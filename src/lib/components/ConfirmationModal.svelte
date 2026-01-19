@@ -84,7 +84,7 @@
 <style>
 	.confirmation-dialog {
 		width: 90%;
-		max-width: 400px;
+		max-width: 320px;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
