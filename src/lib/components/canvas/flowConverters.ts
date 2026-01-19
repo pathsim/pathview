@@ -49,6 +49,8 @@ export function toAnnotationNode(annotation: Annotation): Node<Annotation> {
 		data: annotation,
 		width: annotation.width,
 		height: annotation.height,
+		// Annotations use top-left origin (overrides global nodeOrigin)
+		origin: [0, 0] as [number, number],
 		selectable: true,
 		draggable: true,
 		connectable: false,
