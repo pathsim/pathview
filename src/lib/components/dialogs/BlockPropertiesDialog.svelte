@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { graphStore } from '$lib/stores/graph';
@@ -24,7 +25,7 @@
 	let nodeId = $state<string | null>(null);
 	let node = $state<NodeInstance | null>(null);
 
-	nodeDialogStore.subscribe((id) => {
+	const unsubscribeDialog = nodeDialogStore.subscribe((id) => {
 		nodeId = id;
 		if (id) {
 			node = graphStore.getNode(id) || null;
@@ -34,10 +35,15 @@
 	});
 
 	// Keep node updated when params change
-	graphStore.nodesArray.subscribe((nodes) => {
+	const unsubscribeNodes = graphStore.nodesArray.subscribe((nodes) => {
 		if (nodeId) {
 			node = nodes.find(n => n.id === nodeId) || null;
 		}
+	});
+
+	onDestroy(() => {
+		unsubscribeDialog();
+		unsubscribeNodes();
 	});
 
 	// Get type definition
