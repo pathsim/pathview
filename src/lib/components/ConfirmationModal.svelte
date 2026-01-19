@@ -153,11 +153,10 @@
 	.dialog-footer button:not(.ghost) {
 		background: var(--surface-raised);
 		color: var(--text);
-		border-color: var(--accent);
 	}
 
 	.dialog-footer button:not(.ghost):hover {
 		background: var(--surface-hover);
-		border-color: var(--accent);
+		border-color: var(--border-focus);
 	}
 </style>
