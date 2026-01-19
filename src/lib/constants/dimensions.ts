@@ -71,3 +71,40 @@ export function getPortPositionCalc(index: number, total: number): string {
 	}
 	return `calc(50% + ${offsetFromCenter}px)`;
 }
+
+/**
+ * Calculate node dimensions from node data.
+ * Used by both SvelteFlow (for bounds) and BaseNode (for CSS).
+ */
+export function calculateNodeDimensions(
+	name: string,
+	inputCount: number,
+	outputCount: number,
+	pinnedParamCount: number,
+	rotation: number
+): { width: number; height: number } {
+	const isVertical = rotation === 1 || rotation === 3;
+	const maxPortsOnSide = Math.max(inputCount, outputCount);
+	const minPortDimension = Math.max(1, maxPortsOnSide) * NODE.portSpacing;
+
+	// Pinned params height: border(1) + padding(10) + rows(20 each) + gaps(4 between)
+	const pinnedParamsHeight = pinnedParamCount > 0 ? 7 + 24 * pinnedParamCount : 0;
+
+	// Width: base, name estimate, pinned params minimum, port dimension (if vertical)
+	const nameWidth = name.length * 6 + 24;
+	const pinnedParamsWidth = pinnedParamCount > 0 ? 160 : 0;
+	const width = snapTo2G(Math.max(
+		NODE.baseWidth,
+		nameWidth,
+		pinnedParamsWidth,
+		isVertical ? minPortDimension : 0
+	));
+
+	// Height: content height vs port dimension (they share vertical space)
+	const contentHeight = NODE.baseHeight + pinnedParamsHeight;
+	const height = isVertical
+		? snapTo2G(contentHeight)
+		: snapTo2G(Math.max(contentHeight, minPortDimension));
+
+	return { width, height };
+}

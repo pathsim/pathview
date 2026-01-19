@@ -11,7 +11,7 @@
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
-	import { NODE, snapTo2G, getPortPositionCalc } from '$lib/constants/dimensions';
+	import { NODE, getPortPositionCalc, calculateNodeDimensions } from '$lib/constants/dimensions';
 	import PlotPreview from './PlotPreview.svelte';
 
 	interface Props {
@@ -136,37 +136,16 @@
 	const maxPortsOnSide = $derived(Math.max(data.inputs.length, data.outputs.length));
 	const pinnedCount = $derived(validPinnedParams().length);
 
-	// Node dimensions - calculated from data, always grid-snapped
-	// Port dimension: space needed for ports on one side
-	const minPortDimension = $derived(Math.max(1, maxPortsOnSide) * NODE.portSpacing);
-
-	// Pinned params height: border(1) + padding(10) + rows(20 each) + gaps(4 between)
-	// = 11 + 20*N + 4*(N-1) = 7 + 24*N for N > 0
-	const pinnedParamsHeight = $derived(pinnedCount > 0 ? 7 + 24 * pinnedCount : 0);
-
-	// Width calculation:
-	// - Base width: 100px
-	// - Name width: ~6px per char + 24px padding, estimate from name length
-	// - Pinned params: need ~120px minimum for label + input
-	// - Vertical orientation: also consider port count
-	const nameWidth = $derived(data.name.length * 6 + 24);
-	const pinnedParamsWidth = $derived(pinnedCount > 0 ? 160 : 0);
-	const nodeWidth = $derived(
-		snapTo2G(Math.max(
-			NODE.baseWidth,
-			nameWidth,
-			pinnedParamsWidth,
-			isVertical ? minPortDimension : 0
-		))
-	);
-
-	// Height: total content height vs port requirements (they share vertical space)
-	const contentHeight = $derived(NODE.baseHeight + pinnedParamsHeight);
-	const nodeHeight = $derived(
-		isVertical
-			? snapTo2G(contentHeight)
-			: snapTo2G(Math.max(contentHeight, minPortDimension))
-	);
+	// Node dimensions - calculated from shared utility (same as SvelteFlow bounds)
+	const nodeDimensions = $derived(calculateNodeDimensions(
+		data.name,
+		data.inputs.length,
+		data.outputs.length,
+		pinnedCount,
+		rotation
+	));
+	const nodeWidth = $derived(nodeDimensions.width);
+	const nodeHeight = $derived(nodeDimensions.height);
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
 	const isSubsystemNode = $derived(isSubsystem(data));

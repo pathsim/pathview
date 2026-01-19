@@ -6,16 +6,35 @@ import type { Node, Edge } from '@xyflow/svelte';
 import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 import type { EventInstance } from '$lib/events/types';
 import { HANDLE_ID } from '$lib/constants/handles';
+import { calculateNodeDimensions } from '$lib/constants/dimensions';
+import { nodeRegistry } from '$lib/nodes';
 
 /**
  * Convert a NodeInstance to a SvelteFlow Node
  */
 export function toFlowNode(node: NodeInstance, options: { deletable?: boolean } = {}): Node<NodeInstance> {
+	// Calculate valid pinned params count
+	const typeDef = nodeRegistry.get(node.type);
+	const pinnedParamCount = typeDef && node.pinnedParams
+		? node.pinnedParams.filter(name => typeDef.params.some(p => p.name === name)).length
+		: 0;
+
+	const rotation = (node.params?.['_rotation'] as number) || 0;
+	const { width, height } = calculateNodeDimensions(
+		node.name,
+		node.inputs.length,
+		node.outputs.length,
+		pinnedParamCount,
+		rotation
+	);
+
 	return {
 		id: node.id,
 		type: 'pathview',
 		position: { ...node.position },
 		data: node,
+		width,
+		height,
 		selectable: true,
 		draggable: true,
 		deletable: options.deletable ?? true
