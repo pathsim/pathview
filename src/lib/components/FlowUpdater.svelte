@@ -30,15 +30,19 @@
 			return;
 		}
 
-		// Calculate bounding box of all nodes
+		// Calculate bounding box of all nodes, accounting for origin
 		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 		for (const node of nodes) {
 			const width = node.measured?.width ?? node.width ?? 160;
 			const height = node.measured?.height ?? node.height ?? 60;
-			minX = Math.min(minX, node.position.x);
-			minY = Math.min(minY, node.position.y);
-			maxX = Math.max(maxX, node.position.x + width);
-			maxY = Math.max(maxY, node.position.y + height);
+			// Account for node origin (default center [0.5, 0.5], annotations use [0, 0])
+			const origin = (node.origin as [number, number]) ?? [0.5, 0.5];
+			const left = node.position.x - width * origin[0];
+			const top = node.position.y - height * origin[1];
+			minX = Math.min(minX, left);
+			minY = Math.min(minY, top);
+			maxX = Math.max(maxX, left + width);
+			maxY = Math.max(maxY, top + height);
 		}
 
 		// Add some padding around the nodes themselves

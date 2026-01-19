@@ -30,6 +30,7 @@
 		import { nodeRegistry } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
+	import { calculateNodeDimensions } from '$lib/constants/dimensions';
 	import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 	import type { EventInstance } from '$lib/events/types';
 
@@ -381,6 +382,20 @@
 			// Interface blocks are not deletable
 			const isInterface = graphNode.type === NODE_TYPES.INTERFACE;
 
+			// Calculate node dimensions for SvelteFlow bounds
+			const typeDef = nodeRegistry.get(graphNode.type);
+			const pinnedParamCount = typeDef && graphNode.pinnedParams
+				? graphNode.pinnedParams.filter(name => typeDef.params.some(p => p.name === name)).length
+				: 0;
+			const rotation = (graphNode.params?.['_rotation'] as number) || 0;
+			const { width, height } = calculateNodeDimensions(
+				graphNode.name,
+				graphNode.inputs.length,
+				graphNode.outputs.length,
+				pinnedParamCount,
+				rotation
+			);
+
 			// If node exists, update data but don't preserve selection here
 			// Selection is managed by SvelteFlow, trigger subscriptions, and merge effect
 			if (existingNode) {
@@ -389,6 +404,10 @@
 					type: existingNode.type,
 					position,
 					data: graphNode,
+					width,
+					height,
+					// Explicit center origin for correct bounds calculation
+					origin: [0.5, 0.5] as [number, number],
 					selectable: existingNode.selectable,
 					draggable: existingNode.draggable,
 					deletable: !isInterface
@@ -402,6 +421,10 @@
 				type: 'pathview',
 				position,
 				data: graphNode,
+				width,
+				height,
+				// Explicit center origin for correct bounds calculation
+				origin: [0.5, 0.5] as [number, number],
 				selectable: true,
 				draggable: true,
 				deletable: !isInterface

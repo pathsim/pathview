@@ -35,6 +35,8 @@ export function toFlowNode(node: NodeInstance, options: { deletable?: boolean } 
 		data: node,
 		width,
 		height,
+		// Explicit center origin for correct bounds calculation
+		origin: [0.5, 0.5] as [number, number],
 		selectable: true,
 		draggable: true,
 		deletable: options.deletable ?? true
@@ -50,6 +52,8 @@ export function toEventNode(event: EventInstance): Node<EventInstance> {
 		type: 'eventNode',
 		position: { ...event.position },
 		data: event,
+		// Explicit center origin for correct bounds calculation
+		origin: [0.5, 0.5] as [number, number],
 		selectable: true,
 		draggable: true,
 		connectable: false,
