@@ -160,11 +160,12 @@
 		))
 	);
 
-	// Height: base + pinned params, or more for horizontal orientation with many ports
+	// Height: total content height vs port requirements (they share vertical space)
+	const contentHeight = $derived(NODE.baseHeight + pinnedParamsHeight);
 	const nodeHeight = $derived(
 		isVertical
-			? snapTo2G(NODE.baseHeight + pinnedParamsHeight)
-			: snapTo2G(Math.max(NODE.baseHeight, minPortDimension) + pinnedParamsHeight)
+			? snapTo2G(contentHeight)
+			: snapTo2G(Math.max(contentHeight, minPortDimension))
 	);
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
