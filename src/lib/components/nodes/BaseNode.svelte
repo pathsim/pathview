@@ -11,8 +11,7 @@
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
-	import { NODE, calculatePortPosition, snapTo2G } from '$lib/constants/dimensions';
-	import { G } from '$lib/constants/grid';
+	import { NODE, snapTo2G } from '$lib/constants/dimensions';
 	import PlotPreview from './PlotPreview.svelte';
 
 	interface Props {
@@ -136,32 +135,34 @@
 
 	const maxPortsOnSide = $derived(Math.max(data.inputs.length, data.outputs.length));
 
-	// Calculate content height for pinned params (each param row ~24px)
-	const pinnedParamCount = $derived(validPinnedParams().length);
-	const contentExtraHeight = $derived(
-		pinnedParamCount > 0
-			? 4 + pinnedParamCount * 24 + 6 // border + rows + padding
-			: 0
-	);
-
-	// Node dimensions: always multiples of 2G (20px) for symmetric expansion from center
-	// Ports require: maxPorts * portSpacing
+	// Minimum node dimensions based on port count (grid-aligned to 2G)
+	// Content can expand beyond these minimums
 	const minPortDimension = $derived(Math.max(1, maxPortsOnSide) * NODE.portSpacing);
-	const nodeHeight = $derived(
+	const minNodeHeight = $derived(
 		isVertical
-			? snapTo2G(Math.max(NODE.baseHeight, NODE.baseHeight + contentExtraHeight))
-			: snapTo2G(Math.max(NODE.baseHeight, minPortDimension, NODE.baseHeight + contentExtraHeight))
+			? snapTo2G(NODE.baseHeight)
+			: snapTo2G(Math.max(NODE.baseHeight, minPortDimension))
 	);
-	const nodeWidth = $derived(
+	const minNodeWidth = $derived(
 		isVertical
 			? snapTo2G(Math.max(NODE.baseWidth, minPortDimension))
 			: snapTo2G(NODE.baseWidth)
 	);
 
-	// Calculate port position in pixels (grid-aligned)
-	function getPortPositionPx(index: number, total: number, edgeLength: number): string {
-		const position = calculatePortPosition(index, total, edgeLength);
-		return `${position}px`;
+	// Calculate port position as offset from center (using calc for CSS)
+	// This ensures ports stay grid-aligned regardless of actual node dimensions
+	// because the node center is at a grid-aligned position
+	function getPortPositionCalc(index: number, total: number): string {
+		if (total <= 0 || total === 1) {
+			return '50%'; // Single port at center
+		}
+		// For N ports with spacing S: span = (N-1)*S, offset from center = -span/2 + i*S
+		const span = (total - 1) * NODE.portSpacing;
+		const offsetFromCenter = -span / 2 + index * NODE.portSpacing;
+		if (offsetFromCenter === 0) {
+			return '50%';
+		}
+		return `calc(50% + ${offsetFromCenter}px)`;
 	}
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
@@ -300,7 +301,7 @@
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
 	data-rotation={rotation}
-	style="width: {nodeWidth}px; height: {nodeHeight}px; --node-color: {nodeColor};"
+	style="min-width: {minNodeWidth}px; min-height: {minNodeHeight}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
@@ -379,7 +380,7 @@
 				type="target"
 				position={inputPosition()}
 				id={port.id}
-				style={isVertical ? `left: ${getPortPositionPx(i, data.inputs.length, nodeWidth)};` : `top: ${getPortPositionPx(i, data.inputs.length, nodeHeight)};`}
+				style={isVertical ? `left: ${getPortPositionCalc(i, data.inputs.length)};` : `top: ${getPortPositionCalc(i, data.inputs.length)};`}
 				class="handle handle-input"
 				onmouseenter={(e) => handleInputMouseEnter(e, port)}
 				onmouseleave={() => handleInputMouseLeave(port)}
@@ -394,7 +395,7 @@
 				type="source"
 				position={outputPosition()}
 				id={port.id}
-				style={isVertical ? `left: ${getPortPositionPx(i, data.outputs.length, nodeWidth)};` : `top: ${getPortPositionPx(i, data.outputs.length, nodeHeight)};`}
+				style={isVertical ? `left: ${getPortPositionCalc(i, data.outputs.length)};` : `top: ${getPortPositionCalc(i, data.outputs.length)};`}
 				class="handle handle-output"
 				onmouseenter={(e) => handleOutputMouseEnter(e, port)}
 				onmouseleave={() => handleOutputMouseLeave(port)}
@@ -468,12 +469,8 @@
 		z-index: 1000 !important;
 	}
 
-	/* Inner wrapper - uses flexbox to center content vertically */
+	/* Inner wrapper for content */
 	.node-inner {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
 		border-radius: inherit;
 		overflow: hidden;
 	}
