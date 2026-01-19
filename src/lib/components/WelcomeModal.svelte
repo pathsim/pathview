@@ -263,6 +263,7 @@
 		flex-direction: column;
 		align-items: stretch;
 		justify-content: flex-start;
+		padding: 0;
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-md);
@@ -308,8 +309,9 @@
 	}
 
 	.example-info {
-		padding: 0;
+		padding: 6px 8px;
 		text-align: left;
+		border-bottom: 1px solid var(--border);
 	}
 
 	.example-name {
