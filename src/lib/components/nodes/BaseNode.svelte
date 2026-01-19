@@ -285,7 +285,7 @@
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
 	data-rotation={rotation}
-	style="min-width: {minNodeWidth}px; min-height: {minNodeHeight}px; --node-color: {nodeColor};"
+	style="width: {minNodeWidth}px; min-height: {minNodeHeight}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
@@ -455,15 +455,19 @@
 	.node-inner {
 		border-radius: inherit;
 		overflow: hidden;
+		/* Constrain content to node width */
+		width: 100%;
 	}
 
-	/* Content */
+	/* Content - must fit within base dimensions (40px height, 100px width) */
 	.node-content {
-		padding: 8px 12px;
-		padding-left: 16px;
-		padding-right: 16px;
+		padding: 6px 12px;
 		background: var(--surface-raised);
 		text-align: center;
+		line-height: 1.2;
+		/* Prevent content from expanding node width */
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.node-name {
@@ -481,7 +485,7 @@
 		display: block;
 		font-size: 8px;
 		color: var(--text-muted);
-		margin-top: 1px;
+		margin-top: 2px;
 	}
 
 	/* Pinned parameters */
