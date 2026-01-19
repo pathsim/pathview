@@ -271,6 +271,12 @@
 		text-align: left;
 		overflow: hidden;
 		font-family: inherit;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	.example-card:hover {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 
