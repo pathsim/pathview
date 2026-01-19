@@ -1,10 +1,11 @@
 {
   "files": [
+    "feedback-system.json",
+    "pid-subsystem.json",
+    "squarewave-lpf.json",
     "bouncing-ball.json",
     "cascade-subsystem.json",
-    "feedback-system.json",
     "fmcw-radar.json",
-    "pid-subsystem.json",
     "thermostat.json",
     "vanderpol.json"
   ]
