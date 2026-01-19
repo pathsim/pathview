@@ -65,11 +65,8 @@
 				<p id="confirmation-message">{state.options.message}</p>
 			</div>
 
-			<div class="dialog-hint">
-				Press <kbd>↵</kbd> to confirm
-			</div>
-
 			<div class="dialog-footer">
+				<span class="hint">Press <kbd>↵</kbd> to confirm</span>
 				<button class="ghost" onclick={handleCancel}>
 					{state.options.cancelText}
 				</button>
@@ -101,32 +98,32 @@
 		line-height: 1.5;
 	}
 
-	.dialog-hint {
+	.dialog-footer {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
 		padding: var(--space-xs) var(--space-md);
 		background: var(--surface-raised);
 		border-top: 1px solid var(--border);
-		font-size: 10px;
-		color: var(--text-disabled);
-		text-align: center;
+		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 	}
 
-	.dialog-hint kbd {
+	.dialog-footer .hint {
+		font-size: 10px;
+		color: var(--text-disabled);
+		margin-right: auto;
+	}
+
+	.dialog-footer kbd {
 		display: inline-block;
 		padding: 1px 4px;
 		font-family: inherit;
 		font-size: 9px;
-		background: var(--surface-raised);
+		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: 3px;
 		color: var(--text-muted);
 		margin: 0 2px;
-	}
-
-	.dialog-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--space-sm);
-		padding: var(--space-sm) var(--space-md) var(--space-md);
 	}
 
 	.dialog-footer button {
