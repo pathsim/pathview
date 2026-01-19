@@ -11,7 +11,8 @@
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
-	import { NODE, calculatePortPosition } from '$lib/constants/dimensions';
+	import { NODE, calculatePortPosition, snapTo2G } from '$lib/constants/dimensions';
+	import { G } from '$lib/constants/grid';
 	import PlotPreview from './PlotPreview.svelte';
 
 	interface Props {
@@ -25,6 +26,14 @@
 	// Get type definition
 	const typeDef = $derived(nodeRegistry.get(data.type));
 	const category = $derived(typeDef?.category || 'Algebraic');
+
+	// Get valid pinned params (filter out any that no longer exist in the type definition)
+	// Defined early since it's needed for dimension calculations
+	const validPinnedParams = $derived(() => {
+		if (!data.pinnedParams?.length || !typeDef) return [];
+		const paramNames = new Set(typeDef.params.map(p => p.name));
+		return data.pinnedParams.filter(name => paramNames.has(name));
+	});
 
 	// Recording node hover preview
 	const isRecordingNode = $derived(category === 'Recording');
@@ -127,11 +136,27 @@
 
 	const maxPortsOnSide = $derived(Math.max(data.inputs.length, data.outputs.length));
 
-	// For horizontal layout: height grows with ports; for vertical: width grows
-	// Node dimensions are grid-aligned: min dimension = max(baseSize, maxPorts * portSpacing)
+	// Calculate content height for pinned params (each param row ~24px)
+	const pinnedParamCount = $derived(validPinnedParams().length);
+	const contentExtraHeight = $derived(
+		pinnedParamCount > 0
+			? 4 + pinnedParamCount * 24 + 6 // border + rows + padding
+			: 0
+	);
+
+	// Node dimensions: always multiples of 2G (20px) for symmetric expansion from center
+	// Ports require: maxPorts * portSpacing
 	const minPortDimension = $derived(Math.max(1, maxPortsOnSide) * NODE.portSpacing);
-	const nodeHeight = $derived(isVertical ? NODE.baseHeight : Math.max(NODE.baseHeight, minPortDimension));
-	const nodeWidth = $derived(isVertical ? Math.max(NODE.baseWidth, minPortDimension) : NODE.baseWidth);
+	const nodeHeight = $derived(
+		isVertical
+			? snapTo2G(Math.max(NODE.baseHeight, NODE.baseHeight + contentExtraHeight))
+			: snapTo2G(Math.max(NODE.baseHeight, minPortDimension, NODE.baseHeight + contentExtraHeight))
+	);
+	const nodeWidth = $derived(
+		isVertical
+			? snapTo2G(Math.max(NODE.baseWidth, minPortDimension))
+			: snapTo2G(NODE.baseWidth)
+	);
 
 	// Calculate port position in pixels (grid-aligned)
 	function getPortPositionPx(index: number, total: number, edgeLength: number): string {
@@ -192,13 +217,6 @@
 
 	// Custom node color (defaults to pathsim-blue)
 	const nodeColor = $derived(data.color || 'var(--accent)');
-
-	// Get valid pinned params (filter out any that no longer exist in the type definition)
-	const validPinnedParams = $derived(() => {
-		if (!data.pinnedParams?.length || !typeDef) return [];
-		const paramNames = new Set(typeDef.params.map(p => p.name));
-		return data.pinnedParams.filter(name => paramNames.has(name));
-	});
 
 	// Handle pinned param change
 	function handlePinnedParamChange(paramName: string, value: string) {
@@ -282,7 +300,7 @@
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
 	data-rotation={rotation}
-	style="min-width: {nodeWidth}px; min-height: {nodeHeight}px; --node-color: {nodeColor};"
+	style="width: {nodeWidth}px; height: {nodeHeight}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
@@ -388,11 +406,14 @@
 <style>
 	.node {
 		position: relative;
+		/* Center node on its position point (node center = local origin) */
+		transform: translate(-50%, -50%);
 		/* Dimensions set via inline style using grid constants */
+		display: flex;
+		flex-direction: column;
 		background: var(--surface-raised);
 		border: 1px solid var(--edge);
 		font-size: 10px;
-		transition: all 0.15s ease;
 		overflow: visible;
 	}
 
@@ -411,7 +432,8 @@
 
 	.shape-diamond {
 		border-radius: 4px;
-		transform: rotate(45deg);
+		/* Compose with center transform */
+		transform: translate(-50%, -50%) rotate(45deg);
 	}
 
 	.shape-diamond .node-content {
@@ -446,8 +468,12 @@
 		z-index: 1000 !important;
 	}
 
-	/* Inner wrapper for proper border-radius clipping */
+	/* Inner wrapper - uses flexbox to center content vertically */
 	.node-inner {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
 		border-radius: inherit;
 		overflow: hidden;
 	}

@@ -45,38 +45,52 @@ export const EVENT = {
 export const EXPORT_PADDING = G.x4;
 
 /**
- * Calculate node dimensions based on ports and rotation.
+ * Round up to next 2G (20px) boundary for symmetric expansion.
+ * This ensures nodes expand evenly from center.
+ */
+export function snapTo2G(value: number): number {
+	return Math.ceil(value / G.x2) * G.x2;
+}
+
+/**
+ * Calculate node dimensions based on ports, content, and rotation.
  *
- * Node sizing ensures all ports land on grid intersections:
+ * Design principles:
+ * - Node center is the local origin (positioned via CSS transform)
+ * - All dimensions are multiples of 2G (20px) for symmetric expansion
  * - Port spacing = 2G (20px)
- * - For N ports: minimum edge length = N * portSpacing
- * - Ports are centered, with equal padding on each side
+ * - Ports are centered on their edge
+ *
+ * @param inputCount - Number of input ports
+ * @param outputCount - Number of output ports
+ * @param rotation - Node rotation (0, 1, 2, 3)
+ * @param contentHeight - Optional extra height for content (pinned params, etc.)
  */
 export function calculateNodeDimensions(
 	inputCount: number,
 	outputCount: number,
-	rotation: number
+	rotation: number,
+	contentHeight: number = 0
 ): { width: number; height: number } {
 	const isVertical = rotation === 1 || rotation === 3;
 	const maxPorts = Math.max(inputCount, outputCount);
 
-	// Minimum dimension to fit ports: maxPorts * portSpacing
-	// This ensures at least portSpacing/2 padding on each side
+	// Minimum dimension to fit ports with padding
+	// For N ports: need (N-1) * spacing + padding on each end
+	// Simplified: N * portSpacing gives enough room
 	const minPortDimension = Math.max(1, maxPorts) * NODE.portSpacing;
 
 	if (isVertical) {
-		// Ports on top/bottom, so width needs to accommodate them
-		return {
-			width: Math.max(NODE.baseWidth, minPortDimension),
-			height: NODE.baseHeight
-		};
+		// Ports on top/bottom, width accommodates them
+		const width = snapTo2G(Math.max(NODE.baseWidth, minPortDimension));
+		const height = snapTo2G(Math.max(NODE.baseHeight, NODE.baseHeight + contentHeight));
+		return { width, height };
 	}
 
-	// Ports on left/right, so height needs to accommodate them
-	return {
-		width: NODE.baseWidth,
-		height: Math.max(NODE.baseHeight, minPortDimension)
-	};
+	// Ports on left/right, height accommodates them
+	const width = snapTo2G(Math.max(NODE.baseWidth, NODE.baseWidth));
+	const height = snapTo2G(Math.max(NODE.baseHeight, minPortDimension, NODE.baseHeight + contentHeight));
+	return { width, height };
 }
 
 /**
