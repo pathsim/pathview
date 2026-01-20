@@ -167,7 +167,7 @@ async function execCodeWithFlask(id: string, code: string): Promise <void> {
  * Evaluate Python expression and return JSON result
  * Note: _to_json helper is injected via REPL_SETUP_CODE (Needs FLASK Rework)
  */
-async function evalExpr(id: string, expr: string, backendPreference = null): Promise<void> {
+async function evalExpr(id: string, expr: string): Promise<void> {
   if (!backendPreference || backendPreference == "pyodide") { // Default to pyodide use
     if (!pyodide) {
 			console.log(`Within evalExpr() I have an uninitialized worker!`) // Debugging console
