@@ -9,6 +9,7 @@ import { backendState } from '../state';
 import { TIMEOUTS } from '$lib/constants/python';
 import { PROGRESS_MESSAGES, STATUS_MESSAGES } from '$lib/constants/messages';
 import type { BackendPreference } from '$lib/types';
+import { setWorkerBackendPreference } from './worker';
 
 interface PendingRequest {
 	resolve: (value: string | undefined) => void;
@@ -34,7 +35,7 @@ export class PyodideBackend implements Backend {
 	private messageId = 0;
 	private pendingRequests = new Map<string, PendingRequest>();
 	private isInitializing = false;
-	private backendPreference : BackendPreference = "pyodide";
+	private backendPreference : null | BackendPreference = "pyodide";
 
 	private streamState: StreamState = {
 		id: null,
@@ -51,7 +52,7 @@ export class PyodideBackend implements Backend {
 	// Lifecycle
 	// -------------------------------------------------------------------------
 
-	async init(): Promise<void> {
+	async init(currentBackendPreference : null | BackendPreference = null): Promise<void> {
 		const state = this.getState();
 
 		// Already initialized or loading - nothing to do
@@ -74,7 +75,9 @@ export class PyodideBackend implements Backend {
 		this.isInitializing = true;
 
 		try {
+			console.log("(backend.ts, init) The backend preference is: ", this.backendPreference)
 			this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+			setWorkerBackendPreference(this.backendPreference)
 
 			this.worker.onmessage = (event: MessageEvent<REPLResponse>) => {
 				this.handleResponse(event.data);
@@ -169,10 +172,6 @@ export class PyodideBackend implements Backend {
 
 	getError(): string | null {
 		return this.getState().error;
-	}
-	
-	setBackendPreference(preference : BackendPreference): void {
-		this.backendPreference = preference
 	}
 
 	// -------------------------------------------------------------------------
@@ -432,5 +431,14 @@ export class PyodideBackend implements Backend {
 		}
 
 		backendState.update((s) => ({ ...s, error: error || 'Unknown error' }));
+	}
+
+	setBackendPreference(currentBackendPreference : null | BackendPreference):void {
+		console.log("(backend.ts) Setting backend preference: ", currentBackendPreference)
+		this.backendPreference = currentBackendPreference
+	}
+
+	getBackendPreference(): null | BackendPreference {
+		return this.backendPreference
 	}
 }

@@ -1071,6 +1071,7 @@ export async function validateGraphSimulation(
 	currentBackendPreference: null | BackendPreference
 ): Promise<ValidationResult> {
 	const nodeParams = extractNodeParams(nodes);
+	console.log("(pathsimRunner) Backend preference passed in: ", currentBackendPreference)
 	return validateGraphBridge(codeContext, nodeParams, currentBackendPreference);
 }
 

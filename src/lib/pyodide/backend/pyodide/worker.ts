@@ -9,9 +9,7 @@ import { PYODIDE_CDN_URL } from "$lib/constants/python";
 import { PROGRESS_MESSAGES, ERROR_MESSAGES } from "$lib/constants/messages";
 import type { Backend, REPLRequest, REPLResponse } from "../types";
 
-import { browser } from "$app/environment";
 import type { PyodideInterface } from "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs";
-import { backendPreferenceStore } from "$lib/stores";
 import type { BackendPreference } from "$lib/types";
 import { getFlaskBackendUrl } from "$lib/utils/flaskRoutes";
 
@@ -33,12 +31,6 @@ function send(response: REPLResponse): void {
  * Initialize Pyodide and install packages (Needs FLASK Rework)
  */
 async function initialize(): Promise<void> {
-  if(browser) {
-    backendPreference = backendPreferenceStore.get()
-    console.log("The browser is available and the preference is: ", backendPreference)
-  } else {
-    console.log("The browser is not available")
-  }
   if (!backendPreference || backendPreference == "pyodide") { // Default to pyodide use
     if (isInitialized) {
       send({ type: "ready" });
@@ -104,12 +96,7 @@ print(f"PathSim {pathsim.__version__} loaded successfully")
  * Execute Python code (no return value) (Needs FLASK Rework)
  */
 async function execCode(id: string, code: string): Promise<void> {
-  if(browser) {
-    backendPreference = backendPreferenceStore.get()
-    console.log("The browser is available and the preference is: ", backendPreference)
-  } else {
-    console.log("The browser is not available")
-  }
+  console.log("(worker.ts, execCode) The backend preference is: ", backendPreference)
   if (!backendPreference || backendPreference == "pyodide") { // Default to pyodide use
     if (!pyodide) throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
     try {
@@ -170,8 +157,7 @@ async function execCodeWithFlask(id: string, code: string): Promise <void> {
  * Evaluate Python expression and return JSON result
  * Note: _to_json helper is injected via REPL_SETUP_CODE (Needs FLASK Rework)
  */
-async function evalExpr(id: string, expr: string): Promise<void> {
-  if(browser) backendPreference = backendPreferenceStore.get()
+async function evalExpr(id: string, expr: string, backendPreference = null): Promise<void> {
   if (!backendPreference || backendPreference == "pyodide") { // Default to pyodide use
     if (!pyodide) throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
 
@@ -309,7 +295,8 @@ function stopStreaming(): void {
   streamingActive = false;
 }
 
-function setBackendPreference(preference : BackendPreference): void {
+export function setWorkerBackendPreference(preference : null | BackendPreference): void {
+  console.log(`(worker.ts) Setting the backend preference to: `, preference)
   backendPreference = preference
 }
 

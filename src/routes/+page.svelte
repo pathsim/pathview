@@ -728,7 +728,7 @@
 		if (!pyodideReady && usingPyodide) {
 			try {
 				console.log("Initializing Pyodide")
-				await initPyodide();
+				await initPyodide("pyodide");
 			} catch (error) {
 				console.error('Failed to initialize Pyodide:', error);
 				return;

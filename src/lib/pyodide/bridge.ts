@@ -45,6 +45,7 @@ import {
 	STREAMING_STEP_EXPR,
 	STREAMING_STOP_CODE
 } from './pythonHelpers';
+import type { BackendPreference } from '$lib/types';
 
 // Result types
 export interface SimulationResult {
@@ -191,8 +192,9 @@ async function injectHelpers(): Promise<void> {
 /**
  * Initialize Pyodide
  */
-export async function initPyodide(): Promise<void> {
-	await initRepl();
+export async function initPyodide(currentBackendPreference: null | BackendPreference): Promise<void> {
+	console.log("(bridge, initPyodide) Current Backend Preference: ", currentBackendPreference)
+	await initRepl(currentBackendPreference);
 	await injectHelpers();
 }
 
@@ -510,11 +512,13 @@ export async function resetSimulation(): Promise<void> {
  */
 export async function validateGraph(
 	codeContext: string,
-	nodeParams: Record<string, Record<string, string>>
+	nodeParams: Record<string, Record<string, string>>,
+	currentBackendPreference: null | BackendPreference
 ): Promise<ValidationResult> {
 	const state = get(replState);
 	if (!state.initialized) {
-		await initPyodide();
+		console.log("(bridge) Current Backend Preference: ", currentBackendPreference)
+		await initPyodide(currentBackendPreference);
 	}
 
 	try {

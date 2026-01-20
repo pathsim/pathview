@@ -34,6 +34,7 @@ export { PyodideBackend } from './pyodide/backend';
 import { getBackend } from './registry';
 import { backendState } from './state';
 import { consoleStore } from '$lib/stores/console';
+import type { BackendPreference } from '$lib/types';
 
 // Alias for backward compatibility
 export const replState = {
@@ -43,8 +44,8 @@ export const replState = {
 /**
  * Initialize the backend
  */
-export async function init(): Promise<void> {
-	const backend = getBackend();
+export async function init(currentBackendPreference: null | BackendPreference): Promise<void> {
+	const backend = getBackend(currentBackendPreference);
 
 	// Set up console output callbacks
 	backend.onStdout((value) => consoleStore.output(value));
