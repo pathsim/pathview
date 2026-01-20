@@ -393,9 +393,7 @@
 {:else if name === 'flask'}
 	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 		<path d="M9 3h6"/>
-		<path d="M10 9V3"/>
-		<path d="M14 9V3"/>
-		<path d="M10 9a5 5 0 0 0-4.24 7.66L4 20a1 1 0 0 0 .86 1.5h14.28a1 1 0 0 0 .86-1.5l-1.76-3.34A5 5 0 0 0 14 9"/>
+		<path d="M10 3v6l-5 10h14l-5-10V3"/>
 	</svg>
 {:else if name === 'car'}
 	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
