@@ -1,10 +1,9 @@
 {
   "version": "1.0.0",
   "metadata": {
-    "created": "2026-01-14T10:35:26.069Z",
-    "modified": "2026-01-14T10:35:26.069Z",
-    "name": "PID Controler",
-    "description": "PID Control of a linear Plant"
+    "created": "2026-01-19T22:41:42.323Z",
+    "modified": "2026-01-19T22:41:42.323Z",
+    "name": "pid-subsystem"
   },
   "graph": {
     "nodes": [
@@ -13,8 +12,8 @@
         "type": "StepSource",
         "name": "Setpoint",
         "position": {
-          "x": 660,
-          "y": 450
+          "x": 710,
+          "y": 480
         },
         "inputs": [],
         "outputs": [
@@ -29,7 +28,7 @@
         "params": {
           "amplitude": "[1, 0.5]",
           "tau": "[20+tau_1, 40+tau_2]",
-          "_rotation": 3
+          "_rotation": 0
         }
       },
       {
@@ -37,8 +36,8 @@
         "type": "Adder",
         "name": "Error",
         "position": {
-          "x": 795,
-          "y": 300
+          "x": 820,
+          "y": 410
         },
         "inputs": [
           {
@@ -67,15 +66,15 @@
         ],
         "params": {
           "operations": "\"+-\"",
-          "_rotation": 0
+          "_rotation": 3
         }
       },
       {
         "id": "pid",
         "type": "PID",
-        "name": "PID",
+        "name": "PID Controler",
         "position": {
-          "x": 990,
+          "x": 960,
           "y": 300
         },
         "inputs": [
@@ -101,15 +100,20 @@
           "Ki": "0.5",
           "Kd": "0.1",
           "f_max": "10"
-        }
+        },
+        "pinnedParams": [
+          "Kp",
+          "Ki",
+          "Kd"
+        ]
       },
       {
         "id": "scope",
         "type": "Scope",
         "name": "Setpoint vs Plant",
         "position": {
-          "x": 855,
-          "y": 450
+          "x": 1340,
+          "y": 180
         },
         "inputs": [
           {
@@ -130,7 +134,8 @@
         ],
         "outputs": [],
         "params": {
-          "_rotation": 1
+          "_rotation": 3,
+          "labels": "[\"plant\", \"setpoint\"]"
         }
       },
       {
@@ -138,8 +143,8 @@
         "type": "Scope",
         "name": "Error",
         "position": {
-          "x": 885,
-          "y": 240
+          "x": 820,
+          "y": 180
         },
         "inputs": [
           {
@@ -152,7 +157,8 @@
         ],
         "outputs": [],
         "params": {
-          "_rotation": 3
+          "_rotation": 3,
+          "labels": "[\"err\"]"
         }
       },
       {
@@ -160,8 +166,8 @@
         "type": "Subsystem",
         "name": "Plant",
         "position": {
-          "x": 990,
-          "y": 375
+          "x": 1170,
+          "y": 300
         },
         "inputs": [
           {
@@ -184,7 +190,7 @@
           }
         ],
         "params": {
-          "_rotation": 2
+          "_rotation": 0
         },
         "graph": {
           "nodes": [
@@ -193,20 +199,22 @@
               "type": "Interface",
               "name": "Subsystem",
               "position": {
-                "x": 165,
-                "y": -15
+                "x": 120,
+                "y": 60
               },
               "inputs": [],
               "outputs": [],
-              "params": {}
+              "params": {
+                "_rotation": 3
+              }
             },
             {
               "id": "3a36165c-154d-4dc2-9744-e20fa06c99b6",
               "type": "Integrator",
               "name": "Quantity",
               "position": {
-                "x": 240,
-                "y": 75
+                "x": 250,
+                "y": 60
               },
               "inputs": [
                 {
@@ -238,8 +246,8 @@
               "type": "Amplifier",
               "name": "Gain",
               "position": {
-                "x": 240,
-                "y": 225
+                "x": 250,
+                "y": 180
               },
               "inputs": [
                 {
@@ -271,8 +279,8 @@
               "type": "Scope",
               "name": "Plant Quantity",
               "position": {
-                "x": 345,
-                "y": 150
+                "x": 360,
+                "y": 120
               },
               "inputs": [
                 {
@@ -287,7 +295,8 @@
               "outputs": [],
               "params": {
                 "t_wait": "0.0",
-                "_rotation": 0
+                "_rotation": 0,
+                "labels": "[\"plant qty\"]"
               }
             }
           ],
@@ -328,8 +337,8 @@
         "type": "Scope",
         "name": "Control Signal",
         "position": {
-          "x": 1125,
-          "y": 240
+          "x": 1080,
+          "y": 180
         },
         "inputs": [
           {
@@ -342,7 +351,8 @@
         ],
         "outputs": [],
         "params": {
-          "_rotation": 3
+          "_rotation": 3,
+          "labels": "[\"ctrl\"]"
         }
       }
     ],
@@ -383,37 +393,37 @@
         "targetPortIndex": 1
       },
       {
-        "id": "73846b60-c98b-4933-9a79-02b17b439af7",
-        "sourceNodeId": "setpoint",
-        "sourcePortIndex": 0,
-        "targetNodeId": "scope",
-        "targetPortIndex": 0
-      },
-      {
-        "id": "b82afa70-4a3e-4b10-8adb-4c162bcafce8",
-        "sourceNodeId": "367985a4-df42-46b1-97af-94302aaf3234",
-        "sourcePortIndex": 0,
-        "targetNodeId": "scope",
-        "targetPortIndex": 1
-      },
-      {
         "id": "bf75489a-0404-41ac-b709-bc0579e2a217",
         "sourceNodeId": "pid",
         "sourcePortIndex": 0,
         "targetNodeId": "4674b251-a882-45b9-baf1-01db4d0f7a22",
         "targetPortIndex": 0
+      },
+      {
+        "id": "09fb7ca4-d71c-46dd-b4bf-95d7275f74b2",
+        "sourceNodeId": "367985a4-df42-46b1-97af-94302aaf3234",
+        "sourcePortIndex": 0,
+        "targetNodeId": "scope",
+        "targetPortIndex": 0
+      },
+      {
+        "id": "bd75dcef-06d4-422d-b97f-a9e6a9149f75",
+        "sourceNodeId": "setpoint",
+        "sourcePortIndex": 0,
+        "targetNodeId": "scope",
+        "targetPortIndex": 1
       }
     ],
     "annotations": [
       {
         "id": "2e8245a1-8247-4527-acbe-11ffa83669c4",
         "position": {
-          "x": 1215,
-          "y": 315
+          "x": 890,
+          "y": 370
         },
         "content": "# PID Loop\n\nThe classic PID control loop. The plant is modeled as a subsystem, double click to view the internals.",
-        "width": 200,
-        "height": 115
+        "width": 290,
+        "height": 80
       }
     ]
   },

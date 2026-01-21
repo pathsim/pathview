@@ -10,7 +10,8 @@
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
-	import { createRecordingDataState } from '$lib/stores/recordingData.svelte';
+	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
+	import { NODE, getPortPositionCalc, calculateNodeDimensions } from '$lib/constants/dimensions';
 	import PlotPreview from './PlotPreview.svelte';
 
 	interface Props {
@@ -25,6 +26,14 @@
 	const typeDef = $derived(nodeRegistry.get(data.type));
 	const category = $derived(typeDef?.category || 'Algebraic');
 
+	// Get valid pinned params (filter out any that no longer exist in the type definition)
+	// Defined early since it's needed for dimension calculations
+	const validPinnedParams = $derived(() => {
+		if (!data.pinnedParams?.length || !typeDef) return [];
+		const paramNames = new Set(typeDef.params.map(p => p.name));
+		return data.pinnedParams.filter(name => paramNames.has(name));
+	});
+
 	// Recording node hover preview
 	const isRecordingNode = $derived(category === 'Recording');
 	let isHovered = $state(false);
@@ -32,39 +41,26 @@
 	let hasPreloaded = $state(false); // Keep mounted once preloaded
 	let showPreview = $state(false); // Control visibility
 	let previewsPinned = $state(false);
-
+	let hasPlotData = $state(false);
 
 	const unsubscribePinned = pinnedPreviewsStore.subscribe((pinned) => {
 		previewsPinned = pinned;
 	});
 
-	// Shared recording data state (simulation results, ghost traces, etc.)
-	const recordingData = createRecordingDataState();
-
-	// Preview is loading when simulation is starting/running
-	const previewLoading = $derived(recordingData.simPhase === 'starting' || recordingData.simPhase === 'running');
+	// Check if this node has plot data (from centralized store)
+	const unsubscribePlotData = plotDataStore.subscribe((state) => {
+		hasPlotData = state.plots.has(id);
+	});
 
 	onDestroy(() => {
 		unsubscribePinned();
-		recordingData.destroy();
+		unsubscribePlotData();
 		if (hoverTimeout) clearTimeout(hoverTimeout);
-	});
-
-	// Get plot data for this recording node
-	const plotData = $derived(() => {
-		if (!isRecordingNode) return null;
-		return recordingData.getPlotData(id, data.type);
-	});
-
-	// Get ghost data for this recording node
-	const ghostPlotData = $derived(() => {
-		if (!isRecordingNode) return [];
-		return recordingData.getGhostData(id, data.type);
 	});
 
 	// Sync hasPreloaded when pinned (so unpinning keeps cache)
 	$effect(() => {
-		if (previewsPinned && plotData()) {
+		if (previewsPinned && hasPlotData) {
 			hasPreloaded = true;
 		}
 	});
@@ -137,24 +133,20 @@
 		}
 	});
 
-	// Node size constants
-	const NODE_PORT_SPACING = 18; // pixels per port
-	const NODE_BASE_HEIGHT = 36;
-	const NODE_BASE_WIDTH = 90;
-
 	const maxPortsOnSide = $derived(Math.max(data.inputs.length, data.outputs.length));
+	const pinnedCount = $derived(validPinnedParams().length);
 
-	// For horizontal layout: height grows with ports; for vertical: width grows
-	const nodeHeight = $derived(isVertical ? NODE_BASE_HEIGHT : Math.max(NODE_BASE_HEIGHT, maxPortsOnSide * NODE_PORT_SPACING + 10));
-	const nodeWidth = $derived(isVertical ? Math.max(NODE_BASE_WIDTH, maxPortsOnSide * NODE_PORT_SPACING + 20) : NODE_BASE_WIDTH);
-
-	// Calculate port positions using percentages for proper centering
-	function getPortPosition(index: number, total: number): string {
-		if (total === 1) return '50%';
-		// Distribute evenly with padding from edges
-		const percent = ((index + 1) / (total + 1)) * 100;
-		return `${percent}%`;
-	}
+	// Node dimensions - calculated from shared utility (same as SvelteFlow bounds)
+	const nodeDimensions = $derived(calculateNodeDimensions(
+		data.name,
+		data.inputs.length,
+		data.outputs.length,
+		pinnedCount,
+		rotation,
+		typeDef?.name
+	));
+	const nodeWidth = $derived(nodeDimensions.width);
+	const nodeHeight = $derived(nodeDimensions.height);
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
 	const isSubsystemNode = $derived(isSubsystem(data));
@@ -209,13 +201,6 @@
 
 	// Custom node color (defaults to pathsim-blue)
 	const nodeColor = $derived(data.color || 'var(--accent)');
-
-	// Get valid pinned params (filter out any that no longer exist in the type definition)
-	const validPinnedParams = $derived(() => {
-		if (!data.pinnedParams?.length || !typeDef) return [];
-		const paramNames = new Set(typeDef.params.map(p => p.name));
-		return data.pinnedParams.filter(name => paramNames.has(name));
-	});
 
 	// Handle pinned param change
 	function handlePinnedParamChange(paramName: string, value: string) {
@@ -299,18 +284,18 @@
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
 	data-rotation={rotation}
-	style="min-width: {nodeWidth}px; min-height: {nodeHeight}px; --node-color: {nodeColor};"
+	style="width: {nodeWidth}px; height: {nodeHeight}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
 >
 	<!-- Plot preview for recording nodes -->
-	{#if (hasPreloaded || previewsPinned) && plotData()}
+	{#if (hasPreloaded || previewsPinned) && hasPlotData}
 		<div
 			class="plot-preview-popup preview-{previewPosition()}"
 			class:visible={showPreview || previewsPinned}
 		>
-			<PlotPreview type={plotData()!.type} data={plotData()!.data} ghostData={ghostPlotData()} />
+			<PlotPreview nodeId={id} />
 		</div>
 	{/if}
 
@@ -378,7 +363,7 @@
 				type="target"
 				position={inputPosition()}
 				id={port.id}
-				style={isVertical ? `left: ${getPortPosition(i, data.inputs.length)};` : `top: ${getPortPosition(i, data.inputs.length)};`}
+				style={isVertical ? `left: ${getPortPositionCalc(i, data.inputs.length)};` : `top: ${getPortPositionCalc(i, data.inputs.length)};`}
 				class="handle handle-input"
 				onmouseenter={(e) => handleInputMouseEnter(e, port)}
 				onmouseleave={() => handleInputMouseLeave(port)}
@@ -393,7 +378,7 @@
 				type="source"
 				position={outputPosition()}
 				id={port.id}
-				style={isVertical ? `left: ${getPortPosition(i, data.outputs.length)};` : `top: ${getPortPosition(i, data.outputs.length)};`}
+				style={isVertical ? `left: ${getPortPositionCalc(i, data.outputs.length)};` : `top: ${getPortPositionCalc(i, data.outputs.length)};`}
 				class="handle handle-output"
 				onmouseenter={(e) => handleOutputMouseEnter(e, port)}
 				onmouseleave={() => handleOutputMouseLeave(port)}
@@ -405,12 +390,13 @@
 <style>
 	.node {
 		position: relative;
-		min-width: 90px;
-		min-height: 36px;
+		/* Dimensions set via inline style using grid constants */
+		/* Note: center-origin handled by SvelteFlow's nodeOrigin={[0.5, 0.5]} */
+		display: flex;
+		flex-direction: column;
 		background: var(--surface-raised);
 		border: 1px solid var(--edge);
 		font-size: 10px;
-		transition: all 0.15s ease;
 		overflow: visible;
 	}
 
@@ -464,19 +450,27 @@
 		z-index: 1000 !important;
 	}
 
-	/* Inner wrapper for proper border-radius clipping */
+	/* Inner wrapper for content - fills node, clips to rounded corners */
 	.node-inner {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
 		border-radius: inherit;
 		overflow: hidden;
+		min-height: 0;
 	}
 
-	/* Content */
+	/* Content - centered in available space */
 	.node-content {
-		padding: 8px 12px;
-		padding-left: 16px;
-		padding-right: 16px;
-		background: var(--surface-raised);
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		padding: 6px 12px;
 		text-align: center;
+		line-height: 1.2;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.node-name {
@@ -494,7 +488,7 @@
 		display: block;
 		font-size: 8px;
 		color: var(--text-muted);
-		margin-top: 1px;
+		margin-top: 2px;
 	}
 
 	/* Pinned parameters */

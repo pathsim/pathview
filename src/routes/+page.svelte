@@ -7,6 +7,7 @@
 	import { cubicOut } from 'svelte/easing';
 
 	// Svelte Component Imports
+	import Tooltip,  { tooltip } from '$lib/components/Tooltip.svelte';
 	import FlowCanvas from '$lib/components/FlowCanvas.svelte';
 	import SimulationPanel from '$lib/components/panels/SimulationPanel.svelte';
 	import BlockPropertiesDialog from '$lib/components/dialogs/BlockPropertiesDialog.svelte';
@@ -22,14 +23,13 @@
 	import { buildContextMenuItems, type ContextMenuCallbacks } from '$lib/components/contextMenuBuilders';
 	import ExportDialog from '$lib/components/dialogs/ExportDialog.svelte';
 	import KeyboardShortcutsDialog from '$lib/components/dialogs/KeyboardShortcutsDialog.svelte';
+	import PlotOptionsDialog from '$lib/components/dialogs/PlotOptionsDialog.svelte';
 	import SearchDialog from '$lib/components/dialogs/SearchDialog.svelte';
 	import ResizablePanel from '$lib/components/ResizablePanel.svelte';
 	import WelcomeModal from '$lib/components/WelcomeModal.svelte';
 	import SubsystemBreadcrumb from '$lib/components/SubsystemBreadcrumb.svelte';
-	import Icon from '$lib/components/icons/Icon.svelte';
-	import Tooltip, { tooltip } from '$lib/components/Tooltip.svelte';
-
-	// Stores (and Registry) imports
+	import Icon from "$lib/components/icons/Icon.svelte"
+	import { GRID_SIZE } from '$lib/constants/grid';
 	import { graphStore } from '$lib/stores/graph';
 	import { eventStore } from '$lib/stores/events';
 	import { historyStore } from '$lib/stores/history';
@@ -38,7 +38,6 @@
 	import { themeStore, type Theme } from '$lib/stores/theme';
 	import { backendPreferenceStore, type BackendPreference } from '$lib/stores/backendPreference';
 	import { contextMenuStore, type ContextMenuTarget } from '$lib/stores/contextMenu';
-	import { consoleStore } from '$lib/stores/console';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 	import { pinnedPreviewsStore } from '$lib/stores/pinnedPreviews';
 	import { clipboardStore } from '$lib/stores/clipboard';
@@ -57,9 +56,10 @@
 	// Pyodide and Python Functionality imports
 	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation } from '$lib/pyodide/bridge';
 	import { runGraphStreamingSimulation, validateGraphSimulation } from '$lib/pyodide/pathsimRunner';
-
-	// Console Specific Settings and Actions
-	import { newGraph, openFile, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, loadGraphFromUrl, currentFileName } from '$lib/schema/fileOps';
+	import { consoleStore } from '$lib/stores/console';
+	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName } from '$lib/schema/fileOps';
+	import { confirmationStore } from '$lib/stores/confirmation';
+	import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
 	import { triggerFitView, triggerZoomIn, triggerZoomOut, triggerPan, getViewportCenter, screenToFlow, triggerClearSelection, triggerNudge, hasAnySelection, setFitViewPadding } from '$lib/stores/viewActions';
   	
 	import { getFlaskBackendUrl } from '$lib/utils/flaskRoutes';
@@ -84,7 +84,19 @@
 	let showPinnedPreviews = $state(false);
 	let hasAutoOpenedPlot = $state(false); // Only auto-open once
 	let hasAutoOpenedConsole = $state(false); // Only auto-open once
-	let showWelcomeModal = $state(true); // Show on startup
+
+	// Parse URL model params once at init
+	function getUrlModelConfig(): { url: string; isGitHub: boolean } | null {
+		if (typeof window === 'undefined') return null;
+		const params = new URLSearchParams(window.location.search);
+		const model = params.get('model');
+		const modelgh = params.get('modelgh');
+		if (model) return { url: model, isGitHub: false };
+		if (modelgh) return { url: modelgh, isGitHub: true };
+		return null;
+	}
+	const urlModelConfig = getUrlModelConfig();
+	let showWelcomeModal = $state(!urlModelConfig); // Hide if loading from URL
 
 	// Track widths directly - initialized on first dual-panel open
 	let consolePanelWidth = $state<number | undefined>(undefined);
@@ -278,6 +290,7 @@
 	let exportDialogOpen = $state(false);
 	let showKeyboardShortcuts = $state(false);
 	let showSearchDialog = $state(false);
+	let showPlotOptionsDialog = $state(false);
 
 	// Context menu state
 	let contextMenuOpen = $state(false);
@@ -372,8 +385,8 @@
 	let consoleLogCount = $state(0);
 	let plotActiveTab = $state(0);
 	let plotViewMode = $state<'tabs' | 'tiles'>('tabs');
-	let showPlotLegend = $state(false);
 	let resultPlots = $state<{ id: string; type: 'scope' | 'spectrum'; title: string }[]>([]);
+	let resultTraces = $state<{ nodeId: string; nodeType: 'scope' | 'spectrum'; nodeName: string; signalIndex: number; signalLabel: string }[]>([]);
 
 	// Tooltip for continue button - simple, disabled state shows availability
 	const continueTooltip = { text: "Continue", shortcut: "Shift+Enter" };
@@ -428,21 +441,43 @@
 				statusText = 'Ready';
 			}
 
-			// Derive plots from result (use nodeNames from simulation result for subsystem support)
+			// Derive plots and traces from result (use nodeNames from simulation result for subsystem support)
 			const plots: { id: string; type: 'scope' | 'spectrum'; title: string }[] = [];
+			const traces: typeof resultTraces = [];
 			if (s.result?.scopeData) {
-				Object.entries(s.result.scopeData).forEach(([id], index) => {
+				Object.entries(s.result.scopeData).forEach(([id, data], index) => {
 					const title = s.result?.nodeNames?.[id] || `Scope ${index + 1}`;
 					plots.push({ id, type: 'scope', title });
+					// Add traces for each signal in this scope
+					for (let i = 0; i < data.signals.length; i++) {
+						traces.push({
+							nodeId: id,
+							nodeType: 'scope',
+							nodeName: title,
+							signalIndex: i,
+							signalLabel: data.labels?.[i] || `port ${i}`
+						});
+					}
 				});
 			}
 			if (s.result?.spectrumData) {
-				Object.entries(s.result.spectrumData).forEach(([id], index) => {
+				Object.entries(s.result.spectrumData).forEach(([id, data], index) => {
 					const title = s.result?.nodeNames?.[id] || `Spectrum ${index + 1}`;
 					plots.push({ id, type: 'spectrum', title });
+					// Add traces for each signal in this spectrum
+					for (let i = 0; i < data.magnitude.length; i++) {
+						traces.push({
+							nodeId: id,
+							nodeType: 'spectrum',
+							nodeName: title,
+							signalIndex: i,
+							signalLabel: data.labels?.[i] || `port ${i}`
+						});
+					}
 				});
 			}
 			resultPlots = plots;
+			resultTraces = traces;
 
 			// Reset tab if out of bounds
 			if (plotActiveTab >= plots.length && plots.length > 0) {
@@ -453,6 +488,7 @@
 		const unsubConsole = consoleStore.subscribe((logs) => {
 			consoleLogCount = logs.length;
 		});
+
 		// Always start with clean slate
 		clearAutoSave();
 
@@ -476,6 +512,9 @@
 		};
 		window.addEventListener('run-simulation', handleRunSimulation);
 		window.addEventListener('continue-simulation', handleContinueSimulation);
+
+		// Check for URL parameters to load model
+		loadFromUrlParam();
 
 		return () => {
 			// Cleanup store subscriptions
@@ -688,8 +727,8 @@
 	// Handle arrow keys - nudge selected nodes or pan canvas
 	function handleArrowKey(direction: string, largeStep: boolean) {
 		const hasSelection = hasAnySelection();
-		const panStep = largeStep ? 50 : 20;
-		const nudgeStep = largeStep ? 20 : 5;
+		const panStep = largeStep ? GRID_SIZE * 5 : GRID_SIZE * 2;
+		const nudgeStep = largeStep ? GRID_SIZE * 2 : GRID_SIZE;
 
 		const delta = { x: 0, y: 0 };
 
@@ -731,12 +770,10 @@
 				await initPyodide();
 			} catch (error) {
 				console.error('Failed to initialize Pyodide:', error);
+				isRunStarting = false;
 				return;
 			}
 		}
-
-		// Set flag synchronously to prevent race conditions during validation
-		isRunStarting = true;
 
 		try {
 			// Run simulation
@@ -853,15 +890,23 @@
 	}
 
 	// File operations
-	function handleNew() {
-		if (nodeCount > 0 && !confirm('Create new? Unsaved changes will be lost.')) return;
+	async function handleNew() {
+		if (nodeCount > 0) {
+			const confirmed = await confirmationStore.show({
+				title: 'Unsaved Changes',
+				message: 'Creating a new file will discard your current work. Continue?',
+				confirmText: 'Discard & Create New',
+				cancelText: 'Cancel'
+			});
+			if (!confirmed) return;
+		}
 		newGraph();
 	}
 
 	async function handleOpen() {
-		if (nodeCount > 0 && !confirm('Open file? Unsaved changes will be lost.')) return;
-		const file = await openFile();
-		if (file) {
+		// Uses unified import system with built-in confirmation
+		const result = await openImportDialog();
+		if (result.success && result.type === 'model') {
 			// Trigger fit view after a brief delay to let nodes render
 			setTimeout(() => triggerFitView(), 100);
 		}
@@ -869,10 +914,57 @@
 
 	// Load example file
 	async function handleLoadExample(url: string) {
-		const file = await loadGraphFromUrl(url);
-		if (file) {
+		const result = await importFromUrl(url);
+		if (result.success) {
 			// Trigger fit view after a brief delay to let nodes render
 			setTimeout(() => triggerFitView(), 100);
+		}
+	}
+
+	/**
+	 * Expand GitHub shorthand to raw.githubusercontent.com URL
+	 * Format: owner/repo/path/to/file.pvm
+	 * Expands to: https://raw.githubusercontent.com/owner/repo/main/path/to/file.pvm
+	 */
+	function expandGitHubShorthand(shorthand: string): string {
+		const parts = shorthand.split('/');
+		if (parts.length < 3) {
+			throw new Error('Invalid GitHub shorthand. Use: owner/repo/path/to/file.pvm');
+		}
+		const owner = parts[0];
+		const repo = parts[1];
+		const pathParts = parts.slice(2);
+		// Default to 'main' branch
+		const branch = 'main';
+		const filePath = pathParts.join('/');
+		return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`;
+	}
+
+	/**
+	 * Load model from URL parameter on page load
+	 */
+	async function loadFromUrlParam(): Promise<void> {
+		if (!urlModelConfig) return;
+
+		let url: string;
+		try {
+			url = urlModelConfig.isGitHub
+				? expandGitHubShorthand(urlModelConfig.url)
+				: urlModelConfig.url;
+		} catch (e) {
+			consoleStore.error(`Invalid GitHub shorthand: ${urlModelConfig.url}`);
+			consoleStore.error('Expected format: owner/repo/path/to/file.pvm');
+			showConsole = true;
+			return;
+		}
+
+		const result = await importFromUrl(url);
+		if (result.success) {
+			setTimeout(() => triggerFitView(), 100);
+		} else if (result.error) {
+			consoleStore.error(`Failed to load model from URL: ${url}`);
+			consoleStore.error(result.error);
+			showConsole = true;
 		}
 	}
 
@@ -974,8 +1066,8 @@
 			<button class="toolbar-btn" onclick={handleNew} use:tooltip={"New"} aria-label="New">
 				<Icon name="new-canvas" size={16} />
 			</button>
-			<button class="toolbar-btn" onclick={handleOpen} use:tooltip={{ text: "Open", shortcut: "Ctrl+O" }} aria-label="Open">
-				<Icon name="folder" size={16} />
+			<button class="toolbar-btn" onclick={handleOpen} use:tooltip={{ text: "Open/Import", shortcut: "Ctrl+O" }} aria-label="Open/Import">
+				<Icon name="download" size={16} />
 			</button>
 			<button class="toolbar-btn" onclick={() => saveFile()} use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }} aria-label="Save">
 				<Icon name="upload" size={16} />
@@ -1198,14 +1290,6 @@
 				{/if}
 			{/snippet}
 			{#snippet actions()}
-				<button
-					class="icon-btn ghost"
-					onclick={() => showPlotLegend = !showPlotLegend}
-					use:tooltip={{ text: showPlotLegend ? 'Hide legend' : 'Show legend', position: 'bottom' }}
-					aria-label={showPlotLegend ? 'Hide legend' : 'Show legend'}
-				>
-					<Icon name="list" size={16} />
-				</button>
 				{#if resultPlots.length > 1}
 					<button
 						class="icon-btn ghost"
@@ -1220,8 +1304,16 @@
 						{/if}
 					</button>
 				{/if}
+				<button
+					class="icon-btn ghost"
+					onclick={() => showPlotOptionsDialog = true}
+					use:tooltip={{ text: 'Plot options', position: 'bottom' }}
+					aria-label="Plot options"
+				>
+					<Icon name="settings" size={16} />
+				</button>
 			{/snippet}
-			<PlotPanel collapsed={false} bind:activeTab={plotActiveTab} viewMode={plotViewMode} showLegend={showPlotLegend} />
+			<PlotPanel collapsed={false} bind:activeTab={plotActiveTab} viewMode={plotViewMode} />
 		</ResizablePanel>
 	{/if}
 
@@ -1266,6 +1358,7 @@
 	<!-- Keyboard Shortcuts Dialog -->
 	<KeyboardShortcutsDialog open={showKeyboardShortcuts} onClose={() => showKeyboardShortcuts = false} />
 	<SearchDialog open={showSearchDialog} onClose={() => showSearchDialog = false} />
+	<PlotOptionsDialog open={showPlotOptionsDialog} onClose={() => showPlotOptionsDialog = false} traces={resultTraces} />
 
 	<!-- Block Properties Dialog -->
 	<BlockPropertiesDialog />
@@ -1284,10 +1377,13 @@
 	<!-- Global Tooltip -->
 	<Tooltip />
 
+	<!-- Global Confirmation Modal -->
+	<ConfirmationModal />
+
 	<!-- Welcome Modal -->
 	{#if showWelcomeModal}
 		<WelcomeModal
-			onNew={() => newGraph()}
+			onNew={handleNew}
 			onOpen={handleOpen}
 			onLoadExample={handleLoadExample}
 			onClose={() => showWelcomeModal = false}

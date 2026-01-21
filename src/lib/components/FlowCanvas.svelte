@@ -23,12 +23,14 @@
 	import { selectedNodeIds as graphSelectedNodeIds } from '$lib/stores/graph/state';
 	import { historyStore } from '$lib/stores/history';
 	import { themeStore, type Theme } from '$lib/stores/theme';
-	import { clearSelectionTrigger, nudgeTrigger, selectNodeTrigger, registerHasSelection } from '$lib/stores/viewActions';
+	import { clearSelectionTrigger, nudgeTrigger, selectNodeTrigger, registerHasSelection, triggerFitView } from '$lib/stores/viewActions';
 	import { dropTargetBridge } from '$lib/stores/dropTargetBridge';
 	import { contextMenuStore } from '$lib/stores/contextMenu';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 		import { nodeRegistry } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
+	import { SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
+	import { calculateNodeDimensions } from '$lib/constants/dimensions';
 	import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 	import type { EventInstance } from '$lib/events/types';
 
@@ -37,7 +39,6 @@
 		toFlowEdge,
 		toEventNode,
 		toAnnotationNode,
-		parseHandlePort,
 		rotateSelectedNodes,
 		flipSelectedNodesHorizontal,
 		flipSelectedNodesVertical,
@@ -380,6 +381,21 @@
 			// Interface blocks are not deletable
 			const isInterface = graphNode.type === NODE_TYPES.INTERFACE;
 
+			// Calculate node dimensions for SvelteFlow bounds
+			const typeDef = nodeRegistry.get(graphNode.type);
+			const pinnedParamCount = typeDef && graphNode.pinnedParams
+				? graphNode.pinnedParams.filter(name => typeDef.params.some(p => p.name === name)).length
+				: 0;
+			const rotation = (graphNode.params?.['_rotation'] as number) || 0;
+			const { width, height } = calculateNodeDimensions(
+				graphNode.name,
+				graphNode.inputs.length,
+				graphNode.outputs.length,
+				pinnedParamCount,
+				rotation,
+				typeDef?.name
+			);
+
 			// If node exists, update data but don't preserve selection here
 			// Selection is managed by SvelteFlow, trigger subscriptions, and merge effect
 			if (existingNode) {
@@ -388,6 +404,10 @@
 					type: existingNode.type,
 					position,
 					data: graphNode,
+					width,
+					height,
+					// Explicit center origin for correct bounds calculation
+					origin: [0.5, 0.5] as [number, number],
 					selectable: existingNode.selectable,
 					draggable: existingNode.draggable,
 					deletable: !isInterface
@@ -401,6 +421,10 @@
 				type: 'pathview',
 				position,
 				data: graphNode,
+				width,
+				height,
+				// Explicit center origin for correct bounds calculation
+				origin: [0.5, 0.5] as [number, number],
 				selectable: true,
 				draggable: true,
 				deletable: !isInterface
@@ -726,6 +750,14 @@
 		event.preventDefault();
 		contextMenuStore.openForCanvas({ x: event.clientX, y: event.clientY });
 	}
+
+	function handleCanvasDoubleClick(event: MouseEvent) {
+		// Only trigger fit view if clicking on the canvas background (not on nodes/edges)
+		const target = event.target as HTMLElement;
+		if (target.closest('.svelte-flow__pane')) {
+			triggerFitView();
+		}
+	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -738,6 +770,7 @@
 	ondragover={handleDragOver}
 	ondragenter={handleDragEnter}
 	ondragleave={handleDragLeave}
+	ondblclick={handleCanvasDoubleClick}
 >
 	{#if isFileDragOver}
 		<div class="drop-zone-overlay">
@@ -763,7 +796,8 @@
 		onnodecontextmenu={handleNodeContextMenu}
 		onedgecontextmenu={handleEdgeContextMenu}
 		onpanecontextmenu={handlePaneContextMenu}
-		{...{ snapToGrid: true, snapGrid: [15, 15] } as any}
+		nodeOrigin={[0.5, 0.5]}
+		{...{ snapToGrid: true, snapGrid: SNAP_GRID } as any}
 		deleteKeyCode={['Delete', 'Backspace']}
 		selectionKeyCode={['Shift']}
 		multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
@@ -772,10 +806,11 @@
 		edgesReconnectable
 		edgesFocusable
 		edgesSelectable={false}
+		zoomOnDoubleClick={false}
 		proOptions={{ hideAttribution: true }}
 	>
 		<FlowUpdater pendingUpdates={pendingNodeUpdates} onUpdatesProcessed={clearPendingUpdates} />
-		<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+		<Background variant={BackgroundVariant.Dots} gap={BACKGROUND_GAP} size={1} />
 	</SvelteFlow>
 </div>
 

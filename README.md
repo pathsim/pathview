@@ -7,7 +7,7 @@
 
 # PathView - System Modeling in the Browser
 
-A web-based visual node editor for building and simulating dynamic systems with [PathSim](https://github.com/pathsim/pathsim) as the backend. Runs entirely in the browser via Pyodide - no server required. The UI is hosted at [view.pathsim.org](view.pathsim.org), free to use for everyone.
+A web-based visual node editor for building and simulating dynamic systems with [PathSim](https://github.com/pathsim/pathsim) as the backend. Runs entirely in the browser via Pyodide - no server required. The UI is hosted at [view.pathsim.org](https://view.pathsim.org), free to use for everyone.
 
 ## Tech Stack
 
@@ -39,21 +39,26 @@ src/
 │   ├── actions/           # Svelte actions (paramInput)
 │   ├── animation/         # Graph loading animations
 │   ├── components/        # UI components
-│   │   ├── canvas/        # Flow editor utilities
-│   │   ├── dialogs/       # Modal dialogs (BlockProperties, EventProperties, Export, Search, KeyboardShortcuts)
-│   │   │   └── shared/    # Shared dialog components
-│   │   ├── edges/         # SvelteFlow edge components
-│   │   ├── icons/         # Centralized icon library
-│   │   ├── nodes/         # Node components (BaseNode, EventNode, PlotPreview)
-│   │   └── panels/        # Side panels (Simulation, NodeLibrary, Code, Plot, Console, Events)
-│   ├── constants/         # Centralized constants (nodeTypes)
+│   │   ├── canvas/        # Flow editor utilities (connection, transforms)
+│   │   ├── dialogs/       # Modal dialogs
+│   │   │   └── shared/    # Shared dialog components (ColorPicker, etc.)
+│   │   ├── edges/         # SvelteFlow edge components (ArrowEdge)
+│   │   ├── icons/         # Icon component (Icon.svelte)
+│   │   ├── nodes/         # Node components (BaseNode, EventNode, AnnotationNode, PlotPreview)
+│   │   └── panels/        # Side panels (Simulation, NodeLibrary, CodeEditor, Plot, Console, Events)
+│   ├── constants/         # Centralized constants (nodeTypes, layout, handles)
 │   ├── events/            # Event system
 │   │   └── generated/     # Auto-generated from PathSim
+│   ├── export/            # Export utilities
+│   │   └── svg/           # SVG graph export (renderer, types)
 │   ├── nodes/             # Node type system
 │   │   ├── features/      # Node feature flags
 │   │   ├── generated/     # Auto-generated from PathSim
 │   │   └── shapes/        # Node shape definitions
-│   ├── plotting/          # Plot utilities
+│   ├── plotting/          # Plot system
+│   │   ├── core/          # Constants, types, utilities
+│   │   ├── processing/    # Data processing, render queue
+│   │   └── renderers/     # Plotly and SVG renderers
 │   ├── pyodide/           # Python runtime (backend, bridge)
 │   │   └── backend/       # Modular backend system (registry, state, types)
 │   │       └── pyodide/   # Pyodide Web Worker implementation
@@ -63,14 +68,19 @@ src/
 │   ├── stores/            # Svelte stores (state management)
 │   │   └── graph/         # Graph state with subsystem navigation
 │   ├── types/             # TypeScript type definitions
-│   └── utils/             # Utilities (colors, download, svgExport, csvExport, codemirror)
+│   └── utils/             # Utilities (colors, download, csvExport, codemirror)
 ├── routes/                # SvelteKit pages
 └── app.css                # Global styles with CSS variables
 
 scripts/
-├── extract-blocks.py      # Extract block definitions from PathSim
-├── extract-events.py      # Extract event definitions
-└── ...
+├── config/                # Configuration files for extraction
+│   ├── schemas/           # JSON schemas for validation
+│   ├── pathsim/           # Core PathSim blocks, events, simulation config
+│   ├── pathsim-chem/      # Chemical toolbox blocks
+│   ├── pyodide.json       # Pyodide version and preload packages
+│   ├── requirements-pyodide.txt   # Runtime Python packages
+│   └── requirements-build.txt     # Build-time Python packages
+└── extract.py             # Unified extraction script
 ```
 
 ---
@@ -117,9 +127,11 @@ Worker (10 Hz)              Main Thread                 UI (10 Hz)
 | **Main App** | Orchestrates panels, shortcuts, file ops | `routes/+page.svelte` |
 | **Flow Canvas** | SvelteFlow wrapper, node/edge sync | `components/FlowCanvas.svelte` |
 | **Flow Updater** | View control, animation triggers | `components/FlowUpdater.svelte` |
-| **Context Menus** | Right-click menus for nodes/canvas | `components/ContextMenu.svelte`, `contextMenuBuilders.ts` |
+| **Context Menus** | Right-click menus for nodes/canvas/plots | `components/ContextMenu.svelte`, `contextMenuBuilders.ts` |
 | **Graph Store** | Node/edge state, subsystem navigation | `stores/graph/` |
-| **View Actions** | Fit view, zoom, pan controls | `stores/viewActions.ts` |
+| **View Actions** | Fit view, zoom, pan controls | `stores/viewActions.ts`, `stores/viewTriggers.ts` |
+| **Clipboard** | Copy/paste/duplicate operations | `stores/clipboard.ts` |
+| **Plot Settings** | Per-trace and per-block plot options | `stores/plotSettings.ts` |
 | **Node Registry** | Block type definitions, parameters | `nodes/registry.ts` |
 | **Code Generation** | Graph → Python code | `pyodide/pathsimRunner.ts` |
 | **Backend** | Modular Python execution interface | `pyodide/backend/` |
@@ -127,7 +139,7 @@ Worker (10 Hz)              Main Thread                 UI (10 Hz)
 | **PyodideBackend** | Web Worker Pyodide implementation | `pyodide/backend/pyodide/` |
 | **Simulation Bridge** | High-level simulation API | `pyodide/bridge.ts` |
 | **Schema** | File/component save/load operations | `schema/fileOps.ts`, `schema/componentOps.ts` |
-| **Export Utils** | SVG/CSV/Python file downloads | `utils/download.ts`, `utils/svgExport.ts`, `utils/csvExport.ts` |
+| **Export Utils** | SVG/CSV/Python file downloads | `utils/download.ts`, `export/svg/`, `utils/csvExport.ts` |
 
 ### Centralized Constants
 
@@ -145,11 +157,11 @@ import { PORT_COLORS, DIALOG_COLOR_PALETTE } from '$lib/utils/colors';
 
 ## Adding New Blocks
 
-Blocks are extracted automatically from PathSim. To add a new block:
+Blocks are extracted automatically from PathSim using the `Block.info()` classmethod. The extraction is config-driven for easy maintenance.
 
 ### 1. Ensure the block exists in PathSim
 
-The block must be importable from `pathsim.blocks`:
+The block must be importable from `pathsim.blocks` (or toolbox module):
 
 ```python
 from pathsim.blocks import YourNewBlock
@@ -157,50 +169,90 @@ from pathsim.blocks import YourNewBlock
 
 ### 2. Add to block configuration
 
-Edit `scripts/extract-blocks.py` and add the block to the appropriate category:
+Edit `scripts/config/pathsim/blocks.json` and add the block class name to the appropriate category:
 
-```python
-BLOCK_CONFIG = {
-    "Sources": [...],
-    "Dynamic": [...],
+```json
+{
+  "categories": {
     "Algebraic": [
-        ...,
-        "YourNewBlock",  # Add here
-    ],
-    ...
+      "Adder",
+      "Multiplier",
+      "YourNewBlock"
+    ]
+  }
 }
 ```
 
-### 3. (Optional) Add UI overrides
+Port configurations are automatically extracted from `Block.info()`:
+- `None` → Variable/unlimited ports (UI allows add/remove)
+- `{}` → No ports of this type
+- `{"name": index}` → Fixed labeled ports (locked count)
 
-If the block needs custom UI behavior (port limits, default ports), add to `UI_OVERRIDES`:
-
-```python
-UI_OVERRIDES = {
-    "YourNewBlock": {
-        "maxInputs": 4,           # Max number of input ports
-        "maxOutputs": 1,          # Max number of output ports
-        "defaultInputs": ["a", "b"],  # Default input port names
-        "defaultOutputs": ["out"],    # Default output port names
-    },
-    ...
-}
-```
-
-### 4. Run extraction
+### 3. Run extraction
 
 ```bash
-npm run extract-blocks
+npm run extract
 ```
 
-This generates `src/lib/nodes/generated/blocks.ts` with:
-- Block metadata (parameters, descriptions)
-- Pre-rendered docstring HTML
-- Port configurations
+This generates TypeScript files in `src/lib/*/generated/` with:
+- Block metadata (parameters, descriptions, docstrings)
+- Port configurations from `Block.info()`
+- Pyodide runtime config
 
-### 5. Verify
+### 4. Verify
 
 Start the dev server and check that your block appears in the Block Library panel.
+
+---
+
+## Adding New Toolboxes
+
+To add a new PathSim toolbox (like `pathsim-chem`):
+
+### 1. Add to requirements
+
+Edit `scripts/config/requirements-pyodide.txt`:
+
+```txt
+--pre
+pathsim
+pathsim-chem>=0.2rc2  # optional
+pathsim-controls      # optional - your new toolbox
+```
+
+The `# optional` comment means Pyodide will continue loading if this package fails to install.
+
+### 2. Create toolbox config
+
+Create `scripts/config/pathsim-controls/blocks.json`:
+
+```json
+{
+  "$schema": "../schemas/blocks.schema.json",
+  "toolbox": "pathsim-controls",
+  "importPath": "pathsim_controls.blocks",
+
+  "categories": {
+    "Controls": [
+      "PIDController",
+      "StateEstimator"
+    ]
+  }
+}
+```
+
+### 3. (Optional) Add events
+
+Create `scripts/config/pathsim-controls/events.json` if the toolbox has custom events.
+
+### 4. Run extraction and build
+
+```bash
+npm run extract
+npm run build
+```
+
+No code changes needed - the extraction script automatically discovers toolbox directories.
 
 ---
 
@@ -370,9 +422,10 @@ $effect(() => {
 Subsystems are nested graphs with path-based navigation:
 
 ```typescript
-graphStore.navigateInto(subsystemId);  // Drill into subsystem
-graphStore.navigateOut();               // Go up one level
-graphStore.currentPath                  // Current navigation path
+graphStore.drillDown(subsystemId);  // Drill into subsystem
+graphStore.drillUp();               // Go up one level
+graphStore.navigateTo(level);       // Navigate to breadcrumb level
+graphStore.currentPath              // Current navigation path
 ```
 
 The Interface node inside a subsystem mirrors its parent Subsystem's ports (with inverted direction).
@@ -424,7 +477,46 @@ PathView uses JSON-based file formats for saving and sharing:
 - **File > Export Python** - Generate standalone Python script
 - **Right-click node > Export** - Save individual block/subsystem
 - **Right-click canvas > Export SVG** - Export graph as vector image
-- **Scope/Spectrum nodes** - Export simulation data as CSV
+- **Right-click plot > Download PNG/SVG** - Export plot as image
+- **Right-click plot > Export CSV** - Export simulation data as CSV
+- **Scope/Spectrum node context menu** - Export simulation data as CSV
+
+---
+
+## Sharing Models via URL
+
+Models can be loaded directly from a URL using query parameters:
+
+```
+https://view.pathsim.org/?model=<url>
+https://view.pathsim.org/?modelgh=<github-shorthand>
+```
+
+### Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `model` | Direct URL to a `.pvm` or `.json` file | `?model=https://example.com/mymodel.pvm` |
+| `modelgh` | GitHub shorthand (expands to raw.githubusercontent.com) | `?modelgh=user/repo/path/to/model.pvm` |
+
+### GitHub Shorthand
+
+The `modelgh` parameter expands to a raw GitHub URL:
+
+```
+modelgh=user/repo/examples/demo.pvm
+→ https://raw.githubusercontent.com/user/repo/main/examples/demo.pvm
+```
+
+### Examples
+
+```
+# Load from any URL
+https://view.pathsim.org/?model=https://mysite.com/models/feedback.pvm
+
+# Load from GitHub repository
+https://view.pathsim.org/?modelgh=pathsim/pathview/static/examples/feedback-system.json
+```
 
 ---
 
@@ -434,10 +526,68 @@ PathView uses JSON-based file formats for saving and sharing:
 |--------|---------|
 | `npm run dev` | Start development server |
 | `npm run build` | Production build |
+| `npm run preview` | Preview production build |
 | `npm run check` | TypeScript/Svelte type checking |
-| `npm run extract-blocks` | Regenerate block definitions from PathSim |
-| `npm run extract-events` | Regenerate event definitions |
+| `npm run lint` | Run ESLint |
+| `npm run format` | Format code with Prettier |
+| `npm run extract` | Regenerate all definitions from PathSim |
+| `npm run extract:blocks` | Blocks only |
+| `npm run extract:events` | Events only |
+| `npm run extract:simulation` | Simulation params only |
+| `npm run extract:deps` | Dependencies only |
+| `npm run extract:validate` | Validate config files |
 | `npm run examples` | Generate examples manifest |
+
+---
+
+## Node Styling
+
+Nodes are styled based on their category, with CSS-driven shapes and colors.
+
+### Shapes by Category
+
+| Category | Shape | Border Radius |
+|----------|-------|---------------|
+| Sources | Pill | 20px |
+| Dynamic | Rectangle | 4px |
+| Algebraic | Rectangle | 4px |
+| Mixed | Asymmetric | 12px 4px 12px 4px |
+| Recording | Pill | 20px |
+| Subsystem | Rectangle | 4px |
+
+Shapes are defined in `src/lib/nodes/shapes/registry.ts` and applied via CSS classes (`.shape-pill`, `.shape-rect`, etc.).
+
+### Colors
+
+- **Default node color**: CSS variable `--accent` (#0070C0 - PathSim blue)
+- **Custom colors**: Right-click node → Properties → Color picker (12 colors available)
+- **Port colors**: `PORT_COLORS.default` (#969696 gray), customizable per-port
+
+Colors are CSS-driven - see `src/app.css` for variables and `src/lib/utils/colors.ts` for palettes.
+
+### Adding Custom Shapes
+
+1. Register the shape in `src/lib/nodes/shapes/registry.ts`:
+   ```typescript
+   registerShape({
+     id: 'hexagon',
+     name: 'Hexagon',
+     cssClass: 'shape-hexagon',
+     borderRadius: '0px'
+   });
+   ```
+
+2. Add CSS in `src/app.css` or component styles:
+   ```css
+   .shape-hexagon {
+     clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+   }
+   ```
+
+3. Optionally map categories to the new shape:
+   ```typescript
+   setCategoryShape('MyCategory', 'hexagon');
+   ```
 
 ---
 
@@ -478,6 +628,33 @@ PathView uses JSON-based file formats for saving and sharing:
 - **Separate render queue**: Plot previews in nodes use SVG paths (not Plotly)
 - **Min-max decimation**: Large datasets downsampled while preserving peaks/valleys
 - **Deferred rendering**: Shared queue prevents preview updates from blocking main plots
+
+---
+
+## Deployment
+
+PathView uses a dual deployment strategy with automatic versioning:
+
+| Trigger | What happens | Deployed to |
+|---------|--------------|-------------|
+| Push to `main` | Build with base path `/dev` | [view.pathsim.org/dev/](https://view.pathsim.org/dev/) |
+| Release published | Bump `package.json`, build, deploy | [view.pathsim.org/](https://view.pathsim.org/) |
+| Manual dispatch | Choose `dev` or `release` | Respective path |
+
+### How it works
+
+1. Both versions deploy to the `deployment` branch using GitHub Actions
+2. Dev builds update only the `/dev` folder, preserving the release at root
+3. Release builds update root, preserving `/dev`
+4. Version in `package.json` is automatically bumped from the release tag (e.g., `v0.4.0` → `0.4.0`)
+
+### Creating a release
+
+1. Create a GitHub release with a version tag (e.g., `v0.4.0`)
+2. The workflow automatically:
+   - Updates `package.json` to match the tag
+   - Commits the version bump to `main`
+   - Builds and deploys to production
 
 ---
 

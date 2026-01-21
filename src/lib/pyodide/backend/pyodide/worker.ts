@@ -3,11 +3,14 @@
  * Executes Python code via Pyodide in a separate thread
  */
 
-// TODO: Need to replace every instance of readPythonAsync with the flask backend call based on the backend preference set
-
-import { PYODIDE_CDN_URL } from "$lib/constants/python";
-import { PROGRESS_MESSAGES, ERROR_MESSAGES } from "$lib/constants/messages";
-import type { Backend, REPLRequest, REPLResponse } from "../types";
+import {
+	PYODIDE_CDN_URL,
+	PYODIDE_PRELOAD,
+	PYTHON_PACKAGES,
+	type PackageConfig
+} from '$lib/constants/dependencies';
+import { PROGRESS_MESSAGES, ERROR_MESSAGES } from '$lib/constants/messages';
+import type { REPLRequest, REPLResponse } from '../types';
 
 import type { PyodideInterface } from "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs";
 import { getFlaskBackendUrl } from "$lib/utils/flaskRoutes";
@@ -60,20 +63,36 @@ async function initialize(eventPreference: BackendPreference): Promise<void> {
       batched: (msg: string) => send({ type: "stderr", value: msg }),
     });
 
-    send({ type: "progress", value: PROGRESS_MESSAGES.INSTALLING_DEPS });
-    await pyodide.loadPackage(["numpy", "scipy", "micropip"]);
+	send({ type: 'progress', value: PROGRESS_MESSAGES.INSTALLING_DEPS });
+	await pyodide.loadPackage([...PYODIDE_PRELOAD]);
 
-    send({ type: "progress", value: PROGRESS_MESSAGES.INSTALLING_PATHSIM });
-    await pyodide.runPythonAsync(`
+	// Install packages from config
+	for (const pkg of PYTHON_PACKAGES) {
+		const progressKey = `INSTALLING_${pkg.import.toUpperCase()}` as keyof typeof PROGRESS_MESSAGES;
+		send({
+			type: 'progress',
+			value: PROGRESS_MESSAGES[progressKey] ?? `Installing ${pkg.import}...`
+		});
+
+		try {
+			const preFlag = pkg.pre ? ', pre=True' : '';
+			await pyodide.runPythonAsync(`
 import micropip
-await micropip.install('pathsim')
-	`);
+await micropip.install('${pkg.pip}'${preFlag})
+			`);
 
-    // Verify and print version
-    await pyodide.runPythonAsync(`
-import pathsim
-print(f"PathSim {pathsim.__version__} loaded successfully")
-	`);
+			// Verify installation
+			await pyodide.runPythonAsync(`
+import ${pkg.import}
+print(f"${pkg.import} {${pkg.import}.__version__} loaded successfully")
+			`);
+		} catch (error) {
+			if (pkg.required) {
+				throw new Error(`Failed to install required package ${pkg.pip}: ${error}`);
+			}
+			console.warn(`Optional package ${pkg.pip} failed to install:`, error);
+		}
+	}
 
     // Import numpy as np and gc globally
     await pyodide.runPythonAsync(`import numpy as np`);

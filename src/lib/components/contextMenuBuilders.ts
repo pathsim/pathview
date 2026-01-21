@@ -6,7 +6,7 @@
 import { get } from 'svelte/store';
 import type { MenuItemType } from './ContextMenu.svelte';
 import type { ContextMenuTarget } from '$lib/stores/contextMenu';
-import { graphStore } from '$lib/stores/graph';
+import { graphStore, ANNOTATION_FONT_SIZE } from '$lib/stores/graph';
 import { eventStore } from '$lib/stores/events';
 import { clipboardStore } from '$lib/stores/clipboard';
 import { codePreviewStore } from '$lib/stores/codePreview';
@@ -14,12 +14,15 @@ import { codeContextStore } from '$lib/stores/codeContext';
 import { openNodeDialog } from '$lib/stores/nodeDialog';
 import { openEventDialog } from '$lib/stores/eventDialog';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
-import { triggerFitView, screenToFlow } from '$lib/stores/viewActions';
+import { triggerFitView, screenToFlow, triggerEditAnnotation } from '$lib/stores/viewActions';
 import { generateBlockCode, generateSingleEventCode } from '$lib/pyodide/pathsimRunner';
 import { generateBlockCodeHeader, generateEventCodeHeader } from '$lib/utils/codePreviewHeader';
-import { exportComponent, openComponentImportDialog } from '$lib/schema/componentOps';
+import { exportComponent } from '$lib/schema/componentOps';
+import { openImportDialog } from '$lib/schema/fileOps';
 import { hasExportableData, exportRecordingData } from '$lib/utils/csvExport';
-import { exportGraphAsSvg } from '$lib/utils/svgExport';
+import { exportToSVG } from '$lib/export/svg';
+import { downloadSvg } from '$lib/utils/download';
+import { plotSettingsStore, DEFAULT_BLOCK_SETTINGS } from '$lib/stores/plotSettings';
 
 /** Divider menu item */
 const DIVIDER: MenuItemType = { label: '', action: () => {}, divider: true };
@@ -333,17 +336,17 @@ function buildCanvasMenu(
 		},
 		DIVIDER,
 		{
-			label: 'Import',
+			label: 'Open/Import',
 			icon: 'download',
 			action: () => {
 				const flowPos = screenToFlow(screenPosition);
-				openComponentImportDialog(flowPos);
+				openImportDialog(flowPos);
 			}
 		},
 		{
 			label: 'Export SVG',
 			icon: 'image',
-			action: () => exportGraphAsSvg()
+			action: () => downloadSvg(exportToSVG(), 'pathview-graph.svg')
 		}
 	];
 
@@ -380,11 +383,115 @@ function buildCanvasMenu(
  * Build context menu items for an annotation
  */
 function buildAnnotationMenu(annotationId: string): MenuItemType[] {
+	const annotation = graphStore.getAnnotation(annotationId);
+	const currentFontSize = annotation?.fontSize || ANNOTATION_FONT_SIZE.DEFAULT;
+
 	return [
+		{
+			label: 'Edit',
+			icon: 'type',
+			shortcut: 'Dbl-click',
+			action: () => triggerEditAnnotation(annotationId)
+		},
+		DIVIDER,
+		{
+			label: 'Increase Font Size',
+			icon: 'font-size-increase',
+			action: () => {
+				if (currentFontSize < ANNOTATION_FONT_SIZE.MAX) {
+					graphStore.updateAnnotation(annotationId, { fontSize: currentFontSize + ANNOTATION_FONT_SIZE.STEP });
+				}
+			},
+			disabled: currentFontSize >= ANNOTATION_FONT_SIZE.MAX
+		},
+		{
+			label: 'Decrease Font Size',
+			icon: 'font-size-decrease',
+			action: () => {
+				if (currentFontSize > ANNOTATION_FONT_SIZE.MIN) {
+					graphStore.updateAnnotation(annotationId, { fontSize: currentFontSize - ANNOTATION_FONT_SIZE.STEP });
+				}
+			},
+			disabled: currentFontSize <= ANNOTATION_FONT_SIZE.MIN
+		},
+		DIVIDER,
+		{
+			label: 'Duplicate',
+			icon: 'copy',
+			shortcut: 'Ctrl+D',
+			action: () => {
+				graphStore.selectNode(annotationId, false);
+				graphStore.duplicateSelected();
+			}
+		},
+		{
+			label: 'Copy',
+			icon: 'clipboard',
+			shortcut: 'Ctrl+C',
+			action: () => {
+				graphStore.selectNode(annotationId, false);
+				clipboardStore.copy();
+			}
+		},
+		DIVIDER,
 		{
 			label: 'Delete',
 			icon: 'trash',
+			shortcut: 'Del',
 			action: () => graphStore.removeAnnotation(annotationId)
+		}
+	];
+}
+
+/**
+ * Build context menu items for a plot
+ */
+async function downloadPlotImage(plotEl: HTMLDivElement, format: 'png' | 'svg', filename: string): Promise<void> {
+	const Plotly = await import('plotly.js-dist-min');
+	await Plotly.downloadImage(plotEl, {
+		format,
+		filename,
+		width: 1200,
+		height: 800
+	});
+}
+
+function buildPlotMenu(nodeId: string, plotEl: HTMLDivElement): MenuItemType[] {
+	const node = graphStore.getNode(nodeId);
+	const nodeName = node?.name || 'Plot';
+	const nodeType = node?.type || 'Scope';
+	const dataSource = nodeType === 'Spectrum' ? 'spectrum' : 'scope';
+	const canExportCsv = hasExportableData(nodeId, dataSource as 'scope' | 'spectrum');
+
+	// Get legend visibility from plotSettingsStore (same source as PlotOptionsDialog)
+	const settings = get(plotSettingsStore);
+	const blockSettings = settings.blocks[nodeId] ?? DEFAULT_BLOCK_SETTINGS;
+	const showLegend = blockSettings.showLegend;
+
+	return [
+		{
+			label: 'Export CSV',
+			icon: 'table',
+			action: () => exportRecordingData(nodeId, nodeName, nodeType),
+			disabled: !canExportCsv
+		},
+		DIVIDER,
+		{
+			label: showLegend ? 'Hide Legend' : 'Show Legend',
+			icon: 'list',
+			action: () => plotSettingsStore.setBlockShowLegend(nodeId, !showLegend)
+		},
+		{
+			label: 'Reset View',
+			icon: 'maximize',
+			shortcut: 'Dbl-click',
+			action: async () => {
+				const Plotly = await import('plotly.js-dist-min');
+				Plotly.relayout(plotEl, {
+					'xaxis.autorange': true,
+					'yaxis.autorange': true
+				});
+			}
 		}
 	];
 }
@@ -412,6 +519,8 @@ export function buildContextMenuItems(
 			return buildCanvasMenu(screenPosition, callbacks);
 		case 'annotation':
 			return buildAnnotationMenu(target.annotationId);
+		case 'plot':
+			return buildPlotMenu(target.nodeId, target.plotEl);
 		default:
 			return [];
 	}

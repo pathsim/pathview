@@ -8,6 +8,9 @@
 // Re-export types
 export type { SearchableNode } from './state';
 
+// Re-export constants
+export { ANNOTATION_FONT_SIZE } from './annotations';
+
 // Import stores for subscriptions
 import {
 	currentNodes,
@@ -122,6 +125,7 @@ export {
 	isInterfaceNode,
 	findParentSubsystem,
 	cloneNode,
+	cloneNodeForPaste,
 	resizePorts,
 	regenerateGraphIds
 } from './helpers';

@@ -5,13 +5,7 @@
 
 import type { NodeTypeDefinition, NodeCategory, ParamDefinition, ParamType } from './types';
 import { defineNode } from './defineNode';
-import {
-	extractedBlocks,
-	blockConfig,
-	uiOverrides,
-	type ExtractedBlock,
-	type UIOverride
-} from './generated/blocks';
+import { extractedBlocks, blockConfig, type ExtractedBlock } from './generated/blocks';
 
 class NodeRegistry {
 	private nodes: Map<string, NodeTypeDefinition> = new Map();
@@ -75,13 +69,17 @@ class NodeRegistry {
 export const nodeRegistry = new NodeRegistry();
 
 /**
- * Convert extracted block to node definition options
+ * Convert extracted block to node definition
+ *
+ * Port semantics from Block.info():
+ * - null: Variable/unlimited ports (UI allows add/remove)
+ * - []: No ports of this type
+ * - ["in", "out"]: Fixed labeled ports (locked count)
  */
 function createNodeFromExtracted(
 	name: string,
 	category: NodeCategory,
-	extracted: ExtractedBlock,
-	override: UIOverride = {}
+	extracted: ExtractedBlock
 ): void {
 	// Build params from extracted data
 	const params: Record<
@@ -107,27 +105,41 @@ function createNodeFromExtracted(
 		};
 	}
 
-	// Determine inputs - use override defaults, extracted ports, or let defineNode use its defaults
+	// Determine inputs from extracted data
 	let inputs: string[] | undefined;
-	if (override.defaultInputs && override.defaultInputs.length > 0) {
-		inputs = override.defaultInputs;
-	} else if (extracted.inputs.length > 0) {
-		inputs = extracted.inputs;
-	} else if (override.maxInputs === 0) {
-		inputs = [];
-	}
-	// else: undefined - let defineNode use its default ['in 0']
+	let maxInputs: number | null;
 
-	// Determine outputs - use override defaults, extracted ports, or let defineNode use its defaults
-	let outputs: string[] | undefined;
-	if (override.defaultOutputs && override.defaultOutputs.length > 0) {
-		outputs = override.defaultOutputs;
-	} else if (extracted.outputs.length > 0) {
-		outputs = extracted.outputs;
-	} else if (override.maxOutputs === 0) {
-		outputs = [];
+	if (extracted.inputs === null) {
+		// Variable ports - use default, UI will allow add/remove
+		inputs = undefined; // defineNode will use ['in 0']
+		maxInputs = null; // unlimited
+	} else if (extracted.inputs.length > 0) {
+		// Fixed labeled ports
+		inputs = extracted.inputs;
+		maxInputs = extracted.inputs.length;
+	} else {
+		// Empty array means no inputs
+		inputs = [];
+		maxInputs = 0;
 	}
-	// else: undefined - let defineNode use its default ['out 0']
+
+	// Determine outputs from extracted data
+	let outputs: string[] | undefined;
+	let maxOutputs: number | null;
+
+	if (extracted.outputs === null) {
+		// Variable ports - use default, UI will allow add/remove
+		outputs = undefined; // defineNode will use ['out 0']
+		maxOutputs = null; // unlimited
+	} else if (extracted.outputs.length > 0) {
+		// Fixed labeled ports
+		outputs = extracted.outputs;
+		maxOutputs = extracted.outputs.length;
+	} else {
+		// Empty array means no outputs
+		outputs = [];
+		maxOutputs = 0;
+	}
 
 	const definition = defineNode({
 		name,
@@ -136,8 +148,8 @@ function createNodeFromExtracted(
 		description: extracted.description,
 		inputs,
 		outputs,
-		maxInputs: override.maxInputs,
-		maxOutputs: override.maxOutputs,
+		maxInputs,
+		maxOutputs,
 		params
 	});
 
@@ -156,10 +168,9 @@ function initializeRegistry(): void {
 	for (const [category, blockNames] of Object.entries(blockConfig)) {
 		for (const blockName of blockNames) {
 			const extracted = extractedBlocks[blockName as keyof typeof extractedBlocks];
-			const override = uiOverrides[blockName as keyof typeof uiOverrides] || {};
 
 			if (extracted) {
-				createNodeFromExtracted(blockName, category as NodeCategory, extracted, override);
+				createNodeFromExtracted(blockName, category as NodeCategory, extracted);
 			} else {
 				console.warn(`Block "${blockName}" not found in extracted blocks`);
 			}

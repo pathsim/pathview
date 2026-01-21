@@ -1,23 +1,49 @@
-name: Deploy to GitHub Pages
+name: Deploy
 
 on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      deploy_type:
+        description: 'Deploy type'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - release
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update version from release tag
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Strip 'v' prefix if present
+          echo "Updating package.json version to $VERSION"
+          npm version $VERSION --no-git-tag-version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "Bump version to $VERSION"
+          git push origin main
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -30,33 +56,54 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install PathSim
-        run: pip install pathsim docutils
+      - name: Install Python dependencies
+        run: |
+          pip install -r scripts/config/requirements-pyodide.txt
+          pip install -r scripts/config/requirements-build.txt
 
-      - name: Install dependencies
+      - name: Install Node dependencies
         run: npm ci
 
       - name: Extract blocks from PathSim
-        run: npm run extract-all
+        run: npm run extract
+
+      - name: Determine deploy type
+        id: deploy-type
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "type=release" >> $GITHUB_OUTPUT
+            echo "base_path=" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.deploy_type }}" == "release" ]]; then
+            echo "type=release" >> $GITHUB_OUTPUT
+            echo "base_path=" >> $GITHUB_OUTPUT
+          else
+            echo "type=dev" >> $GITHUB_OUTPUT
+            echo "base_path=/dev" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build
         run: npm run build
+        env:
+          BASE_PATH: ${{ steps.deploy-type.outputs.base_path }}
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to /dev
+        if: steps.deploy-type.outputs.type == 'dev'
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: 'build'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: deployment
+          publish_dir: ./build
+          destination_dir: dev
+          keep_files: true
+          cname: view.pathsim.org
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy release to root
+        if: steps.deploy-type.outputs.type == 'release'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: deployment
+          publish_dir: ./build
+          keep_files: true
+          cname: view.pathsim.org
+          exclude_assets: 'dev/**'

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-    import { base } from '$app/paths';
+	import { base } from '$app/paths';
 	import { scale, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
 
 	interface Example {
 		name: string;
-		file: string;
-		nodeCount: number;
 		description?: string;
+		file: string;
+		previewBase: string;
 	}
 
 	interface Props {
@@ -23,40 +23,54 @@
 
 	let examples = $state<Example[]>([]);
 	let loading = $state(true);
+	let isDark = $state(true);
 
-	onMount(async () => {
-		try {
-			// Fetch manifest (just a list of filenames)
-			const manifestRes = await fetch(`${base}/examples/manifest.json`);
-			if (!manifestRes.ok) throw new Error('No manifest');
-			const manifest = await manifestRes.json();
-			const files: string[] = manifest.files || [];
+	onMount(() => {
+		// Detect theme and watch for changes
+		const updateTheme = () => {
+			isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+		};
+		updateTheme();
 
-			// Fetch all files in parallel to get metadata
-			const loadedExamples = await Promise.all(
-				files.map(async (filename): Promise<Example | null> => {
-					try {
-						const fileRes = await fetch(`${base}/examples/${filename}`);
-						if (fileRes.ok) {
-							const data = await fileRes.json();
-							return {
-								name: data.metadata?.name || filename.replace('.json', ''),
-								file: `${base}/examples/${filename}`,
-								nodeCount: data.graph?.nodes?.length || 0,
-								description: data.metadata?.description
-							};
+		const observer = new MutationObserver(updateTheme);
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+		// Load examples
+		(async () => {
+			try {
+				const manifestRes = await fetch(`${base}/examples/manifest.json`);
+				if (!manifestRes.ok) throw new Error('No manifest');
+				const manifest = await manifestRes.json();
+				const files: string[] = manifest.files || [];
+
+				const loadedExamples = await Promise.all(
+					files.map(async (filename): Promise<Example | null> => {
+						try {
+							const fileRes = await fetch(`${base}/examples/${filename}`);
+							if (fileRes.ok) {
+								const data = await fileRes.json();
+								const baseName = filename.replace('.json', '');
+								return {
+									name: data.metadata?.name || baseName,
+									description: data.metadata?.description,
+									file: `${base}/examples/${filename}`,
+									previewBase: `${base}/examples/${baseName}`
+								};
+							}
+						} catch (e) {
+							console.warn(`Could not load example: ${filename}`);
 						}
-					} catch (e) {
-						console.warn(`Could not load example: ${filename}`);
-					}
-					return null;
-				})
-			);
-			examples = loadedExamples.filter((e): e is Example => e !== null);
-		} catch (e) {
-			console.warn('Could not load examples');
-		}
-		loading = false;
+						return null;
+					})
+				);
+				examples = loadedExamples.filter((e): e is Example => e !== null);
+			} catch (e) {
+				console.warn('Could not load examples');
+			}
+			loading = false;
+		})();
+
+		return () => observer.disconnect();
 	});
 
 	function handleNew() {
@@ -91,6 +105,8 @@
 			<img src="{base}/pathview_logo.png" alt="PathView" class="logo" />
 		</div>
 
+		<div class="separator"></div>
+
 		<div class="actions">
 			<button class="action-card" onclick={handleNew}>
 				<Icon name="new-canvas" size={20} />
@@ -98,7 +114,7 @@
 			</button>
 
 			<button class="action-card" onclick={handleOpen}>
-				<Icon name="folder" size={20} />
+				<Icon name="download" size={20} />
 				<span class="action-label">Open</span>
 			</button>
 
@@ -107,9 +123,14 @@
 				<span class="action-label">Docs</span>
 			</a>
 
-			<a href="https://github.com/pathsim" target="_blank" class="action-card">
+			<a href="https://github.com/pathsim/pathview" target="_blank" class="action-card">
 				<Icon name="github" size={20} />
 				<span class="action-label">GitHub</span>
+			</a>
+
+			<a href="https://github.com/pathsim/pathview/issues/new/choose" target="_blank" class="action-card">
+				<Icon name="alert-triangle" size={20} />
+				<span class="action-label">Issue</span>
 			</a>
 
 			<a href="https://github.com/sponsors/milanofthe" target="_blank" class="action-card">
@@ -118,25 +139,31 @@
 			</a>
 		</div>
 
+		<div class="separator"></div>
+
 		{#if loading}
 			<div class="examples-section">
-				<h3>Examples</h3>
 				<div class="loading-text">Loading examples...</div>
 			</div>
 		{:else if examples.length > 0}
 			<div class="examples-section">
-				<h3>Examples</h3>
 				<div class="examples-grid">
 					{#each examples as example}
 						<button class="example-card" onclick={() => handleExample(example.file)}>
-							<span class="example-name">{example.name}</span>
-							<span class="example-desc">{example.description || `${example.nodeCount} nodes`}</span>
+							<div class="example-info">
+								<div class="example-name">{example.name}</div>
+								{#if example.description}
+									<div class="example-description">{example.description}</div>
+								{/if}
+							</div>
+							<div class="example-preview">
+								<img src="{example.previewBase}-{isDark ? 'dark' : 'light'}.svg" alt="{example.name} preview" />
+							</div>
 						</button>
 					{/each}
 				</div>
 			</div>
 		{/if}
-
 	</div>
 </div>
 
@@ -145,15 +172,18 @@
 
 	.modal {
 		width: 90%;
-		max-width: 580px;
+		max-width: 780px;
 		padding: 24px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+		background: var(--surface-raised);
+		overflow: hidden;
 	}
 
 	.header {
 		text-align: center;
+		padding: 24px 0;
 	}
 
 	.logo {
@@ -162,7 +192,7 @@
 
 	.actions {
 		display: grid;
-		grid-template-columns: repeat(5, 1fr);
+		grid-template-columns: repeat(6, 1fr);
 		gap: 8px;
 	}
 
@@ -171,25 +201,23 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 6px;
-		padding: 14px 12px;
-		background: var(--surface-raised);
-		border: 1px solid var(--border);
+		padding: 6px 12px;
+		background: transparent;
+		border: none;
 		border-radius: var(--radius-md);
 		color: var(--text-muted);
 		cursor: pointer;
-		transition: all 0.15s ease;
 		text-decoration: none;
 		font-family: inherit;
 	}
 
-	.action-card:hover {
-		background: var(--surface-hover);
-		border-color: var(--accent);
-		transform: translateY(-1px);
-	}
-
 	.action-card :global(svg) {
 		color: var(--accent);
+		transition: transform 0.15s ease;
+	}
+
+	.action-card:hover :global(svg) {
+		transform: scale(1.2);
 	}
 
 	.action-label {
@@ -197,19 +225,18 @@
 		font-weight: 500;
 	}
 
+	.separator {
+		height: 1px;
+		background: var(--border);
+		margin: 0 -24px;
+	}
+
 	.examples-section {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-	}
-
-	.examples-section h3 {
-		font-size: 11px;
-		font-weight: 500;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin: 0;
+		min-height: 0;
+		flex: 1;
+		margin: -16px -24px -24px -24px;
 	}
 
 	.loading-text {
@@ -222,38 +249,101 @@
 	.examples-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 6px;
+		grid-auto-rows: min-content;
+		align-items: start;
+		gap: 10px;
+		overflow-y: auto;
+		max-height: 320px;
+		padding: 16px;
 	}
 
 	.example-card {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
-		gap: 2px;
-		padding: 8px 10px;
-		background: var(--surface-raised);
+		align-items: stretch;
+		justify-content: flex-start;
+		padding: 0;
+		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		cursor: pointer;
-		transition: all 0.15s ease;
 		text-align: left;
+		overflow: hidden;
+		font-family: inherit;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
 	}
 
 	.example-card:hover {
-		background: var(--surface-hover);
 		border-color: var(--accent);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
+
+
+	.example-info {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 1;
+		padding: 6px 8px;
+		text-align: left;
+		background: var(--surface);
+		border-bottom: 1px solid var(--border);
+		border-radius: var(--radius-md) var(--radius-md) 0 0;
+		transition: padding 0.15s ease;
+	}
+
 
 	.example-name {
 		font-size: 11px;
 		font-weight: 500;
-		color: var(--accent);
+		color: var(--text-muted);
 	}
 
-	.example-desc {
+	.example-description {
 		font-size: 10px;
 		color: var(--text-muted);
-		line-height: 1.3;
+		max-height: 0;
+		overflow: hidden;
+		opacity: 0;
+		transition: max-height 0.15s ease, opacity 0.15s ease, margin 0.15s ease;
+	}
+
+	.example-card:hover .example-description {
+		max-height: 100px;
+		opacity: 1;
+		margin-top: 4px;
+	}
+
+	.example-preview {
+		background: var(--surface);
+		width: 100%;
+		padding-top: 28px; /* Space for the header */
+	}
+
+	.example-preview img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	@media (max-width: 700px) {
+		.examples-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (max-width: 600px) {
+		.actions {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+
+	@media (max-width: 500px) {
+		.examples-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 
 </style>

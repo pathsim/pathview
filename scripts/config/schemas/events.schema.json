@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "events.schema.json",
+  "title": "PathSim Events Configuration",
+  "description": "Configuration for event extraction from a PathSim toolbox",
+  "type": "object",
+  "required": ["toolbox", "importPath", "events"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "toolbox": {
+      "type": "string",
+      "description": "Name of the toolbox (e.g., 'pathsim')"
+    },
+    "importPath": {
+      "type": "string",
+      "description": "Python import path for the events module (e.g., 'pathsim.events')"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of event class names to extract"
+    }
+  },
+  "additionalProperties": false
+}

@@ -9,7 +9,7 @@
 	import { get } from 'svelte/store';
 	import { dropTargetBridge } from '$lib/stores/dropTargetBridge';
 	import { assemblyAnimationTrigger, runAssemblyAnimation } from '$lib/animation/assemblyAnimation';
-	import { importComponent } from '$lib/schema/componentOps';
+	import { importFile } from '$lib/schema/fileOps';
 	import { ALL_COMPONENT_EXTENSIONS } from '$lib/types/component';
 
 	interface Props {
@@ -30,15 +30,19 @@
 			return;
 		}
 
-		// Calculate bounding box of all nodes
+		// Calculate bounding box of all nodes, accounting for origin
 		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 		for (const node of nodes) {
 			const width = node.measured?.width ?? node.width ?? 160;
 			const height = node.measured?.height ?? node.height ?? 60;
-			minX = Math.min(minX, node.position.x);
-			minY = Math.min(minY, node.position.y);
-			maxX = Math.max(maxX, node.position.x + width);
-			maxY = Math.max(maxY, node.position.y + height);
+			// Account for node origin (default center [0.5, 0.5], annotations use [0, 0])
+			const origin = (node.origin as [number, number]) ?? [0.5, 0.5];
+			const left = node.position.x - width * origin[0];
+			const top = node.position.y - height * origin[1];
+			minX = Math.min(minX, left);
+			minY = Math.min(minY, top);
+			maxX = Math.max(maxX, left + width);
+			maxY = Math.max(maxY, top + height);
 		}
 
 		// Add some padding around the nodes themselves
@@ -101,21 +105,23 @@
 				y: event.clientY
 			});
 
-			// Check for file drop (component import)
+			// Check for file drop (import any supported file type)
 			const files = event.dataTransfer?.files;
 			if (files && files.length > 0) {
 				const file = files[0];
 				const extension = '.' + file.name.split('.').pop()?.toLowerCase();
 
 				if (ALL_COMPONENT_EXTENSIONS.includes(extension)) {
-					try {
-						await importComponent(file, {
+					const result = await importFile(file, {
+						position: {
 							x: position.x - 80,
 							y: position.y - 30
-						});
-					} catch (error) {
-						console.error('Failed to import component:', error);
-						alert(`Failed to import component: ${error instanceof Error ? error.message : 'Unknown error'}`);
+						},
+						fileName: file.name
+					});
+
+					if (!result.success && !result.cancelled && result.error) {
+						alert(`Failed to import: ${result.error}`);
 					}
 					return;
 				}
@@ -189,7 +195,7 @@
 		}
 	});
 
-	// Listen for pan triggers
+	// Listen for pan triggers (no duration for instant keyboard response)
 	let lastPanId = 0;
 	panTrigger.subscribe((value) => {
 		if (value.id > lastPanId) {
@@ -198,7 +204,7 @@
 				x: viewport.x + value.x,
 				y: viewport.y + value.y,
 				zoom: viewport.zoom
-			}, { duration: 100 });
+			});
 			lastPanId = value.id;
 		}
 	});

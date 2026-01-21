@@ -45,6 +45,7 @@
 <style>
 	.event-node {
 		position: relative;
+		/* Note: center-origin handled by SvelteFlow's nodeOrigin={[0.5, 0.5]} */
 		cursor: pointer;
 	}
 

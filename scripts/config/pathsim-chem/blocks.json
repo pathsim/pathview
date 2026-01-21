@@ -1,0 +1,14 @@
+{
+  "$schema": "../schemas/blocks.schema.json",
+  "toolbox": "pathsim-chem",
+  "importPath": "pathsim_chem.tritium",
+
+  "categories": {
+    "Chemical": [
+      "Process",
+      "Bubbler4",
+      "Splitter",
+      "GLC"
+    ]
+  }
+}

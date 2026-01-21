@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "blocks.schema.json",
+  "title": "PathSim Blocks Configuration",
+  "description": "Configuration for block extraction from a PathSim toolbox",
+  "type": "object",
+  "required": ["toolbox", "importPath", "categories"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "toolbox": {
+      "type": "string",
+      "description": "Name of the toolbox (e.g., 'pathsim', 'pathsim-chem')"
+    },
+    "importPath": {
+      "type": "string",
+      "description": "Python import path for the blocks module (e.g., 'pathsim.blocks')"
+    },
+    "categories": {
+      "type": "object",
+      "description": "Block categories mapping to lists of class names",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "Python class name of the block"
+        }
+      }
+    },
+    "extraDocstrings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Additional classes to extract docstrings from (e.g., 'Subsystem', 'Interface')"
+    }
+  },
+  "additionalProperties": false
+}
