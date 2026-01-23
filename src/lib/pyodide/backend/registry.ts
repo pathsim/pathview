@@ -7,6 +7,7 @@ import type { Backend } from './types';
 import { PyodideBackend } from './pyodide/backend';
 import type { BackendPreference } from '$lib/types';
 import { backendPreferenceStore } from '$lib/stores';
+import { FlaskBackend } from './flask/backend';
 
 export type BackendType = 'pyodide' | 'local' | 'remote';
 
@@ -38,9 +39,9 @@ export function createBackend(type: null |  BackendPreference): Backend {
 		case null:
 			return new PyodideBackend();
 		case 'flask':
-			let backend = new PyodideBackend()
-			backend.setBackendPreference("flask")
-			return backend
+			// let backend = new PyodideBackend()
+			// backend.setBackendPreference("flask")
+			return new FlaskBackend()
 		// case 'remote':
 		// 	throw new Error(`Backend type '${type}' not yet implemented`);
 		default:

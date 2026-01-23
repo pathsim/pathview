@@ -38,11 +38,12 @@ if os.getenv("FLASK_ENV") == "production":
              } 
          })
 else:
+    print("We are not in production...")
     CORS(
         app, 
-        reosurces={
+        resources={
             r"/*": {""
-                "origins": {"origins": ["http://localhost:5173", "http://localhost:3000"]}
+                "origins": ["http://localhost:5173", "http://localhost:3000"]
             }
         },
         supports_credentials=True
@@ -144,6 +145,9 @@ def check_traceback():
     except Exception as e:
         return jsonify({"success": False, "error": f"Server-side error: {e}"})
 
+@app.route("/streamData", methods=["POST"])
+def stream_data():
+    pass
 # @app.route("/runGraphStreamingSimulation", methods=["POST"])
 # def runGraphStreamingSimulation():
 #     try:

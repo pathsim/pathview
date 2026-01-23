@@ -529,7 +529,6 @@ export async function validateGraph(
 
 		// Get validation result
 		const result = await evaluate<ValidationResult>(VALIDATION_RESULT_EXPR, TIMEOUTS.VALIDATION);
-
 		// Clean up
 		await exec(CLEANUP_TEMP_CODE);
 
