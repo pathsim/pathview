@@ -393,25 +393,15 @@
 		margin-top: 0;
 	}
 
-	/* NumPy-style section headers converted to <p><strong> */
-	.docs-content :global(p:has(> strong:only-child)) {
-		font-size: 9px;
+	/* Section headers (h3, h4 inside .section) - match .section-title style */
+	.docs-content :global(.section h3),
+	.docs-content :global(.section h4) {
+		font-size: 10px;
 		font-weight: 600;
-		color: var(--text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		margin-top: var(--space-md);
-		margin-bottom: var(--space-xs);
-	}
-
-	.docs-content :global(p:first-child:has(> strong:only-child)) {
-		margin-top: 0;
-	}
-
-	.docs-content :global(p:has(> strong:only-child) > strong) {
-		font-weight: inherit;
-		color: inherit;
-		text-transform: inherit;
+		color: var(--text-disabled);
+		margin: 0 0 var(--space-xs) 0;
 	}
 
 	/* Math blocks from docutils */
