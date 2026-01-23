@@ -32,22 +32,10 @@ export interface RoutingContext {
 	canvasBounds: Bounds;
 }
 
-/** Segment of a route (for segment dragging) */
-export interface RouteSegment {
-	index: number;
-	startPoint: Position;
-	endPoint: Position;
-	isHorizontal: boolean;
-	/** true if bounded by user waypoints */
-	isUserSegment: boolean;
-}
-
 /** Result from route calculation */
 export interface RouteResult {
 	/** Grid-aligned points including source/target */
 	path: Position[];
-	/** Generated waypoints (mix of user and auto) */
+	/** User waypoints (for future use) */
 	waypoints: Waypoint[];
-	/** Segment info for interaction */
-	segments: RouteSegment[];
 }

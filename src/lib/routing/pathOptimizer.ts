@@ -46,30 +46,3 @@ export function snapToGrid(point: Position): Position {
 	};
 }
 
-/**
- * Snap all points in a path to grid
- */
-export function snapPathToGrid(path: Position[]): Position[] {
-	return path.map(snapToGrid);
-}
-
-/**
- * Merge nearby points that are on the same grid cell
- */
-export function deduplicatePath(path: Position[]): Position[] {
-	if (path.length < 2) return path;
-
-	const result: Position[] = [path[0]];
-
-	for (let i = 1; i < path.length; i++) {
-		const prev = result[result.length - 1];
-		const curr = path[i];
-
-		// Skip if same position
-		if (prev.x !== curr.x || prev.y !== curr.y) {
-			result.push(curr);
-		}
-	}
-
-	return result;
-}

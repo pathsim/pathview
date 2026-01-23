@@ -2,10 +2,11 @@
  * Routing module public API
  */
 
-export { calculateRoute, calculateSimpleRoute } from './routeCalculator';
-export { buildGrid, worldToGrid, gridToWorld, getGridOffset } from './gridBuilder';
-export { findPath, findPathWithTurnPenalty } from './pathfinder';
-export { simplifyPath, snapToGrid, snapPathToGrid, deduplicatePath } from './pathOptimizer';
-export { ROUTING_MARGIN, SOURCE_CLEARANCE, TARGET_CLEARANCE, GRID_SIZE, HANDLE_OFFSET, ARROW_INSET } from './constants';
-export type { Bounds, RoutingContext, RouteSegment, RouteResult, Direction } from './types';
-export { DIRECTION_VECTORS } from './types';
+// Route calculation
+export { calculateRoute, calculateSimpleRoute, getPathCells, prepareRoutingGrid, clearRoutingGrid } from './routeCalculator';
+
+// Constants used by FlowCanvas
+export { ROUTING_MARGIN, HANDLE_OFFSET, ARROW_INSET } from './constants';
+
+// Types
+export type { Bounds, RoutingContext, RouteResult, Direction } from './types';

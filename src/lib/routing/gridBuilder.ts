@@ -4,7 +4,7 @@
 
 import PF from 'pathfinding';
 import type { Bounds, RoutingContext } from './types';
-import { GRID_SIZE, ROUTING_MARGIN } from './constants';
+import { GRID_SIZE, ROUTING_MARGIN, TARGET_CLEARANCE } from './constants';
 
 /**
  * Convert world coordinates to grid coordinates
@@ -38,12 +38,13 @@ export function buildGrid(context: RoutingContext): PF.Grid {
 	const grid = new PF.Grid(gridWidth, gridHeight);
 
 	// Mark obstacles (nodes with margin)
+	// Extend more on left/right where ports are (TARGET_CLEARANCE)
+	// Use smaller margin on top/bottom (ROUTING_MARGIN)
 	for (const [, bounds] of nodeBounds) {
-		// Add margin around node
 		const marginBounds = {
-			x: bounds.x - ROUTING_MARGIN,
+			x: bounds.x - TARGET_CLEARANCE,
 			y: bounds.y - ROUTING_MARGIN,
-			width: bounds.width + 2 * ROUTING_MARGIN,
+			width: bounds.width + 2 * TARGET_CLEARANCE,
 			height: bounds.height + 2 * ROUTING_MARGIN
 		};
 

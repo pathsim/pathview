@@ -4,13 +4,13 @@
 
 import { G } from '$lib/constants/grid';
 
-/** Margin around nodes for routing (0.25G = 2.5px) */
-export const ROUTING_MARGIN = G.unit / 4;
+/** Margin around nodes for routing (0.5G = 5px) - covers stub areas */
+export const ROUTING_MARGIN = G.unit / 2;
 
-/** Minimum distance from source port before first turn (1G = 10px) */
-export const SOURCE_CLEARANCE = G.unit;
+/** Minimum distance from source port before first turn (0 - handle offset provides clearance) */
+export const SOURCE_CLEARANCE = 0;
 
-/** Minimum distance from target port before first turn (1 grid unit = 10px) */
+/** Minimum distance from target port before first turn (1G = 10px) */
 export const TARGET_CLEARANCE = G.unit;
 
 /** Grid resolution for pathfinding (matches base grid = 10px) */

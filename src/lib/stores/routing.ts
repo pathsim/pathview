@@ -6,7 +6,7 @@ import { writable, derived, get } from 'svelte/store';
 import type { Position } from '$lib/types/common';
 import type { Connection, Waypoint } from '$lib/types/nodes';
 import type { RoutingContext, RouteResult, Bounds, Direction } from '$lib/routing';
-import { calculateRoute, calculateSimpleRoute, ROUTING_MARGIN } from '$lib/routing';
+import { calculateRoute, calculateSimpleRoute, getPathCells, prepareRoutingGrid, clearRoutingGrid, ROUTING_MARGIN } from '$lib/routing';
 import { generateId } from '$lib/stores/utils';
 import { graphStore } from '$lib/stores/graph';
 import { historyStore } from '$lib/stores/history';
@@ -72,7 +72,7 @@ export const routingStore = {
 
 		let result: RouteResult;
 		if ($state.context && $state.context.nodeBounds.size > 0) {
-			result = calculateRoute(connection, sourcePos, targetPos, sourceDir, targetDir, $state.context);
+			result = calculateRoute(sourcePos, targetPos, sourceDir, targetDir, $state.context);
 		} else {
 			// No context or empty - use simple routing
 			result = calculateSimpleRoute(sourcePos, targetPos, sourceDir, targetDir);
@@ -88,7 +88,7 @@ export const routingStore = {
 	},
 
 	/**
-	 * Recalculate all routes
+	 * Recalculate all routes with path overlap avoidance
 	 * @param connections - All connections to route
 	 * @param getPortInfo - Function to get port world position and direction
 	 */
@@ -99,33 +99,72 @@ export const routingStore = {
 		const $state = get(state);
 
 		const routes = new Map<string, RouteResult>();
+		const usedCells = new Map<string, Set<Direction>>();
 
-		for (const conn of connections) {
-			const sourceInfo = getPortInfo(conn.sourceNodeId, conn.sourcePortIndex, true);
-			const targetInfo = getPortInfo(conn.targetNodeId, conn.targetPortIndex, false);
-
-			if (!sourceInfo || !targetInfo) continue;
-
-			let result: RouteResult;
-			if ($state.context && $state.context.nodeBounds.size > 0) {
-				result = calculateRoute(
-					conn,
-					sourceInfo.position,
-					targetInfo.position,
-					sourceInfo.direction,
-					targetInfo.direction,
-					$state.context
-				);
-			} else {
-				result = calculateSimpleRoute(
-					sourceInfo.position,
-					targetInfo.position,
-					sourceInfo.direction,
-					targetInfo.direction
-				);
-			}
-			routes.set(conn.id, result);
+		// Pre-build grid once for all routes (performance optimization)
+		if ($state.context && $state.context.nodeBounds.size > 0) {
+			prepareRoutingGrid($state.context);
 		}
+
+		// Group connections by source port so paths from same port can share cells
+		const bySourcePort = new Map<string, Connection[]>();
+		for (const conn of connections) {
+			const key = `${conn.sourceNodeId}:${conn.sourcePortIndex}`;
+			const group = bySourcePort.get(key) || [];
+			group.push(conn);
+			bySourcePort.set(key, group);
+		}
+
+		// Process each source port group
+		for (const [, groupConns] of bySourcePort) {
+			const groupCells: Map<string, Set<Direction>>[] = [];
+
+			// Calculate routes for all connections from this source port
+			for (const conn of groupConns) {
+				const sourceInfo = getPortInfo(conn.sourceNodeId, conn.sourcePortIndex, true);
+				const targetInfo = getPortInfo(conn.targetNodeId, conn.targetPortIndex, false);
+
+				if (!sourceInfo || !targetInfo) continue;
+
+				let result: RouteResult;
+				if ($state.context && $state.context.nodeBounds.size > 0) {
+					result = calculateRoute(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction,
+						$state.context,
+						usedCells
+					);
+				} else {
+					result = calculateSimpleRoute(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction
+					);
+				}
+				routes.set(conn.id, result);
+
+				// Collect cells for this path (add to usedCells after processing whole group)
+				if (result.path.length > 0) {
+					groupCells.push(getPathCells(result.path, 2));
+				}
+			}
+
+			// Add all cells from this group to usedCells for subsequent groups
+			for (const cells of groupCells) {
+				for (const [cellKey, dirs] of cells) {
+					if (!usedCells.has(cellKey)) usedCells.set(cellKey, new Set());
+					for (const dir of dirs) {
+						usedCells.get(cellKey)!.add(dir);
+					}
+				}
+			}
+		}
+
+		// Clear cached grid
+		clearRoutingGrid();
 
 		state.update((s) => ({ ...s, routes }));
 	},

@@ -11,6 +11,15 @@ import { GRID_SIZE } from './constants';
 /** Cost for making a 90-degree turn (in grid units) */
 const TURN_PENALTY = 2;
 
+/** Cost for running parallel to another path (same direction) */
+const PATH_OVERLAP_PENALTY = 20;
+
+/** Cost for crossing another path (perpendicular) - low since crossings are acceptable */
+const PATH_CROSSING_PENALTY = 2;
+
+/** Number of cells to force walkable in initial direction (exit from port) */
+const EXIT_PATH_LENGTH = 3;
+
 /** Map direction to its opposite (for blocking 180-degree turns) */
 const OPPOSITE_DIR: Record<Direction, Direction> = {
 	up: 'down',
@@ -38,14 +47,86 @@ interface AStarNode {
 	direction: Direction; // Actual direction we arrived from
 }
 
+/** Simple binary min-heap for A* open set */
+class MinHeap {
+	private heap: AStarNode[] = [];
+
+	push(node: AStarNode): void {
+		this.heap.push(node);
+		this.bubbleUp(this.heap.length - 1);
+	}
+
+	pop(): AStarNode | undefined {
+		if (this.heap.length === 0) return undefined;
+		const min = this.heap[0];
+		const last = this.heap.pop()!;
+		if (this.heap.length > 0) {
+			this.heap[0] = last;
+			this.bubbleDown(0);
+		}
+		return min;
+	}
+
+	get length(): number {
+		return this.heap.length;
+	}
+
+	// Find and update node if better path found
+	updateIfBetter(x: number, y: number, dir: Direction, newG: number, parent: AStarNode): boolean {
+		for (let i = 0; i < this.heap.length; i++) {
+			const n = this.heap[i];
+			if (n.x === x && n.y === y && n.direction === dir) {
+				if (newG < n.g) {
+					n.g = newG;
+					n.f = newG + n.h;
+					n.parent = parent;
+					this.bubbleUp(i);
+					return true;
+				}
+				return false;
+			}
+		}
+		return false; // Not found
+	}
+
+	has(x: number, y: number, dir: Direction): boolean {
+		return this.heap.some(n => n.x === x && n.y === y && n.direction === dir);
+	}
+
+	private bubbleUp(i: number): void {
+		while (i > 0) {
+			const parent = Math.floor((i - 1) / 2);
+			if (this.heap[i].f >= this.heap[parent].f) break;
+			[this.heap[i], this.heap[parent]] = [this.heap[parent], this.heap[i]];
+			i = parent;
+		}
+	}
+
+	private bubbleDown(i: number): void {
+		const n = this.heap.length;
+		while (true) {
+			const left = 2 * i + 1;
+			const right = 2 * i + 2;
+			let smallest = i;
+			if (left < n && this.heap[left].f < this.heap[smallest].f) smallest = left;
+			if (right < n && this.heap[right].f < this.heap[smallest].f) smallest = right;
+			if (smallest === i) break;
+			[this.heap[i], this.heap[smallest]] = [this.heap[smallest], this.heap[i]];
+			i = smallest;
+		}
+	}
+}
+
 /**
  * Find orthogonal path between two points using A* with turn penalty
  * Only allows 90-degree turns (no reversing/180-degree turns)
  * @param start - Start position in world coordinates
  * @param end - End position in world coordinates
- * @param grid - Pathfinding grid (will be cloned)
+ * @param grid - Pathfinding grid
  * @param offset - Grid offset (canvas origin)
  * @param initialDir - Initial direction of travel
+ * @param usedCells - Optional map of cells to directions used by other paths
+ * @param prebuiltWalkable - Optional pre-built walkable set for performance
  * @returns Array of positions in world coordinates
  */
 export function findPathWithTurnPenalty(
@@ -53,7 +134,9 @@ export function findPathWithTurnPenalty(
 	end: Position,
 	grid: PF.Grid,
 	offset: Position,
-	initialDir: Direction
+	initialDir: Direction,
+	usedCells?: Map<string, Set<Direction>>,
+	prebuiltWalkable?: Set<string>
 ): Position[] {
 	// Convert to grid coordinates
 	const startGx = worldToGrid(start.x - offset.x);
@@ -70,23 +153,37 @@ export function findPathWithTurnPenalty(
 		return [start, end];
 	}
 
-	// Clone grid for manipulation
-	const walkable = new Set<string>();
-	for (let y = 0; y < gridHeight; y++) {
-		for (let x = 0; x < gridWidth; x++) {
-			if (grid.isWalkableAt(x, y)) {
-				walkable.add(`${x},${y}`);
+	// Use pre-built walkable set or build fresh
+	let walkable: Set<string>;
+	if (prebuiltWalkable) {
+		// Clone to avoid modifying shared set
+		walkable = new Set(prebuiltWalkable);
+	} else {
+		walkable = new Set<string>();
+		for (let y = 0; y < gridHeight; y++) {
+			for (let x = 0; x < gridWidth; x++) {
+				if (grid.isWalkableAt(x, y)) {
+					walkable.add(`${x},${y}`);
+				}
 			}
 		}
 	}
+
 	// Ensure start and end are walkable
 	walkable.add(`${startGx},${startGy}`);
 	walkable.add(`${endGx},${endGy}`);
 
-	// Initialize open and closed sets
-	// Key includes direction to allow revisiting with different directions
-	const openSet: AStarNode[] = [];
-	const closedSet = new Map<string, AStarNode>();
+	// Ensure first few cells in initial direction are walkable (exit path from port)
+	const initVec = NEIGHBORS.find((n) => n.dir === initialDir);
+	if (initVec) {
+		for (let i = 1; i <= EXIT_PATH_LENGTH; i++) {
+			walkable.add(`${startGx + initVec.dx * i},${startGy + initVec.dy * i}`);
+		}
+	}
+
+	// Initialize open (min-heap) and closed sets
+	const openSet = new MinHeap();
+	const closedSet = new Set<string>();
 
 	// Create start node
 	const startNode: AStarNode = {
@@ -102,78 +199,72 @@ export function findPathWithTurnPenalty(
 	openSet.push(startNode);
 
 	while (openSet.length > 0) {
-		// Find node with lowest f score
-		let lowestIdx = 0;
-		for (let i = 1; i < openSet.length; i++) {
-			if (openSet[i].f < openSet[lowestIdx].f) {
-				lowestIdx = i;
-			}
-		}
-		const current = openSet[lowestIdx];
+		const current = openSet.pop()!;
 
 		// Check if we reached the end
 		if (current.x === endGx && current.y === endGy) {
-			// Reconstruct path
 			return reconstructPath(current, offset);
 		}
 
-		// Move current from open to closed
-		openSet.splice(lowestIdx, 1);
+		// Skip if already processed with this direction
 		const closedKey = `${current.x},${current.y},${current.direction}`;
-		closedSet.set(closedKey, current);
+		if (closedSet.has(closedKey)) continue;
+		closedSet.add(closedKey);
 
-		// Get the direction we must NOT go (opposite of current direction = 180-degree turn)
+		// Get the direction we must NOT go (opposite = 180-degree turn)
 		const blockedDir = OPPOSITE_DIR[current.direction];
+		const isStartNode = current.parent === null;
 
 		// Explore neighbors
 		for (const { dx, dy, dir } of NEIGHBORS) {
-			// Block 180-degree turns (reversing)
 			if (dir === blockedDir) continue;
+			if (isStartNode && dir !== initialDir) continue;
 
 			const nx = current.x + dx;
 			const ny = current.y + dy;
-			const posKey = `${nx},${ny}`;
 
 			// Skip if out of bounds or not walkable
 			if (nx < 0 || nx >= gridWidth || ny < 0 || ny >= gridHeight) continue;
-			if (!walkable.has(posKey)) continue;
+			if (!walkable.has(`${nx},${ny}`)) continue;
 
-			// Skip if already in closed set with this direction
+			// Skip if already closed with this direction
 			const neighborClosedKey = `${nx},${ny},${dir}`;
 			if (closedSet.has(neighborClosedKey)) continue;
 
 			// Calculate movement cost
 			let moveCost = 1;
+			if (current.direction !== dir) moveCost += TURN_PENALTY;
 
-			// Add turn penalty if direction changes (90-degree turn)
-			if (current.direction !== dir) {
-				moveCost += TURN_PENALTY;
+			// Add penalty for cells used by other paths
+			if (usedCells) {
+				const worldGx = nx + worldToGrid(offset.x);
+				const worldGy = ny + worldToGrid(offset.y);
+				const existingDirs = usedCells.get(`${worldGx},${worldGy}`);
+				if (existingDirs) {
+					const isHorizontal = dir === 'left' || dir === 'right';
+					const hasPerpendicular = isHorizontal
+						? existingDirs.has('up') || existingDirs.has('down')
+						: existingDirs.has('left') || existingDirs.has('right');
+					moveCost += hasPerpendicular ? PATH_CROSSING_PENALTY : PATH_OVERLAP_PENALTY;
+				}
 			}
 
 			const tentativeG = current.g + moveCost;
 
-			// Check if this path to neighbor is better
-			const existingIdx = openSet.findIndex(n => n.x === nx && n.y === ny && n.direction === dir);
-			if (existingIdx !== -1) {
-				if (tentativeG < openSet[existingIdx].g) {
-					// Better path found
-					openSet[existingIdx].g = tentativeG;
-					openSet[existingIdx].f = tentativeG + openSet[existingIdx].h;
-					openSet[existingIdx].parent = current;
+			// Try to update existing node or add new one
+			if (!openSet.updateIfBetter(nx, ny, dir, tentativeG, current)) {
+				if (!openSet.has(nx, ny, dir)) {
+					const h = manhattanDistance(nx, ny, endGx, endGy);
+					openSet.push({
+						x: nx,
+						y: ny,
+						g: tentativeG,
+						h,
+						f: tentativeG + h,
+						parent: current,
+						direction: dir
+					});
 				}
-			} else {
-				// New node
-				const h = manhattanDistance(nx, ny, endGx, endGy);
-				const neighbor: AStarNode = {
-					x: nx,
-					y: ny,
-					g: tentativeG,
-					h,
-					f: tentativeG + h,
-					parent: current,
-					direction: dir
-				};
-				openSet.push(neighbor);
 			}
 		}
 	}
@@ -214,51 +305,3 @@ function reconstructPath(endNode: AStarNode, offset: Position): Position[] {
 	return path;
 }
 
-/**
- * Original findPath without turn penalty (kept for compatibility)
- */
-export function findPath(
-	start: Position,
-	end: Position,
-	grid: PF.Grid,
-	offset: Position
-): Position[] {
-	const finder = new PF.AStarFinder({
-		allowDiagonal: false,
-		heuristic: PF.Heuristic.manhattan
-	} as PF.FinderOptions);
-
-	// Convert to grid coordinates
-	const startGx = worldToGrid(start.x - offset.x);
-	const startGy = worldToGrid(start.y - offset.y);
-	const endGx = worldToGrid(end.x - offset.x);
-	const endGy = worldToGrid(end.y - offset.y);
-
-	// Clone grid (pathfinding modifies it)
-	const gridClone = grid.clone();
-
-	// Ensure start and end are walkable (they're on port positions)
-	const gridWidth = gridClone.width;
-	const gridHeight = gridClone.height;
-
-	if (startGx >= 0 && startGx < gridWidth && startGy >= 0 && startGy < gridHeight) {
-		gridClone.setWalkableAt(startGx, startGy, true);
-	}
-	if (endGx >= 0 && endGx < gridWidth && endGy >= 0 && endGy < gridHeight) {
-		gridClone.setWalkableAt(endGx, endGy, true);
-	}
-
-	// Find path
-	const rawPath = finder.findPath(startGx, startGy, endGx, endGy, gridClone);
-
-	// If no path found, return L-shaped fallback (never diagonal)
-	if (rawPath.length === 0) {
-		return [start, { x: end.x, y: start.y }, end];
-	}
-
-	// Convert back to world coordinates
-	return rawPath.map(([gx, gy]) => ({
-		x: gridToWorld(gx) + offset.x,
-		y: gridToWorld(gy) + offset.y
-	}));
-}

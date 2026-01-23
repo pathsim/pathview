@@ -71,6 +71,8 @@
 	});
 
 	// Offset to start/end path at handle tips (not centers)
+	// Source: small inset from handle edge
+	// Target: larger offset to leave room for arrowhead
 	const sourceOffset = 0.5;
 	const targetOffset = 4.5;
 
@@ -96,41 +98,75 @@
 		return { x, y };
 	});
 
+	// Corner radius for bends (0.5G = 5px)
+	const CORNER_RADIUS = 5;
+
+	/**
+	 * Build SVG path with rounded corners using quadratic bezier curves
+	 */
+	function buildRoundedPath(points: Array<{ x: number; y: number }>, radius: number): string {
+		if (points.length < 2) return '';
+		if (points.length === 2) {
+			return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+		}
+
+		let d = `M ${points[0].x} ${points[0].y}`;
+
+		for (let i = 1; i < points.length - 1; i++) {
+			const prev = points[i - 1];
+			const curr = points[i];
+			const next = points[i + 1];
+
+			// Calculate distances to prev and next
+			const distPrev = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+			const distNext = Math.hypot(next.x - curr.x, next.y - curr.y);
+
+			// Clamp radius to half the shorter segment
+			const r = Math.min(radius, distPrev / 2, distNext / 2);
+
+			if (r < 0.5) {
+				// Too short for rounding, just go to point
+				d += ` L ${curr.x} ${curr.y}`;
+				continue;
+			}
+
+			// Direction vectors (normalized)
+			const dxPrev = (prev.x - curr.x) / distPrev;
+			const dyPrev = (prev.y - curr.y) / distPrev;
+			const dxNext = (next.x - curr.x) / distNext;
+			const dyNext = (next.y - curr.y) / distNext;
+
+			// Points where curve starts and ends
+			const startX = curr.x + dxPrev * r;
+			const startY = curr.y + dyPrev * r;
+			const endX = curr.x + dxNext * r;
+			const endY = curr.y + dyNext * r;
+
+			// Line to curve start, then quadratic bezier with corner as control point
+			d += ` L ${startX} ${startY} Q ${curr.x} ${curr.y} ${endX} ${endY}`;
+		}
+
+		// Line to final point
+		const last = points[points.length - 1];
+		d += ` L ${last.x} ${last.y}`;
+
+		return d;
+	}
+
 	// Build SVG path from route points or fallback to straight line
 	const pathData = $derived(() => {
 		const src = adjustedSource();
 		const tgt = adjustedTarget();
 
-		if (routeResult?.path && routeResult.path.length >= 2) {
-			// Route = [sourceStubEnd, ...intermediates, targetStubEnd]
-			// Draw: handle -> route -> handle
-			const points = routeResult.path;
+		if (routeResult?.path && routeResult.path.length >= 1) {
+			// Full path: src -> route points -> tgt
+			const allPoints = [src, ...routeResult.path, tgt];
 
-			let d = `M ${src.x} ${src.y}`;
-			for (const pt of points) {
-				d += ` L ${pt.x} ${pt.y}`;
-			}
-			d += ` L ${tgt.x} ${tgt.y}`;
-
-			return d;
+			return buildRoundedPath(allPoints, CORNER_RADIUS);
 		}
 
-		// Fallback: simple L-shape with stubs
-		const stubLength = 10; // 1G stub
-		let d = `M ${src.x} ${src.y}`;
-
-		// Determine stub directions based on handle positions
-		if (sourcePosition === 'right') {
-			d += ` L ${src.x + stubLength} ${src.y}`;
-		} else if (sourcePosition === 'left') {
-			d += ` L ${src.x - stubLength} ${src.y}`;
-		} else if (sourcePosition === 'bottom') {
-			d += ` L ${src.x} ${src.y + stubLength}`;
-		} else if (sourcePosition === 'top') {
-			d += ` L ${src.x} ${src.y - stubLength}`;
-		}
-
-		// Route to target stub
+		// Fallback: simple L-shape
+		const stubLength = 10;
 		const srcStub = sourcePosition === 'right' ? { x: src.x + stubLength, y: src.y } :
 						sourcePosition === 'left' ? { x: src.x - stubLength, y: src.y } :
 						sourcePosition === 'bottom' ? { x: src.x, y: src.y + stubLength } :
@@ -141,22 +177,15 @@
 						targetPosition === 'bottom' ? { x: tgt.x, y: tgt.y + stubLength } :
 						{ x: tgt.x, y: tgt.y - stubLength };
 
-		// L-shape between stubs
-		if (Math.abs(srcStub.y - tgtStub.y) < 1) {
-			// Horizontally aligned
-			d += ` L ${tgtStub.x} ${tgtStub.y}`;
-		} else if (Math.abs(srcStub.x - tgtStub.x) < 1) {
-			// Vertically aligned
-			d += ` L ${tgtStub.x} ${tgtStub.y}`;
-		} else {
-			// Need a bend
-			d += ` L ${tgtStub.x} ${srcStub.y} L ${tgtStub.x} ${tgtStub.y}`;
+		// Build points array for L-shape
+		const points = [src, srcStub];
+		if (Math.abs(srcStub.x - tgtStub.x) > 1 && Math.abs(srcStub.y - tgtStub.y) > 1) {
+			// Need a corner
+			points.push({ x: tgtStub.x, y: srcStub.y });
 		}
+		points.push(tgtStub, tgt);
 
-		// Final segment to target
-		d += ` L ${tgt.x} ${tgt.y}`;
-
-		return d;
+		return buildRoundedPath(points, CORNER_RADIUS);
 	});
 
 	// Get user waypoints from route result or data
@@ -173,10 +202,11 @@
 	const endArrow = $derived(() => {
 		const tgt = adjustedTarget();
 
-		if (routeResult?.path && routeResult.path.length >= 2) {
+		if (routeResult?.path && routeResult.path.length >= 1) {
 			const path = routeResult.path;
 			const endPoint = tgt;
-			const prevPoint = path.length > 1 ? path[path.length - 2] : path[0];
+			// The last segment is from path's last point (targetStubEnd) to tgt
+			const prevPoint = path[path.length - 1];
 
 			const dx = endPoint.x - prevPoint.x;
 			const dy = endPoint.y - prevPoint.y;
