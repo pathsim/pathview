@@ -102,32 +102,30 @@
 		const tgt = adjustedTarget();
 
 		if (routeResult?.path && routeResult.path.length >= 2) {
-			// Use calculated route - draw only H/V segments (never diagonal)
+			// Use calculated route - draw only H/V segments
 			const points = routeResult.path;
 
 			let d = `M ${src.x} ${src.y}`;
+			let currentX = src.x;
+			let currentY = src.y;
 
-			// Source stub: go in port direction first
-			if (sourcePosition === 'right' || sourcePosition === 'left') {
-				d += ` H ${points[0].x}`;
-				d += ` V ${points[0].y}`;
-			} else {
-				d += ` V ${points[0].y}`;
-				d += ` H ${points[0].x}`;
+			// Draw to each point using H/V, choosing direction based on which changes
+			for (const pt of points) {
+				if (Math.abs(pt.x - currentX) > 0.1) {
+					d += ` H ${pt.x}`;
+					currentX = pt.x;
+				}
+				if (Math.abs(pt.y - currentY) > 0.1) {
+					d += ` V ${pt.y}`;
+					currentY = pt.y;
+				}
 			}
 
-			// Draw through route points using H/V only
-			for (let i = 1; i < points.length; i++) {
-				d += ` H ${points[i].x}`;
-				d += ` V ${points[i].y}`;
+			// Final segment to target handle
+			if (Math.abs(tgt.x - currentX) > 0.1) {
+				d += ` H ${tgt.x}`;
 			}
-
-			// Target stub: approach in port direction
-			if (targetPosition === 'right' || targetPosition === 'left') {
-				d += ` V ${tgt.y}`;
-				d += ` H ${tgt.x}`;
-			} else {
-				d += ` H ${tgt.x}`;
+			if (Math.abs(tgt.y - currentY) > 0.1) {
 				d += ` V ${tgt.y}`;
 			}
 
