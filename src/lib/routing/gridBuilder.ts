@@ -24,12 +24,8 @@ export function gridToWorld(gx: number): number {
 /**
  * Build pathfinding grid with obstacles marked
  * @param context - Routing context with node bounds and canvas bounds
- * @param excludeNodeIds - Node IDs to exclude from obstacles (source/target nodes)
  */
-export function buildGrid(
-	context: RoutingContext,
-	excludeNodeIds: Set<string> = new Set()
-): PF.Grid {
+export function buildGrid(context: RoutingContext): PF.Grid {
 	const { nodeBounds, canvasBounds } = context;
 
 	// Calculate grid dimensions from canvas bounds
@@ -41,10 +37,7 @@ export function buildGrid(
 	const grid = new PF.Grid(gridWidth, gridHeight);
 
 	// Mark obstacles (nodes with margin)
-	for (const [nodeId, bounds] of nodeBounds) {
-		// Skip excluded nodes (source/target)
-		if (excludeNodeIds.has(nodeId)) continue;
-
+	for (const [, bounds] of nodeBounds) {
 		// Add margin around node
 		const marginBounds = {
 			x: bounds.x - ROUTING_MARGIN,

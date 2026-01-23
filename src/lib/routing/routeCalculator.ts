@@ -57,9 +57,8 @@ export function calculateRoute(
 			return distA - distB;
 		});
 
-	// Build pathfinding grid, excluding source and target nodes
-	const excludeNodes = new Set([connection.sourceNodeId, connection.targetNodeId]);
-	const grid = buildGrid(context, excludeNodes);
+	// Build pathfinding grid with all nodes as obstacles
+	const grid = buildGrid(context);
 	const offset = getGridOffset(context);
 
 	// Calculate clearance points to enforce entry/exit directions
