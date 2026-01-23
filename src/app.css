@@ -372,7 +372,7 @@ input::placeholder {
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: var(--text-disabled);
+	color: var(--text-muted);
 	margin-bottom: var(--space-sm);
 }
 

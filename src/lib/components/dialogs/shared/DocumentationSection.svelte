@@ -365,7 +365,7 @@
 		font-family: var(--font-mono);
 		font-size: 10px;
 		font-weight: 500;
-		color: var(--accent);
+		color: var(--node-color, var(--accent));
 	}
 
 	.docs-content :global(.param-table .param-type) {
@@ -400,7 +400,7 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		color: var(--text-disabled);
+		color: var(--text-muted);
 		margin: 0 0 var(--space-xs) 0;
 	}
 
