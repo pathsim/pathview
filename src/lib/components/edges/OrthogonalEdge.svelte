@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BaseEdge, type EdgeProps } from '@xyflow/svelte';
+	import { BaseEdge, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { routingStore } from '$lib/stores/routing';
 	import type { RouteResult } from '$lib/routing';
@@ -153,39 +153,29 @@
 		return d;
 	}
 
-	// Build SVG path from route points or fallback to straight line
-	const pathData = $derived(() => {
+	// Build SVG path from route points or fallback to smoothstep
+	// Returns { path, isFallback } to avoid state mutation in derived
+	const pathInfo = $derived(() => {
 		const src = adjustedSource();
 		const tgt = adjustedTarget();
 
 		if (routeResult?.path && routeResult.path.length >= 1) {
 			// Full path: src -> route points -> tgt
 			const allPoints = [src, ...routeResult.path, tgt];
-
-			return buildRoundedPath(allPoints, CORNER_RADIUS);
+			return { path: buildRoundedPath(allPoints, CORNER_RADIUS), isFallback: false };
 		}
 
-		// Fallback: simple L-shape
-		const stubLength = 10;
-		const srcStub = sourcePosition === 'right' ? { x: src.x + stubLength, y: src.y } :
-						sourcePosition === 'left' ? { x: src.x - stubLength, y: src.y } :
-						sourcePosition === 'bottom' ? { x: src.x, y: src.y + stubLength } :
-						{ x: src.x, y: src.y - stubLength };
-
-		const tgtStub = targetPosition === 'right' ? { x: tgt.x + stubLength, y: tgt.y } :
-						targetPosition === 'left' ? { x: tgt.x - stubLength, y: tgt.y } :
-						targetPosition === 'bottom' ? { x: tgt.x, y: tgt.y + stubLength } :
-						{ x: tgt.x, y: tgt.y - stubLength };
-
-		// Build points array for L-shape
-		const points = [src, srcStub];
-		if (Math.abs(srcStub.x - tgtStub.x) > 1 && Math.abs(srcStub.y - tgtStub.y) > 1) {
-			// Need a corner
-			points.push({ x: tgtStub.x, y: srcStub.y });
-		}
-		points.push(tgtStub, tgt);
-
-		return buildRoundedPath(points, CORNER_RADIUS);
+		// Fallback: use SvelteFlow's smoothstep path
+		const [path] = getSmoothStepPath({
+			sourceX,
+			sourceY,
+			sourcePosition,
+			targetX,
+			targetY,
+			targetPosition,
+			borderRadius: CORNER_RADIUS
+		});
+		return { path, isFallback: true };
 	});
 
 	// Get user waypoints from route result or data
@@ -201,8 +191,9 @@
 	// Arrow at end of path
 	const endArrow = $derived(() => {
 		const tgt = adjustedTarget();
+		const { isFallback } = pathInfo();
 
-		if (routeResult?.path && routeResult.path.length >= 1) {
+		if (!isFallback && routeResult?.path && routeResult.path.length >= 1) {
 			const path = routeResult.path;
 			const endPoint = tgt;
 			// The last segment is from path's last point (targetStubEnd) to tgt
@@ -215,18 +206,18 @@
 			return { x: endPoint.x, y: endPoint.y, angle };
 		}
 
-		// Fallback based on target position
+		// Fallback (smoothstep): arrow based on target position, use unadjusted target
 		let angle = 0;
 		if (targetPosition === 'left') angle = 180;
 		else if (targetPosition === 'top') angle = -90;
 		else if (targetPosition === 'bottom') angle = 90;
 
-		return { x: tgt.x, y: tgt.y, angle };
+		return { x: targetX, y: targetY, angle };
 	});
 </script>
 
 <g class:highlighted={isHighlighted()} style="--highlight-color: {highlightColor()}">
-	<BaseEdge {id} path={pathData()} {style} />
+	<BaseEdge {id} path={pathInfo().path} {style} />
 
 	<!-- User waypoint markers -->
 	{#each userWaypoints() as waypoint (waypoint.id)}
