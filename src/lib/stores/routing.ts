@@ -106,9 +106,27 @@ export const routingStore = {
 			prepareRoutingGrid($state.context);
 		}
 
+		// Sort connections by Manhattan distance (longest first)
+		// Longer routes are less likely to block shorter ones
+		const sortedConnections = [...connections].sort((a, b) => {
+			const aSource = getPortInfo(a.sourceNodeId, a.sourcePortIndex, true);
+			const aTarget = getPortInfo(a.targetNodeId, a.targetPortIndex, false);
+			const bSource = getPortInfo(b.sourceNodeId, b.sourcePortIndex, true);
+			const bTarget = getPortInfo(b.targetNodeId, b.targetPortIndex, false);
+
+			const aDist = aSource && aTarget
+				? Math.abs(aTarget.position.x - aSource.position.x) + Math.abs(aTarget.position.y - aSource.position.y)
+				: 0;
+			const bDist = bSource && bTarget
+				? Math.abs(bTarget.position.x - bSource.position.x) + Math.abs(bTarget.position.y - bSource.position.y)
+				: 0;
+
+			return bDist - aDist; // Longest first
+		});
+
 		// Group connections by source port so paths from same port can share cells
 		const bySourcePort = new Map<string, Connection[]>();
-		for (const conn of connections) {
+		for (const conn of sortedConnections) {
 			const key = `${conn.sourceNodeId}:${conn.sourcePortIndex}`;
 			const group = bySourcePort.get(key) || [];
 			group.push(conn);
