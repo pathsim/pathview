@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { renderDocstring, getKatexCssUrl } from '$lib/utils/rstRenderer';
+	import { onDestroy } from 'svelte';
+	import {
+		renderDocstring,
+		transformDefinitionListsToTables,
+		renderCodeBlocks,
+		updateCodeBlockTheme,
+		cleanupCodeBlocks,
+		getKatexCssUrl
+	} from '$lib/utils/rstRenderer';
+	import { themeStore } from '$lib/stores/theme';
 	import Icon from '$lib/components/icons/Icon.svelte';
 
 	interface Props {
@@ -15,6 +24,7 @@
 	let expanded = $state(false);
 	let renderedDocs = $state<string>('');
 	let loading = $state(false);
+	let container: HTMLDivElement | undefined = $state();
 
 	// Check if we have any documentation to show
 	const hasDocumentation = $derived(!!docstring || !!docstringHtml);
@@ -40,15 +50,40 @@
 		}
 	}
 
+	// Apply DOM transformations after rendered HTML is inserted
+	$effect(() => {
+		if (renderedDocs && container && !loading) {
+			// Use tick-like delay to ensure DOM is updated
+			requestAnimationFrame(async () => {
+				if (!container) return;
+				transformDefinitionListsToTables(container);
+				await renderCodeBlocks(container);
+			});
+		}
+	});
+
+	// Update code block theme when theme changes
+	themeStore.subscribe(() => {
+		if (expanded && container) {
+			updateCodeBlockTheme();
+		}
+	});
+
 	// Reset state when docstring changes
 	$effect(() => {
 		// Track both props
 		const _ = docstring || docstringHtml;
 		if (_) {
 			// Reset when content changes
+			cleanupCodeBlocks();
 			renderedDocs = '';
 			expanded = false;
 		}
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		cleanupCodeBlocks();
 	});
 </script>
 
@@ -65,7 +100,7 @@
 			Documentation
 		</button>
 		{#if expanded}
-			<div class="docs-content" transition:slide={{ duration: 200 }}>
+			<div class="docs-content" transition:slide={{ duration: 200 }} bind:this={container}>
 				{#if loading}
 					<div class="docs-loading">Loading documentation...</div>
 				{:else}
@@ -131,7 +166,11 @@
 
 	/* Docutils HTML output styles */
 	.docs-content :global(p) {
-		margin: 0 0 1em 0;
+		margin: 0 0 0.75em 0;
+	}
+
+	.docs-content :global(p:last-child) {
+		margin-bottom: 0;
 	}
 
 	.docs-content :global(h1),
@@ -145,64 +184,264 @@
 	}
 
 	.docs-content :global(h4) {
-		font-size: 12px;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
 	}
 
+	/* Inline code */
 	.docs-content :global(tt),
 	.docs-content :global(code),
 	.docs-content :global(.literal) {
 		font-family: var(--font-mono);
-		font-size: 12px;
+		font-size: 10px;
+		background: var(--surface-raised);
+		padding: 1px 4px;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--border);
 		color: var(--text-muted);
 	}
 
-	.docs-content :global(pre),
+	/* Don't style code inside CodeMirror or tables */
+	.docs-content :global(.cm-content code),
+	.docs-content :global(.param-name code),
+	.docs-content :global(.param-type code) {
+		background: none;
+		padding: 0;
+		border: none;
+		border-radius: 0;
+	}
+
+	/* Code block wrapper with header */
+	.docs-content :global(.code-block-wrapper) {
+		margin: 0.75em 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+
+	.docs-content :global(.code-block-header) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-xs) var(--space-sm);
+		background: var(--surface-raised);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.docs-content :global(.code-label) {
+		font-size: 9px;
+		font-weight: 600;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.docs-content :global(.copy-btn) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2px;
+		background: none;
+		border: none;
+		color: var(--text-muted);
+		cursor: pointer;
+		border-radius: var(--radius-sm);
+		transition: all var(--transition-fast);
+	}
+
+	.docs-content :global(.copy-btn:hover) {
+		color: var(--text);
+		background: var(--surface-hover);
+	}
+
+	.docs-content :global(.cm-container) {
+		font-size: 10px;
+		line-height: 1.5;
+	}
+
+	/* CodeMirror overrides for compact display */
+	.docs-content :global(.cm-editor) {
+		background: var(--surface);
+	}
+
+	.docs-content :global(.cm-gutters) {
+		background: var(--surface);
+		border-right: 1px solid var(--border);
+	}
+
+	.docs-content :global(.cm-lineNumbers .cm-gutterElement) {
+		padding: 0 4px 0 8px;
+		min-width: 24px;
+		font-size: 9px;
+	}
+
+	/* Fallback pre/code styles (before CodeMirror processes) */
+	.docs-content :global(pre:not(.cm-processed)),
 	.docs-content :global(.literal-block) {
 		background: var(--surface-raised);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
 		padding: var(--space-sm);
-		margin: 1em 0;
+		margin: 0.75em 0;
 		overflow-x: auto;
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 10px;
 		line-height: 1.5;
 	}
 
-	.docs-content :global(pre code),
+	.docs-content :global(pre:not(.cm-processed) code),
 	.docs-content :global(.literal-block code) {
 		background: none;
 		padding: 0;
 		font-size: inherit;
 		color: var(--text-muted);
+		border: none;
 	}
 
-	/* Math blocks from docutils - no special background */
+	/* Parameter tables (transformed from definition lists) */
+	.docs-content :global(.param-table-wrapper) {
+		margin: 0.75em 0;
+		overflow-x: auto;
+	}
+
+	.docs-content :global(.param-table) {
+		width: 100%;
+		border-collapse: separate;
+		border-spacing: 0;
+		font-size: 10px;
+		table-layout: auto;
+	}
+
+	/* Header styled like panel-header */
+	.docs-content :global(.param-table thead th) {
+		padding: var(--space-xs) var(--space-sm);
+		background: var(--surface-raised);
+		font-size: 9px;
+		font-weight: 600;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		text-align: left;
+		border: 1px solid var(--border);
+		border-right: none;
+	}
+
+	.docs-content :global(.param-table thead th:last-child) {
+		border-right: 1px solid var(--border);
+		border-top-right-radius: var(--radius-md);
+	}
+
+	.docs-content :global(.param-table thead th:first-child) {
+		border-top-left-radius: var(--radius-md);
+	}
+
+	.docs-content :global(.param-table td) {
+		padding: var(--space-xs) var(--space-sm);
+		background: var(--surface);
+		vertical-align: top;
+		border-left: 1px solid var(--border);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.docs-content :global(.param-table td:last-child) {
+		border-right: 1px solid var(--border);
+	}
+
+	/* Rounded corners on last row */
+	.docs-content :global(.param-table tbody tr:last-child td:first-child) {
+		border-bottom-left-radius: var(--radius-md);
+	}
+
+	.docs-content :global(.param-table tbody tr:last-child td:last-child) {
+		border-bottom-right-radius: var(--radius-md);
+	}
+
+	.docs-content :global(.param-table .param-name) {
+		white-space: nowrap;
+	}
+
+	.docs-content :global(.param-table .param-name code) {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: 500;
+		color: var(--node-color, var(--accent));
+	}
+
+	.docs-content :global(.param-table .param-type) {
+		word-break: break-word;
+	}
+
+	.docs-content :global(.param-table .param-type code) {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--text-muted);
+		word-break: break-word;
+	}
+
+	.docs-content :global(.param-table .param-desc) {
+		color: var(--text-muted);
+		line-height: 1.5;
+	}
+
+	/* RST sections */
+	.docs-content :global(.section) {
+		margin-top: var(--space-sm);
+	}
+
+	.docs-content :global(.section:first-child) {
+		margin-top: 0;
+	}
+
+	/* Section headers (h3, h4 inside .section) - match .section-title style */
+	.docs-content :global(.section h3),
+	.docs-content :global(.section h4) {
+		font-size: 10px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		color: var(--text-muted);
+		margin: 0 0 var(--space-xs) 0;
+	}
+
+	/* Math blocks from docutils */
 	.docs-content :global(.math),
 	.docs-content :global(div.math) {
-		margin: 1em 0;
-		overflow-x: auto;
+		margin: 0.5em 0;
 		text-align: center;
 	}
 
-	/* Definition lists (Parameters, Returns, etc.) */
-	.docs-content :global(dl) {
+	/* KaTeX styling */
+	.docs-content :global(.katex) {
+		font-size: 1.3em;
+	}
+
+	.docs-content :global(.katex-display) {
 		margin: 0.5em 0;
 	}
 
-	.docs-content :global(dt) {
-		font-weight: 600;
-		margin-top: 1em;
+	/* Generic definition lists (fallback if not transformed) */
+	.docs-content :global(dl:not(.docutils)) {
+		margin: 0.5em 0;
 	}
 
-	.docs-content :global(dd) {
-		margin-left: 1.5em;
-		margin-top: 0.25em;
+	.docs-content :global(dl:not(.docutils) dt) {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--accent);
+		margin-top: 0.75em;
+		font-weight: 500;
+	}
+
+	.docs-content :global(dl:not(.docutils) dd) {
+		margin-left: var(--space-md);
+		color: var(--text-muted);
+		margin-top: var(--space-xs);
 	}
 
 	/* Field lists */
 	.docs-content :global(.field-list) {
-		margin: 1em 0;
+		margin: 0.75em 0;
 	}
 
 	.docs-content :global(.field-name) {
@@ -218,7 +457,7 @@
 	.docs-content :global(.warning),
 	.docs-content :global(.tip),
 	.docs-content :global(.admonition) {
-		margin: 1em 0;
+		margin: 0.75em 0;
 		padding: var(--space-sm);
 		border-radius: var(--radius-sm);
 		background: var(--surface-raised);
@@ -261,4 +500,37 @@
 		text-decoration: underline;
 	}
 
+	/* Tables */
+	.docs-content :global(table:not(.param-table)) {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 0.75em 0;
+		font-size: 10px;
+	}
+
+	.docs-content :global(table:not(.param-table) th),
+	.docs-content :global(table:not(.param-table) td) {
+		padding: var(--space-xs) var(--space-sm);
+		border: 1px solid var(--border);
+		text-align: left;
+	}
+
+	.docs-content :global(table:not(.param-table) th) {
+		background: var(--surface-raised);
+		font-weight: 600;
+		color: var(--text-muted);
+	}
+
+	/* Strong text */
+	.docs-content :global(strong) {
+		font-weight: 600;
+	}
+
+	/* Blockquote */
+	.docs-content :global(blockquote) {
+		margin: 0.75em 0;
+		padding-left: var(--space-md);
+		border-left: 3px solid var(--accent);
+		color: var(--text-muted);
+	}
 </style>
