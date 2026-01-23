@@ -24,14 +24,6 @@ from pathlib import Path
 from typing import Any
 
 
-# =============================================================================
-# PathSim Path Discovery
-# =============================================================================
-
-PATHSIM_PATH = Path(__file__).parent.parent.parent / "pathsim" / "src"
-if PATHSIM_PATH.exists():
-    sys.path.insert(0, str(PATHSIM_PATH))
-
 # Optional docutils for RST to HTML conversion
 try:
     from docutils.core import publish_parts
