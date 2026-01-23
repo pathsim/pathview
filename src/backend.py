@@ -147,7 +147,7 @@ def check_traceback():
     except Exception as e:
         return jsonify({"success": False, "error": f"Server-side error: {e}"})
 
-@app.route("/streamData", methods=["POST"])
+@app.route("/streamData", methods=["POST", "GET"])
 def stream_data():
     def generate(expr):
         # Capture stdout and stderror
@@ -176,6 +176,10 @@ def stream_data():
                 print("Oh no there was an error ;-;")
                 return jsonify({"success": False, "error": error_output})
             
+            # Directly responding with a Flask Response object (as jsonify(...) does) doesn't work
+            # so we need to use the json.dumps(...) function to return a string so that it can pass into
+            # stream_with_context(...)
+
             yield json.dumps(
                 {
                     "success": True,
@@ -191,11 +195,16 @@ def stream_data():
                 isDone = True
     
     try:
-        data = request.json
-        expr = data.get("expr")
+        method = request.method
+        
+        expr = STREAMING_STEP_EXPR
+
+        if method == "POST":
+            data = request.json
+            expr = data.get("expr")
 
         try:
-            return Response(stream_with_context(generate(expr)))
+            return Response(stream_with_context(generate(expr)), content_type='application/json')
         
         except SyntaxError as e:
             return jsonify({"success": False, "error": f"Syntax Error: {str(e)}"}), 400
