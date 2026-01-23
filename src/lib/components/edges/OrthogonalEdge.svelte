@@ -102,30 +102,39 @@
 		const tgt = adjustedTarget();
 
 		if (routeResult?.path && routeResult.path.length >= 2) {
-			// Use calculated route - draw only H/V segments
+			// Use calculated route - follow exact path from A*
 			const points = routeResult.path;
 
 			let d = `M ${src.x} ${src.y}`;
-			let currentX = src.x;
-			let currentY = src.y;
+			let prevX = src.x;
+			let prevY = src.y;
 
-			// Draw to each point using H/V, choosing direction based on which changes
+			// Draw to each point, determining direction from previous point
 			for (const pt of points) {
-				if (Math.abs(pt.x - currentX) > 0.1) {
+				const dx = Math.abs(pt.x - prevX);
+				const dy = Math.abs(pt.y - prevY);
+
+				if (dx > 0.1 && dy > 0.1) {
+					// Both changed - need to pick order (shouldn't happen with proper A*)
+					// Use port direction for first point, then alternate
+					d += ` H ${pt.x} V ${pt.y}`;
+				} else if (dx > 0.1) {
 					d += ` H ${pt.x}`;
-					currentX = pt.x;
-				}
-				if (Math.abs(pt.y - currentY) > 0.1) {
+				} else if (dy > 0.1) {
 					d += ` V ${pt.y}`;
-					currentY = pt.y;
 				}
+				prevX = pt.x;
+				prevY = pt.y;
 			}
 
-			// Final segment to target handle
-			if (Math.abs(tgt.x - currentX) > 0.1) {
+			// Final segment to target
+			const dx = Math.abs(tgt.x - prevX);
+			const dy = Math.abs(tgt.y - prevY);
+			if (dx > 0.1 && dy > 0.1) {
+				d += ` H ${tgt.x} V ${tgt.y}`;
+			} else if (dx > 0.1) {
 				d += ` H ${tgt.x}`;
-			}
-			if (Math.abs(tgt.y - currentY) > 0.1) {
+			} else if (dy > 0.1) {
 				d += ` V ${tgt.y}`;
 			}
 
