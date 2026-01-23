@@ -102,21 +102,42 @@
 		const tgt = adjustedTarget();
 
 		if (routeResult?.path && routeResult.path.length >= 2) {
-			// Use calculated route - start from handle tip, then follow the route
-			// The route already has clearance points, so we draw:
-			// handle tip -> first route point -> ... -> last route point -> handle tip
+			// Use calculated route with orthogonal stubs at ends
+			// Stubs ensure grid alignment: handle tip -> stub end (grid) -> route -> stub end (grid) -> handle tip
 			const points = routeResult.path;
+			const firstPoint = points[0];
+			const lastPoint = points[points.length - 1];
 
 			// Start at handle tip
 			let d = `M ${src.x} ${src.y}`;
 
-			// Draw through all route points (which include clearance points for proper stubs)
-			for (let i = 0; i < points.length; i++) {
+			// Source stub: orthogonal segment from handle to first route point
+			// Based on port direction, draw horizontal or vertical first
+			if (sourcePosition === 'right' || sourcePosition === 'left') {
+				// Horizontal port: draw horizontal stub, then vertical if needed
+				d += ` L ${firstPoint.x} ${src.y}`;
+				if (src.y !== firstPoint.y) d += ` L ${firstPoint.x} ${firstPoint.y}`;
+			} else {
+				// Vertical port: draw vertical stub, then horizontal if needed
+				d += ` L ${src.x} ${firstPoint.y}`;
+				if (src.x !== firstPoint.x) d += ` L ${firstPoint.x} ${firstPoint.y}`;
+			}
+
+			// Draw through intermediate route points (skip first, we already drew to it)
+			for (let i = 1; i < points.length; i++) {
 				d += ` L ${points[i].x} ${points[i].y}`;
 			}
 
-			// End at handle tip
-			d += ` L ${tgt.x} ${tgt.y}`;
+			// Target stub: orthogonal segment from last route point to handle
+			if (targetPosition === 'right' || targetPosition === 'left') {
+				// Horizontal port: align vertically first, then horizontal to handle
+				if (lastPoint.y !== tgt.y) d += ` L ${lastPoint.x} ${tgt.y}`;
+				d += ` L ${tgt.x} ${tgt.y}`;
+			} else {
+				// Vertical port: align horizontally first, then vertical to handle
+				if (lastPoint.x !== tgt.x) d += ` L ${tgt.x} ${lastPoint.y}`;
+				d += ` L ${tgt.x} ${tgt.y}`;
+			}
 
 			return d;
 		}
