@@ -102,40 +102,15 @@
 		const tgt = adjustedTarget();
 
 		if (routeResult?.path && routeResult.path.length >= 2) {
-			// Use calculated route - follow exact path from A*
+			// Use calculated route exactly as returned
 			const points = routeResult.path;
 
-			let d = `M ${src.x} ${src.y}`;
-			let prevX = src.x;
-			let prevY = src.y;
+			// Start from first route point (sourcePos from routing)
+			let d = `M ${points[0].x} ${points[0].y}`;
 
-			// Draw to each point, determining direction from previous point
-			for (const pt of points) {
-				const dx = Math.abs(pt.x - prevX);
-				const dy = Math.abs(pt.y - prevY);
-
-				if (dx > 0.1 && dy > 0.1) {
-					// Both changed - need to pick order (shouldn't happen with proper A*)
-					// Use port direction for first point, then alternate
-					d += ` H ${pt.x} V ${pt.y}`;
-				} else if (dx > 0.1) {
-					d += ` H ${pt.x}`;
-				} else if (dy > 0.1) {
-					d += ` V ${pt.y}`;
-				}
-				prevX = pt.x;
-				prevY = pt.y;
-			}
-
-			// Final segment to target
-			const dx = Math.abs(tgt.x - prevX);
-			const dy = Math.abs(tgt.y - prevY);
-			if (dx > 0.1 && dy > 0.1) {
-				d += ` H ${tgt.x} V ${tgt.y}`;
-			} else if (dx > 0.1) {
-				d += ` H ${tgt.x}`;
-			} else if (dy > 0.1) {
-				d += ` V ${tgt.y}`;
+			// Draw through all points
+			for (let i = 1; i < points.length; i++) {
+				d += ` L ${points[i].x} ${points[i].y}`;
 			}
 
 			return d;
