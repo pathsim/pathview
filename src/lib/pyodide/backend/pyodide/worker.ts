@@ -277,6 +277,8 @@ async function runStreamingLoop(id: string, expr: string): Promise<void> {
           }
         }
 
+        console.log(`(Pyodide) The expression being sent is: `, expr)
+
         // Step the generator
         const result = await pyodide.runPythonAsync(`
 _eval_result = ${expr}
@@ -350,7 +352,7 @@ async function runStreamingLoopWithFlask(id: string, expr: string) {
             },
             body: JSON.stringify({ code: code }),
           }).then(res => res.json());
-          if(data.success && !data.error && data.output) {
+          if(data.success && data.output) {
             send({ type: "stdout", value: data.output })
           } else {
             throw Error(data.error)
