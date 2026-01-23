@@ -384,62 +384,26 @@
 		line-height: 1.5;
 	}
 
-	/* Section separators (RST sections) */
+	/* RST sections */
 	.docs-content :global(.section) {
-		position: relative;
-		margin-top: var(--space-md);
-		padding-top: var(--space-md);
-	}
-
-	.docs-content :global(.section::before) {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: calc(-1 * var(--space-md));
-		width: calc(100% + 2 * var(--space-md));
-		height: 1px;
-		background: var(--border);
+		margin-top: var(--space-sm);
 	}
 
 	.docs-content :global(.section:first-child) {
 		margin-top: 0;
-		padding-top: 0;
-	}
-
-	.docs-content :global(.section:first-child::before) {
-		display: none;
 	}
 
 	/* NumPy-style section headers converted to <p><strong> */
 	.docs-content :global(p:has(> strong:only-child)) {
-		position: relative;
 		font-size: 10px;
 		font-weight: 600;
 		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
 		margin-top: var(--space-md);
 		margin-bottom: var(--space-xs);
-		padding-top: var(--space-md);
-	}
-
-	.docs-content :global(p:has(> strong:only-child)::before) {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: calc(-1 * var(--space-md));
-		width: calc(100% + 2 * var(--space-md));
-		height: 1px;
-		background: var(--border);
 	}
 
 	.docs-content :global(p:first-child:has(> strong:only-child)) {
 		margin-top: 0;
-		padding-top: 0;
-	}
-
-	.docs-content :global(p:first-child:has(> strong:only-child)::before) {
-		display: none;
 	}
 
 	.docs-content :global(p:has(> strong:only-child) > strong) {
@@ -450,19 +414,17 @@
 	/* Math blocks from docutils */
 	.docs-content :global(.math),
 	.docs-content :global(div.math) {
-		margin: 0.75em 0;
-		overflow-x: auto;
+		margin: 0.5em 0;
 		text-align: center;
 	}
 
 	/* KaTeX styling */
 	.docs-content :global(.katex) {
-		font-size: 1.1em;
+		font-size: 1em;
 	}
 
 	.docs-content :global(.katex-display) {
-		margin: 0.75em 0;
-		overflow-x: auto;
+		margin: 0.5em 0;
 	}
 
 	/* Generic definition lists (fallback if not transformed) */
