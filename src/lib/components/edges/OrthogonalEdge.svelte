@@ -122,7 +122,7 @@
 		}
 
 		// Fallback: simple L-shape with stubs
-		const stubLength = 20; // 2G stub
+		const stubLength = 10; // 1G stub
 		let d = `M ${src.x} ${src.y}`;
 
 		// Determine stub directions based on handle positions
