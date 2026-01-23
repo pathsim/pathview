@@ -53,6 +53,13 @@
 	});
 
 	
+	// Track mouse position for waypoint placement
+	let mousePosition = { x: 0, y: 0 };
+
+	function handleMouseMove(event: MouseEvent) {
+		mousePosition = { x: event.clientX, y: event.clientY };
+	}
+
 	// Keyboard shortcuts for node manipulation
 	function handleKeydown(event: KeyboardEvent) {
 		// Ignore if typing in an input field or code editor
@@ -69,6 +76,25 @@
 			if (selectedNodes.length > 0 || selectedEdges.length > 0) {
 				event.preventDefault();
 				handleDelete({ nodes: selectedNodes, edges: selectedEdges });
+			}
+			return;
+		}
+
+		// Handle backslash key - add waypoint to selected edge
+		if (event.key === '\\') {
+			const selectedEdge = edges.find(e => e.selected);
+			if (selectedEdge && canvasEl) {
+				event.preventDefault();
+				// Convert mouse position to flow coordinates
+				const rect = canvasEl.getBoundingClientRect();
+				const flowX = mousePosition.x - rect.left;
+				const flowY = mousePosition.y - rect.top;
+				// TODO: Convert screen coords to flow coords using useSvelteFlow
+				// For now, use approximate position (this will be improved)
+				const gridSize = 10;
+				const snappedX = Math.round(flowX / gridSize) * gridSize;
+				const snappedY = Math.round(flowY / gridSize) * gridSize;
+				routingStore.addUserWaypoint(selectedEdge.id, { x: snappedX, y: snappedY });
 			}
 			return;
 		}
@@ -862,6 +888,7 @@
 	ondragenter={handleDragEnter}
 	ondragleave={handleDragLeave}
 	ondblclick={handleCanvasDoubleClick}
+	onmousemove={handleMouseMove}
 >
 	{#if isFileDragOver}
 		<div class="drop-zone-overlay">
@@ -896,7 +923,7 @@
 		connectOnClick
 		edgesReconnectable
 		edgesFocusable
-		edgesSelectable={false}
+		edgesSelectable
 		zoomOnDoubleClick={false}
 		proOptions={{ hideAttribution: true }}
 	>
