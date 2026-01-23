@@ -248,6 +248,7 @@
 		flex: 1;
 		background: transparent;
 		border: none;
+		border-radius: 0;
 		font-size: var(--font-base);
 		color: var(--text);
 		outline: none;
