@@ -100,15 +100,15 @@
 		</div>
 
 		<div class="actions">
-			<a href="https://pathsim.org" target="_blank" class="action-card">
-				<Icon name="home" size={20} />
-				<span class="action-label">Home</span>
-			</a>
-
 			<button class="action-card" onclick={handleNew}>
 				<Icon name="new-canvas" size={20} />
 				<span class="action-label">New</span>
 			</button>
+
+			<a href="https://pathsim.org" target="_blank" class="action-card">
+				<Icon name="home" size={20} />
+				<span class="action-label">Home</span>
+			</a>
 
 			<a href="https://docs.pathsim.org" target="_blank" class="action-card">
 				<Icon name="book" size={20} />
@@ -169,7 +169,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		background: var(--surface-raised);
+		background: var(--surface);
 		overflow: hidden;
 	}
 
@@ -245,7 +245,7 @@
 		align-items: start;
 		gap: 10px;
 		overflow-y: auto;
-		max-height: 320px;
+		max-height: 420px;
 		padding: 16px;
 	}
 
@@ -263,6 +263,7 @@
 		text-align: left;
 		overflow: hidden;
 		font-family: inherit;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 		transition: border-color 0.15s ease, box-shadow 0.15s ease;
 	}
 
@@ -280,7 +281,7 @@
 		z-index: 1;
 		padding: 6px 8px;
 		text-align: left;
-		background: var(--surface);
+		background: var(--surface-raised);
 		border-bottom: 1px solid var(--border);
 		border-radius: var(--radius-md) var(--radius-md) 0 0;
 		transition: padding 0.15s ease;
