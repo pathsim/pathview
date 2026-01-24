@@ -117,6 +117,11 @@
 
 		if (updatedNodes.length > 0) {
 			pendingNodeUpdates = [...updatedNodes];
+			// Recalculate routes for rotated/flipped nodes after FlowUpdater processes
+			setTimeout(() => {
+				const connections = get(graphStore.connections);
+				routingStore.recalculateRoutesForNodes(new Set(updatedNodes), connections, getPortInfo);
+			}, 0);
 		}
 	}
 
@@ -583,9 +588,14 @@
 
 		blockNodes = updatedNodes;
 
-		// Queue node internal updates for nodes with changed ports
+		// Queue node internal updates for nodes with changed ports/rotation
 		if (nodesToUpdate.length > 0) {
 			pendingNodeUpdates = [...nodesToUpdate];
+			// Recalculate routes for affected nodes after FlowUpdater processes
+			setTimeout(() => {
+				const connections = get(graphStore.connections);
+				routingStore.recalculateRoutesForNodes(new Set(nodesToUpdate), connections, getPortInfo);
+			}, 0);
 		}
 
 		// Mark initial load as complete after first non-empty sync
