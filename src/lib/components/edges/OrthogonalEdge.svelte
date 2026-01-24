@@ -202,9 +202,6 @@
 	// Corner radius for bends (0.5G = 5px)
 	const CORNER_RADIUS = 5;
 
-	// Tolerance for checking if route endpoints match current src/tgt (in pixels)
-	const POSITION_TOLERANCE = 15;
-
 	/**
 	 * Build SVG path with rounded corners using quadratic bezier curves
 	 */
@@ -257,47 +254,26 @@
 		return d;
 	}
 
-	// Cache last valid SVG path string
-	let lastValidSvgPath = '';
+	// Cache last valid path data (src, tgt, route) for smooth transitions
+	let cachedPath = $state('');
+	let cachedSrc = $state<{ x: number; y: number } | null>(null);
+	let cachedTgt = $state<{ x: number; y: number } | null>(null);
 
-	// Check if route endpoints are compatible with current src/tgt positions
-	// (route might be stale if calculated for different positions)
-	function isRouteCompatible(
-		routePath: Array<{ x: number; y: number }>,
-		src: { x: number; y: number },
-		tgt: { x: number; y: number }
-	): boolean {
-		if (routePath.length === 0) return false;
-
-		const firstPathPoint = routePath[0];
-		const lastPathPoint = routePath[routePath.length - 1];
-
-		// Check if first path point is close to src
-		const srcDist = Math.hypot(firstPathPoint.x - src.x, firstPathPoint.y - src.y);
-		// Check if last path point is close to tgt
-		const tgtDist = Math.hypot(lastPathPoint.x - tgt.x, lastPathPoint.y - tgt.y);
-
-		return srcDist < POSITION_TOLERANCE && tgtDist < POSITION_TOLERANCE;
-	}
-
-	// Build SVG path from route points
-	const pathInfo = $derived(() => {
-		const src = adjustedSource();
-		const tgt = adjustedTarget();
-
+	// Update cached path only when we have a valid new route
+	$effect(() => {
 		if (routeResult?.path && routeResult.path.length >= 1) {
-			// Only use the route if its endpoints are compatible with current positions
-			// This prevents flickering when route is stale (calculated for old positions)
-			if (isRouteCompatible(routeResult.path, src, tgt)) {
-				const allPoints = [src, ...routeResult.path, tgt];
-				const path = buildRoundedPath(allPoints, CORNER_RADIUS);
-				lastValidSvgPath = path;
-				return { path, isFallback: false };
-			}
+			const src = adjustedSource();
+			const tgt = adjustedTarget();
+			const allPoints = [src, ...routeResult.path, tgt];
+			cachedPath = buildRoundedPath(allPoints, CORNER_RADIUS);
+			cachedSrc = src;
+			cachedTgt = tgt;
 		}
+	});
 
-		// Use last valid path if available, otherwise empty
-		return { path: lastValidSvgPath || '', isFallback: !lastValidSvgPath };
+	// Always use the cached path
+	const pathInfo = $derived(() => {
+		return { path: cachedPath, isFallback: !cachedPath };
 	});
 
 	// Get user waypoints from route result or data
