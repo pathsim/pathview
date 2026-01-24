@@ -43,8 +43,8 @@ export const EVENT = {
 export const EXPORT_PADDING = G.x4;
 
 /**
- * Round up to next 2G (20px) boundary for symmetric expansion.
- * This ensures nodes expand evenly from center.
+ * Round up to next 2G (20px) boundary.
+ * This ensures nodes expand by 1G in each direction (symmetric from center).
  */
 export function snapTo2G(value: number): number {
 	return Math.ceil(value / G.x2) * G.x2;
