@@ -20,6 +20,9 @@ const PATH_CROSSING_PENALTY = 2;
 /** Number of cells to force walkable in initial direction (exit from port) */
 const EXIT_PATH_LENGTH = 3;
 
+/** Maximum iterations before giving up (prevents infinite search) */
+const MAX_ITERATIONS = 10000;
+
 /** Map direction to its opposite (for blocking 180-degree turns) */
 const OPPOSITE_DIR: Record<Direction, Direction> = {
 	up: 'down',
@@ -148,15 +151,6 @@ export function findPathWithTurnPenalty(
 	const endGx = worldToGrid(end.x - offset.x);
 	const endGy = worldToGrid(end.y - offset.y);
 
-	const gridWidth = grid.width;
-	const gridHeight = grid.height;
-
-	// Bounds check
-	if (startGx < 0 || startGx >= gridWidth || startGy < 0 || startGy >= gridHeight ||
-		endGx < 0 || endGx >= gridWidth || endGy < 0 || endGy >= gridHeight) {
-		return { path: [start, end], isFallback: true };
-	}
-
 	// Cells that are forced walkable (start, end, exit path)
 	const forcedWalkable = new Set<string>();
 	forcedWalkable.add(`${startGx},${startGy}`);
@@ -194,7 +188,9 @@ export function findPathWithTurnPenalty(
 	startNode.f = startNode.g + startNode.h;
 	openSet.push(startNode);
 
-	while (openSet.length > 0) {
+	let iterations = 0;
+	while (openSet.length > 0 && iterations < MAX_ITERATIONS) {
+		iterations++;
 		const current = openSet.pop()!;
 
 		// Check if we reached the end
@@ -219,8 +215,7 @@ export function findPathWithTurnPenalty(
 			const nx = current.x + dx;
 			const ny = current.y + dy;
 
-			// Skip if out of bounds or not walkable
-			if (nx < 0 || nx >= gridWidth || ny < 0 || ny >= gridHeight) continue;
+			// Skip if not walkable (no bounds check - grid is unbounded)
 			if (!isWalkable(nx, ny)) continue;
 
 			// Skip if already closed with this direction

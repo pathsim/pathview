@@ -56,10 +56,9 @@ function boundsToObstacle(bounds: Bounds, offsetX: number, offsetY: number): Gri
  * Sparse grid that computes walkability on-demand from obstacle list
  * No matrix storage - O(obstacles) memory instead of O(width × height)
  * Supports incremental updates - O(1) to update a single node
+ * Effectively unbounded - only obstacles block movement
  */
 export class SparseGrid {
-	width: number = 0;
-	height: number = 0;
 	offsetX: number = 0;
 	offsetY: number = 0;
 
@@ -81,11 +80,7 @@ export class SparseGrid {
 	private initFromContext(context: RoutingContext): void {
 		const { canvasBounds } = context;
 
-		// Calculate grid dimensions from canvas bounds
-		this.width = Math.ceil(canvasBounds.width / GRID_SIZE) + 2;
-		this.height = Math.ceil(canvasBounds.height / GRID_SIZE) + 2;
-
-		// Snap offset to grid
+		// Snap offset to grid (used for coordinate conversion)
 		this.offsetX = Math.floor(canvasBounds.x / GRID_SIZE) * GRID_SIZE;
 		this.offsetY = Math.floor(canvasBounds.y / GRID_SIZE) * GRID_SIZE;
 
@@ -103,8 +98,6 @@ export class SparseGrid {
 	 * Update canvas bounds (call when nodes are added/removed or canvas resizes)
 	 */
 	updateBounds(canvasBounds: Bounds): void {
-		this.width = Math.ceil(canvasBounds.width / GRID_SIZE) + 2;
-		this.height = Math.ceil(canvasBounds.height / GRID_SIZE) + 2;
 		this.offsetX = Math.floor(canvasBounds.x / GRID_SIZE) * GRID_SIZE;
 		this.offsetY = Math.floor(canvasBounds.y / GRID_SIZE) * GRID_SIZE;
 	}
@@ -143,13 +136,9 @@ export class SparseGrid {
 	/**
 	 * Check if a grid cell is walkable (not blocked by any obstacle)
 	 * O(obstacles) per query - fast for small obstacle counts
+	 * No bounds check - grid is effectively infinite
 	 */
 	isWalkableAt(gx: number, gy: number): boolean {
-		// Bounds check
-		if (gx < 0 || gx >= this.width || gy < 0 || gy >= this.height) {
-			return false;
-		}
-
 		// Check against node obstacles
 		for (const obs of this.nodeObstacles.values()) {
 			if (gx >= obs.minGx && gx <= obs.maxGx && gy >= obs.minGy && gy <= obs.maxGy) {
