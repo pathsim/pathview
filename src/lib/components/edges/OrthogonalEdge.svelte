@@ -2,6 +2,9 @@
 	import { BaseEdge, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { routingStore } from '$lib/stores/routing';
+	import { historyStore } from '$lib/stores/history';
+	import { screenToFlow } from '$lib/utils/viewUtils';
+	import { GRID_SIZE } from '$lib/routing/constants';
 	import type { RouteResult } from '$lib/routing';
 	import type { Waypoint } from '$lib/types/nodes';
 
@@ -24,6 +27,47 @@
 
 	import { onDestroy } from 'svelte';
 
+	// Drag state for waypoint markers
+	let draggingWaypointId = $state<string | null>(null);
+
+	// Drag handlers for waypoint markers
+	function handleWaypointMouseDown(event: MouseEvent, waypoint: Waypoint) {
+		event.stopPropagation();
+		event.preventDefault();
+
+		draggingWaypointId = waypoint.id;
+		historyStore.beginDrag();
+
+		document.addEventListener('mousemove', handleWaypointDrag);
+		document.addEventListener('mouseup', handleWaypointDragEnd);
+	}
+
+	function handleWaypointDrag(event: MouseEvent) {
+		if (!draggingWaypointId) return;
+
+		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
+		const snappedPos = {
+			x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
+			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
+		};
+
+		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos);
+	}
+
+	function handleWaypointDragEnd() {
+		draggingWaypointId = null;
+		historyStore.endDrag();
+		document.removeEventListener('mousemove', handleWaypointDrag);
+		document.removeEventListener('mouseup', handleWaypointDragEnd);
+	}
+
+	// Double-click to delete waypoint
+	function handleWaypointDoubleClick(event: MouseEvent, waypoint: Waypoint) {
+		event.stopPropagation();
+		event.preventDefault();
+		routingStore.removeUserWaypoint(id, waypoint.id);
+	}
+
 	// Get cached route from routing store
 	let routeResult = $state<RouteResult | null>(null);
 	let unsubscribeRoute: (() => void) | null = null;
@@ -36,9 +80,17 @@
 		unsubscribeRoute = routingStore.getRoute(id).subscribe((r) => (routeResult = r));
 	});
 
-	// Cleanup subscription
+	// Cleanup subscription and drag handlers
 	onDestroy(() => {
 		if (unsubscribeRoute) unsubscribeRoute();
+		if (draggingWaypointId) {
+			document.removeEventListener('mousemove', handleWaypointDrag);
+			document.removeEventListener('mouseup', handleWaypointDragEnd);
+		}
+		if (draggingNewWaypointId) {
+			document.removeEventListener('mousemove', handleWaypointDrag);
+			document.removeEventListener('mouseup', handleSegmentDragEnd);
+		}
 	});
 
 	// Check if this edge is connected to the hovered handle
@@ -188,6 +240,67 @@
 		return dataWaypoints?.filter((w) => w.isUserWaypoint) || [];
 	});
 
+	// Calculate segment midpoints for adding new waypoints
+	const segmentMidpoints = $derived(() => {
+		if (!routeResult?.path || routeResult.path.length < 1) return [];
+
+		const src = adjustedSource();
+		const tgt = adjustedTarget();
+		const allPoints = [src, ...routeResult.path, tgt];
+
+		const midpoints: Array<{ x: number; y: number; segmentIndex: number }> = [];
+		for (let i = 0; i < allPoints.length - 1; i++) {
+			const p1 = allPoints[i];
+			const p2 = allPoints[i + 1];
+			// Only show midpoints on segments longer than 30px
+			const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+			if (dist > 30) {
+				midpoints.push({
+					x: (p1.x + p2.x) / 2,
+					y: (p1.y + p2.y) / 2,
+					segmentIndex: i
+				});
+			}
+		}
+		return midpoints;
+	});
+
+	// Segment drag state (for creating new waypoints by dragging segment midpoints)
+	let draggingNewWaypointId = $state<string | null>(null);
+
+	function handleSegmentMouseDown(event: MouseEvent, segmentIndex: number) {
+		event.stopPropagation();
+		event.preventDefault();
+
+		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
+		const snappedPos = {
+			x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
+			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
+		};
+
+		historyStore.beginDrag();
+
+		// Create waypoint at drag start position
+		// The segment index helps determine where to insert in the waypoint array
+		// For now, we add at the end and let the routing algorithm sort by position
+		const waypointId = routingStore.addUserWaypoint(id, snappedPos);
+		if (waypointId) {
+			draggingNewWaypointId = waypointId;
+			draggingWaypointId = waypointId;
+
+			document.addEventListener('mousemove', handleWaypointDrag);
+			document.addEventListener('mouseup', handleSegmentDragEnd);
+		}
+	}
+
+	function handleSegmentDragEnd() {
+		draggingNewWaypointId = null;
+		draggingWaypointId = null;
+		historyStore.endDrag();
+		document.removeEventListener('mousemove', handleWaypointDrag);
+		document.removeEventListener('mouseup', handleSegmentDragEnd);
+	}
+
 	// Arrow at end of path
 	const endArrow = $derived(() => {
 		const tgt = adjustedTarget();
@@ -227,8 +340,28 @@
 			r="4"
 			class="waypoint-marker"
 			class:selected
+			class:dragging={draggingWaypointId === waypoint.id}
+			role="button"
+			tabindex="-1"
+			onmousedown={(e) => handleWaypointMouseDown(e, waypoint)}
+			ondblclick={(e) => handleWaypointDoubleClick(e, waypoint)}
 		/>
 	{/each}
+
+	<!-- Segment midpoint indicators (shown when edge is selected) -->
+	{#if selected}
+		{#each segmentMidpoints() as midpoint (midpoint.segmentIndex)}
+			<circle
+				cx={midpoint.x}
+				cy={midpoint.y}
+				r="3"
+				class="segment-midpoint"
+				role="button"
+				tabindex="-1"
+				onmousedown={(e) => handleSegmentMouseDown(e, midpoint.segmentIndex)}
+			/>
+		{/each}
+	{/if}
 
 	<!-- Arrow at the end - offset forward 5px to reach target handle tip -->
 	<g
@@ -275,7 +408,7 @@
 		fill: var(--surface-raised);
 		stroke: var(--edge);
 		stroke-width: 1.5;
-		cursor: pointer;
+		cursor: grab;
 		transition:
 			stroke 0.15s ease,
 			fill 0.15s ease;
@@ -289,5 +422,31 @@
 	.waypoint-marker.selected {
 		stroke: var(--accent);
 		fill: color-mix(in srgb, var(--accent) 30%, var(--surface-raised));
+	}
+
+	.waypoint-marker.dragging {
+		cursor: grabbing;
+		stroke: var(--accent);
+		stroke-width: 2.5;
+		fill: var(--accent);
+	}
+
+	/* Segment midpoint indicators for adding waypoints */
+	.segment-midpoint {
+		fill: var(--surface-raised);
+		stroke: var(--edge);
+		stroke-width: 1;
+		cursor: grab;
+		opacity: 0.6;
+		transition:
+			opacity 0.15s ease,
+			stroke 0.15s ease,
+			r 0.15s ease;
+	}
+
+	.segment-midpoint:hover {
+		opacity: 1;
+		stroke: var(--accent);
+		stroke-width: 1.5;
 	}
 </style>

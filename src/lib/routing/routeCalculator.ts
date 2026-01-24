@@ -4,6 +4,7 @@
 
 import PF from 'pathfinding';
 import type { Position } from '$lib/types/common';
+import type { Waypoint } from '$lib/types/nodes';
 import type { RoutingContext, RouteResult, Direction } from './types';
 import { DIRECTION_VECTORS } from './types';
 import { buildGrid, getGridOffset, worldToGrid } from './gridBuilder';
@@ -179,4 +180,163 @@ export function getPathCells(path: Position[], skipStart = 2): Map<string, Set<D
 	}
 
 	return cells;
+}
+
+/**
+ * Infer direction from one point to another (for approach/exit directions)
+ */
+function inferDirection(from: Position, to: Position): Direction {
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+	if (Math.abs(dx) > Math.abs(dy)) {
+		return dx > 0 ? 'right' : 'left';
+	}
+	return dy > 0 ? 'down' : 'up';
+}
+
+/**
+ * Get the opposite direction
+ */
+function oppositeDirection(dir: Direction): Direction {
+	const opposites: Record<Direction, Direction> = {
+		up: 'down',
+		down: 'up',
+		left: 'right',
+		right: 'left'
+	};
+	return opposites[dir];
+}
+
+/**
+ * Infer exit direction from the end of a path segment
+ */
+function inferExitDirection(path: Position[]): Direction {
+	if (path.length < 2) return 'right';
+	const last = path[path.length - 1];
+	const prev = path[path.length - 2];
+	return inferDirection(prev, last);
+}
+
+/**
+ * Sort waypoints by their position along the source->target vector
+ */
+function sortWaypointsByPathOrder(
+	source: Position,
+	target: Position,
+	waypoints: Waypoint[]
+): Waypoint[] {
+	const dx = target.x - source.x;
+	const dy = target.y - source.y;
+	const len = Math.sqrt(dx * dx + dy * dy);
+
+	if (len === 0) return waypoints;
+
+	const ux = dx / len;
+	const uy = dy / len;
+
+	return [...waypoints].sort((a, b) => {
+		const projA = (a.position.x - source.x) * ux + (a.position.y - source.y) * uy;
+		const projB = (b.position.x - source.x) * ux + (b.position.y - source.y) * uy;
+		return projA - projB;
+	});
+}
+
+/**
+ * Calculate route through user waypoints using sequential A* segments
+ * Route: Source -> A* -> W1 -> A* -> W2 -> ... -> A* -> Target
+ */
+export function calculateRouteWithWaypoints(
+	sourcePos: Position,
+	targetPos: Position,
+	sourceDir: Direction,
+	targetDir: Direction,
+	context: RoutingContext,
+	userWaypoints: Waypoint[],
+	usedCells?: Map<string, Set<Direction>>
+): RouteResult {
+	// If no waypoints, use regular routing
+	if (userWaypoints.length === 0) {
+		return calculateRoute(sourcePos, targetPos, sourceDir, targetDir, context, usedCells);
+	}
+
+	// Sort waypoints by their order along the path
+	const sortedWaypoints = sortWaypointsByPathOrder(sourcePos, targetPos, userWaypoints);
+
+	// Use cached grid if available, otherwise build fresh
+	let grid: PF.Grid;
+	let offset: Position;
+	let walkable: Set<string> | undefined;
+
+	if (cachedGrid) {
+		grid = cachedGrid.grid;
+		offset = cachedGrid.offset;
+		walkable = cachedGrid.walkable;
+	} else {
+		grid = buildGrid(context);
+		offset = getGridOffset(context);
+	}
+
+	// Build path segments through all waypoints
+	const fullPath: Position[] = [];
+	let currentPos = getStubEnd(sourcePos, sourceDir, SOURCE_CLEARANCE);
+	let currentDir = sourceDir;
+
+	for (let i = 0; i < sortedWaypoints.length; i++) {
+		const waypoint = sortedWaypoints[i];
+		const waypointPos = snapToGrid(waypoint.position);
+
+		// Route from current position to waypoint
+		const segmentPath = findPathWithTurnPenalty(
+			currentPos,
+			waypointPos,
+			grid,
+			offset,
+			currentDir,
+			usedCells,
+			walkable
+		);
+
+		// Append path (skip first point if not first segment to avoid duplicates)
+		if (fullPath.length === 0) {
+			fullPath.push(...segmentPath);
+		} else if (segmentPath.length > 0) {
+			fullPath.push(...segmentPath.slice(1));
+		}
+
+		// Update current position and direction for next segment
+		currentPos = waypointPos;
+		if (segmentPath.length >= 2) {
+			// Exit direction is opposite of how we approached (continue in same direction)
+			currentDir = inferExitDirection(segmentPath);
+		} else {
+			// Fallback: infer from next waypoint or target
+			const nextTarget = i < sortedWaypoints.length - 1
+				? sortedWaypoints[i + 1].position
+				: targetPos;
+			currentDir = inferDirection(waypointPos, nextTarget);
+		}
+	}
+
+	// Final segment: last waypoint -> target
+	const targetStubEnd = getStubEnd(targetPos, targetDir, TARGET_CLEARANCE);
+	const finalPath = findPathWithTurnPenalty(
+		currentPos,
+		targetStubEnd,
+		grid,
+		offset,
+		currentDir,
+		usedCells,
+		walkable
+	);
+
+	if (fullPath.length === 0) {
+		fullPath.push(...finalPath);
+	} else if (finalPath.length > 0) {
+		fullPath.push(...finalPath.slice(1));
+	}
+
+	// Simplify the combined path
+	const simplified = simplifyPath(fullPath);
+
+	return { path: simplified, waypoints: sortedWaypoints };
 }

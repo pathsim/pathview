@@ -6,7 +6,7 @@ import { writable, derived, get } from 'svelte/store';
 import type { Position } from '$lib/types/common';
 import type { Connection, Waypoint } from '$lib/types/nodes';
 import type { RoutingContext, RouteResult, Bounds, Direction, PortStub } from '$lib/routing';
-import { calculateRoute, calculateSimpleRoute, getPathCells, prepareRoutingGrid, clearRoutingGrid, ROUTING_MARGIN } from '$lib/routing';
+import { calculateRoute, calculateRouteWithWaypoints, calculateSimpleRoute, getPathCells, prepareRoutingGrid, clearRoutingGrid, ROUTING_MARGIN } from '$lib/routing';
 import { generateId } from '$lib/stores/utils';
 import { graphStore } from '$lib/stores/graph';
 import { historyStore } from '$lib/stores/history';
@@ -61,7 +61,7 @@ export const routingStore = {
 	/**
 	 * Calculate and cache route for a single connection
 	 */
-	calculateRoute(
+	calcRoute(
 		connection: Connection,
 		sourcePos: Position,
 		targetPos: Position,
@@ -70,9 +70,23 @@ export const routingStore = {
 	): RouteResult | null {
 		const $state = get(state);
 
+		// Extract user waypoints from connection
+		const userWaypoints = (connection.waypoints || []).filter((w) => w.isUserWaypoint);
+
 		let result: RouteResult;
 		if ($state.context && $state.context.nodeBounds.size > 0) {
-			result = calculateRoute(sourcePos, targetPos, sourceDir, targetDir, $state.context);
+			if (userWaypoints.length > 0) {
+				result = calculateRouteWithWaypoints(
+					sourcePos,
+					targetPos,
+					sourceDir,
+					targetDir,
+					$state.context,
+					userWaypoints
+				);
+			} else {
+				result = calculateRoute(sourcePos, targetPos, sourceDir, targetDir, $state.context);
+			}
 		} else {
 			// No context or empty - use simple routing
 			result = calculateSimpleRoute(sourcePos, targetPos, sourceDir, targetDir);
@@ -144,16 +158,31 @@ export const routingStore = {
 
 				if (!sourceInfo || !targetInfo) continue;
 
+				// Extract user waypoints from connection
+				const userWaypoints = (conn.waypoints || []).filter((w) => w.isUserWaypoint);
+
 				let result: RouteResult;
 				if ($state.context && $state.context.nodeBounds.size > 0) {
-					result = calculateRoute(
-						sourceInfo.position,
-						targetInfo.position,
-						sourceInfo.direction,
-						targetInfo.direction,
-						$state.context,
-						usedCells
-					);
+					if (userWaypoints.length > 0) {
+						result = calculateRouteWithWaypoints(
+							sourceInfo.position,
+							targetInfo.position,
+							sourceInfo.direction,
+							targetInfo.direction,
+							$state.context,
+							userWaypoints,
+							usedCells
+						);
+					} else {
+						result = calculateRoute(
+							sourceInfo.position,
+							targetInfo.position,
+							sourceInfo.direction,
+							targetInfo.direction,
+							$state.context,
+							usedCells
+						);
+					}
 				} else {
 					result = calculateSimpleRoute(
 						sourceInfo.position,
@@ -219,14 +248,16 @@ export const routingStore = {
 	/**
 	 * Add a user waypoint to a connection
 	 */
-	addUserWaypoint(connectionId: string, position: Position): void {
+	addUserWaypoint(connectionId: string, position: Position): string | null {
+		let waypointId: string | null = null;
 		historyStore.mutate(() => {
 			const connections = get(graphStore.connections);
 			const connection = connections.find((c) => c.id === connectionId);
 			if (!connection) return;
 
+			waypointId = generateId();
 			const newWaypoint: Waypoint = {
-				id: generateId(),
+				id: waypointId,
 				position,
 				isUserWaypoint: true
 			};
@@ -240,6 +271,41 @@ export const routingStore = {
 			// Invalidate cached route
 			routingStore.invalidateRoute(connectionId);
 		});
+		return waypointId;
+	},
+
+	/**
+	 * Add a user waypoint at a specific index (for segment dragging)
+	 * @returns The ID of the new waypoint
+	 */
+	addUserWaypointAtIndex(connectionId: string, position: Position, insertIndex: number): string | null {
+		let waypointId: string | null = null;
+		historyStore.mutate(() => {
+			const connections = get(graphStore.connections);
+			const connection = connections.find((c) => c.id === connectionId);
+			if (!connection) return;
+
+			waypointId = generateId();
+			const newWaypoint: Waypoint = {
+				id: waypointId,
+				position,
+				isUserWaypoint: true
+			};
+
+			// Get existing user waypoints
+			const existingUserWaypoints = (connection.waypoints || []).filter((w) => w.isUserWaypoint);
+
+			// Insert at the specified index
+			const updatedWaypoints = [
+				...existingUserWaypoints.slice(0, insertIndex),
+				newWaypoint,
+				...existingUserWaypoints.slice(insertIndex)
+			];
+
+			graphStore.updateConnectionWaypoints(connectionId, updatedWaypoints);
+			routingStore.invalidateRoute(connectionId);
+		});
+		return waypointId;
 	},
 
 	/**
