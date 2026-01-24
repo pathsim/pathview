@@ -394,9 +394,9 @@
 	}
 
 	/**
-	 * Count how many waypoints appear before a given segment in the rendered path
-	 * Segment i goes from allPoints[i] to allPoints[i+1], so we check points AFTER
-	 * the segment start (i+1 onwards) to find waypoints that come AFTER this segment.
+	 * Count how many waypoints appear before a given segment in the rendered path.
+	 * Uses proximity matching since waypoint positions may not exactly match path points
+	 * due to path simplification.
 	 */
 	function countWaypointsBeforeSegment(segmentIndex: number, waypoints: Waypoint[]): number {
 		if (waypoints.length === 0 || !routeResult?.path) return 0;
@@ -405,22 +405,27 @@
 		const tgt = adjustedTarget();
 		const allPoints = [src, ...routeResult.path, tgt];
 
-		// Count waypoints that appear AFTER this segment (from segment end onwards)
-		let countAfter = 0;
-		const waypointSet = new Set(waypoints.map(w => `${w.position.x},${w.position.y}`));
-
-		// Start from segmentIndex + 1 (the end of the clicked segment) to the end
-		for (let i = segmentIndex + 1; i < allPoints.length; i++) {
-			const pt = allPoints[i];
-			const key = `${pt.x},${pt.y}`;
-			if (waypointSet.has(key)) {
-				countAfter++;
-				waypointSet.delete(key);
+		// For each waypoint, find which path point it's closest to
+		// Then count how many waypoints' closest points come before the segment
+		let count = 0;
+		for (const wp of waypoints) {
+			let closestIdx = 0;
+			let closestDist = Infinity;
+			for (let i = 0; i < allPoints.length; i++) {
+				const pt = allPoints[i];
+				const dist = Math.hypot(pt.x - wp.position.x, pt.y - wp.position.y);
+				if (dist < closestDist) {
+					closestDist = dist;
+					closestIdx = i;
+				}
+			}
+			// If this waypoint's closest point is before or at the segment start, count it
+			if (closestIdx <= segmentIndex) {
+				count++;
 			}
 		}
 
-		// Insert index = total waypoints - waypoints after = waypoints before
-		return waypoints.length - countAfter;
+		return count;
 	}
 
 	function endSegmentDrag() {
