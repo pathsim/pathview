@@ -104,6 +104,58 @@ export const routingStore = {
 	},
 
 	/**
+	 * Recalculate only routes connected to specific nodes
+	 * Much faster than recalculateAllRoutes during node dragging
+	 */
+	recalculateRoutesForNodes(
+		nodeIds: Set<string>,
+		connections: Connection[],
+		getPortInfo: (nodeId: string, portIndex: number, isOutput: boolean) => PortInfo | null
+	): void {
+		const $state = get(state);
+		if (!$state.grid) return;
+
+		// Filter connections to only those connected to the specified nodes
+		const affectedConnections = connections.filter(
+			(c) => nodeIds.has(c.sourceNodeId) || nodeIds.has(c.targetNodeId)
+		);
+
+		if (affectedConnections.length === 0) return;
+
+		const routes = new Map<string, RouteResult>($state.routes);
+
+		for (const conn of affectedConnections) {
+			const sourceInfo = getPortInfo(conn.sourceNodeId, conn.sourcePortIndex, true);
+			const targetInfo = getPortInfo(conn.targetNodeId, conn.targetPortIndex, false);
+
+			if (!sourceInfo || !targetInfo) continue;
+
+			const userWaypoints = (conn.waypoints || []).filter((w) => w.isUserWaypoint);
+
+			const result = userWaypoints.length > 0
+				? calculateRouteWithWaypoints(
+					sourceInfo.position,
+					targetInfo.position,
+					sourceInfo.direction,
+					targetInfo.direction,
+					$state.grid,
+					userWaypoints
+				)
+				: calculateRoute(
+					sourceInfo.position,
+					targetInfo.position,
+					sourceInfo.direction,
+					targetInfo.direction,
+					$state.grid
+				);
+
+			routes.set(conn.id, result);
+		}
+
+		state.update((s) => ({ ...s, routes }));
+	},
+
+	/**
 	 * Get route for a specific connection (as a derived store)
 	 */
 	getRoute(connectionId: string) {

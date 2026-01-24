@@ -657,24 +657,38 @@
 		}
 	}
 
-	// Handle node drag - reroute at discrete grid positions
+	// Handle node drag - reroute at discrete grid positions (only affected routes)
 	function handleNodeDrag({ nodes: draggedNodes }: { nodes: Node[] }) {
 		// Check if any node moved to a new grid position
-		let positionChanged = false;
+		const changedNodeIds = new Set<string>();
 		for (const node of draggedNodes) {
+			// Skip non-block nodes (events, annotations don't affect routing)
+			if (node.type !== 'pathview') continue;
+
 			const snappedX = Math.round(node.position.x / GRID_SIZE) * GRID_SIZE;
 			const snappedY = Math.round(node.position.y / GRID_SIZE) * GRID_SIZE;
 			const lastPos = lastDraggedPositions.get(node.id);
 
 			if (!lastPos || lastPos.x !== snappedX || lastPos.y !== snappedY) {
 				lastDraggedPositions.set(node.id, { x: snappedX, y: snappedY });
-				positionChanged = true;
+				changedNodeIds.add(node.id);
+
+				// Incrementally update grid obstacle for this node
+				const width = node.measured?.width ?? node.width ?? 80;
+				const height = node.measured?.height ?? node.height ?? 40;
+				routingStore.updateNodeBounds(node.id, {
+					x: snappedX - width / 2,
+					y: snappedY - height / 2,
+					width,
+					height
+				});
 			}
 		}
 
-		// Only recalculate routes if position actually changed on the grid
-		if (positionChanged) {
-			updateRoutingContext();
+		// Only recalculate routes connected to moved nodes
+		if (changedNodeIds.size > 0) {
+			const connections = get(graphStore.connections);
+			routingStore.recalculateRoutesForNodes(changedNodeIds, connections, getPortInfo);
 		}
 	}
 
