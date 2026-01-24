@@ -1,4 +1,6 @@
 <script module lang="ts">
+	import { writable } from 'svelte/store';
+
 	// Module-level drag state - persists across component recreation
 	interface DragState {
 		edgeId: string;
@@ -7,7 +9,13 @@
 		getPortInfo: (nodeId: string, portIndex: number, isOutput: boolean) => import('$lib/stores/routing').PortInfo | null;
 		cleanup: () => void;
 	}
+
+	// Use a store so components can reactively track drag state
+	const activeDragStore = writable<DragState | null>(null);
 	let activeDrag: DragState | null = null;
+
+	// Keep activeDrag in sync for non-reactive access in handlers
+	activeDragStore.subscribe(v => activeDrag = v);
 </script>
 
 <script lang="ts">
@@ -67,9 +75,13 @@
 		return null;
 	}
 
-	// Derived drag state from module-level activeDrag
-	const isDragging = $derived(activeDrag?.edgeId === id);
-	const draggingWaypointId = $derived(activeDrag?.edgeId === id ? activeDrag.waypointId : null);
+	// Subscribe to drag state store for reactive updates
+	let currentDrag = $state<DragState | null>(null);
+	activeDragStore.subscribe(v => currentDrag = v);
+
+	// Derived drag state
+	const isDragging = $derived(currentDrag?.edgeId === id);
+	const draggingWaypointId = $derived(currentDrag?.edgeId === id ? currentDrag.waypointId : null);
 
 	// Start waypoint drag - uses module-level state that persists across component recreation
 	function handleWaypointPointerDown(event: PointerEvent, waypoint: Waypoint) {
@@ -108,14 +120,14 @@
 			document.removeEventListener('pointerup', onUp, { capture: true });
 
 			const dragState = activeDrag;
-			activeDrag = null;
+			activeDragStore.set(null);
 
 			historyStore.endDrag();
 			routingStore.cleanupWaypoints(dragState.edgeId, dragState.getPortInfo);
 		};
 
-		// Store drag state at module level
-		activeDrag = {
+		// Store drag state at module level (use store for reactivity)
+		activeDragStore.set({
 			edgeId: id,
 			waypointId: waypoint.id,
 			lastSnappedPos: { ...waypoint.position },
@@ -124,7 +136,7 @@
 				document.removeEventListener('pointermove', onMove, { capture: true });
 				document.removeEventListener('pointerup', onUp, { capture: true });
 			}
-		};
+		});
 
 		historyStore.beginDrag();
 		document.addEventListener('pointermove', onMove, { capture: true });
@@ -388,13 +400,13 @@
 				document.removeEventListener('pointerup', onUp, { capture: true });
 
 				const dragState = activeDrag;
-				activeDrag = null;
+				activeDragStore.set(null);
 
 				historyStore.endDrag();
 				routingStore.cleanupWaypoints(dragState.edgeId, dragState.getPortInfo);
 			};
 
-			activeDrag = {
+			activeDragStore.set({
 				edgeId: id,
 				waypointId,
 				lastSnappedPos: snappedPos,
@@ -403,7 +415,7 @@
 					document.removeEventListener('pointermove', onMove, { capture: true });
 					document.removeEventListener('pointerup', onUp, { capture: true });
 				}
-			};
+			});
 
 			historyStore.beginDrag();
 			document.addEventListener('pointermove', onMove, { capture: true });
