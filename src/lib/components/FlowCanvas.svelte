@@ -637,7 +637,17 @@
 	// Subscribe to current connections (filtered by current navigation context)
 	cleanups.push(graphStore.connections.subscribe((connections: Connection[]) => {
 		if (isSyncing) return;
-		edges = connections.map(toFlowEdge);
+		// Preserve selection state from existing edges
+		const currentEdgeSelection = new Map(edges.map(e => [e.id, e.selected]));
+		edges = connections.map(conn => {
+			const edge = toFlowEdge(conn);
+			// Preserve selection state
+			const wasSelected = currentEdgeSelection.get(conn.id);
+			if (wasSelected) {
+				edge.selected = true;
+			}
+			return edge;
+		});
 		// Recalculate routes when connections change
 		// Use setTimeout to ensure nodes are updated first
 		setTimeout(() => updateRoutingContext(), 0);
