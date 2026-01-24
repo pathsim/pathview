@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { BaseEdge, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
+	import { BaseEdge, getSmoothStepPath, type EdgeProps, Position } from '@xyflow/svelte';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
-	import { routingStore } from '$lib/stores/routing';
+	import { routingStore, type PortInfo } from '$lib/stores/routing';
 	import { historyStore } from '$lib/stores/history';
 	import { screenToFlow } from '$lib/utils/viewUtils';
 	import { GRID_SIZE } from '$lib/routing/constants';
-	import type { RouteResult } from '$lib/routing';
+	import type { RouteResult, Direction } from '$lib/routing';
 	import type { Waypoint } from '$lib/types/nodes';
 
 	let {
@@ -27,9 +27,37 @@
 
 	import { onDestroy } from 'svelte';
 
+	// Convert SvelteFlow Position to routing Direction
+	function positionToDirection(pos: Position): Direction {
+		switch (pos) {
+			case Position.Left: return 'left';
+			case Position.Right: return 'right';
+			case Position.Top: return 'up';
+			case Position.Bottom: return 'down';
+			default: return 'right';
+		}
+	}
+
+	// Create getPortInfo callback for route recalculation during drag
+	function getPortInfo(nodeId: string, portIndex: number, isOutput: boolean): PortInfo | null {
+		if (isOutput && nodeId === source) {
+			return {
+				position: { x: sourceX, y: sourceY },
+				direction: positionToDirection(sourcePosition)
+			};
+		}
+		if (!isOutput && nodeId === target) {
+			return {
+				position: { x: targetX, y: targetY },
+				direction: positionToDirection(targetPosition)
+			};
+		}
+		return null;
+	}
+
 	// Drag state for waypoint markers
+	let isDragging = $state(false);
 	let draggingWaypointId = $state<string | null>(null);
-	let dragTarget: SVGCircleElement | null = null;
 
 	// Drag handlers for waypoint markers - using pointer events with capture
 	function handleWaypointPointerDown(event: PointerEvent, waypoint: Waypoint) {
@@ -38,14 +66,14 @@
 
 		const target = event.currentTarget as SVGCircleElement;
 		target.setPointerCapture(event.pointerId);
-		dragTarget = target;
 
+		isDragging = true;
 		draggingWaypointId = waypoint.id;
 		historyStore.beginDrag();
 	}
 
 	function handleWaypointPointerMove(event: PointerEvent) {
-		if (!draggingWaypointId) return;
+		if (!isDragging || !draggingWaypointId) return;
 
 		event.stopPropagation();
 		event.preventDefault();
@@ -56,19 +84,25 @@
 			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
 		};
 
-		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos);
+		// Pass getPortInfo for immediate route recalculation
+		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos, getPortInfo);
 	}
 
 	function handleWaypointPointerUp(event: PointerEvent) {
-		if (!draggingWaypointId) return;
-
+		if (!isDragging) return;
 		event.stopPropagation();
+		endDrag();
+	}
 
-		if (dragTarget) {
-			dragTarget.releasePointerCapture(event.pointerId);
-			dragTarget = null;
+	// Called when pointer capture is lost (ensures cleanup)
+	function handleLostPointerCapture() {
+		if (isDragging) {
+			endDrag();
 		}
+	}
 
+	function endDrag() {
+		isDragging = false;
 		draggingWaypointId = null;
 		historyStore.endDrag();
 	}
@@ -270,7 +304,7 @@
 	});
 
 	// Segment drag state (for creating new waypoints by dragging segment midpoints)
-	let segmentDragTarget: SVGCircleElement | null = null;
+	let isSegmentDragging = $state(false);
 
 	function handleSegmentPointerDown(event: PointerEvent, segmentIndex: number) {
 		event.stopPropagation();
@@ -278,7 +312,6 @@
 
 		const target = event.currentTarget as SVGCircleElement;
 		target.setPointerCapture(event.pointerId);
-		segmentDragTarget = target;
 
 		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
 		const snappedPos = {
@@ -289,16 +322,15 @@
 		historyStore.beginDrag();
 
 		// Create waypoint at drag start position
-		// The segment index helps determine where to insert in the waypoint array
-		// For now, we add at the end and let the routing algorithm sort by position
 		const waypointId = routingStore.addUserWaypoint(id, snappedPos);
 		if (waypointId) {
+			isSegmentDragging = true;
 			draggingWaypointId = waypointId;
 		}
 	}
 
 	function handleSegmentPointerMove(event: PointerEvent) {
-		if (!draggingWaypointId || !segmentDragTarget) return;
+		if (!isSegmentDragging || !draggingWaypointId) return;
 
 		event.stopPropagation();
 		event.preventDefault();
@@ -309,16 +341,23 @@
 			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
 		};
 
-		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos);
+		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos, getPortInfo);
 	}
 
 	function handleSegmentPointerUp(event: PointerEvent) {
-		if (!segmentDragTarget) return;
-
+		if (!isSegmentDragging) return;
 		event.stopPropagation();
+		endSegmentDrag();
+	}
 
-		segmentDragTarget.releasePointerCapture(event.pointerId);
-		segmentDragTarget = null;
+	function handleSegmentLostPointerCapture() {
+		if (isSegmentDragging) {
+			endSegmentDrag();
+		}
+	}
+
+	function endSegmentDrag() {
+		isSegmentDragging = false;
 		draggingWaypointId = null;
 		historyStore.endDrag();
 	}
@@ -362,12 +401,13 @@
 			r="6"
 			class="waypoint-marker"
 			class:selected
-			class:dragging={draggingWaypointId === waypoint.id}
+			class:dragging={isDragging && draggingWaypointId === waypoint.id}
 			role="button"
 			tabindex="-1"
 			onpointerdown={(e) => handleWaypointPointerDown(e, waypoint)}
 			onpointermove={handleWaypointPointerMove}
 			onpointerup={handleWaypointPointerUp}
+			onlostpointercapture={handleLostPointerCapture}
 			ondblclick={(e) => handleWaypointDoubleClick(e, waypoint)}
 		/>
 	{/each}
@@ -385,6 +425,7 @@
 				onpointerdown={(e) => handleSegmentPointerDown(e, midpoint.segmentIndex)}
 				onpointermove={handleSegmentPointerMove}
 				onpointerup={handleSegmentPointerUp}
+				onlostpointercapture={handleSegmentLostPointerCapture}
 			/>
 		{/each}
 	{/if}

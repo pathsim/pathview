@@ -327,9 +327,15 @@ export const routingStore = {
 	},
 
 	/**
-	 * Move a waypoint to a new position
+	 * Move a waypoint to a new position and recalculate route
+	 * @param getPortInfo - Optional callback to get port info for route recalculation
 	 */
-	moveWaypoint(connectionId: string, waypointId: string, newPosition: Position): void {
+	moveWaypoint(
+		connectionId: string,
+		waypointId: string,
+		newPosition: Position,
+		getPortInfo?: (nodeId: string, portIndex: number, isOutput: boolean) => PortInfo | null
+	): void {
 		const connections = get(graphStore.connections);
 		const connection = connections.find((c) => c.id === connectionId);
 		if (!connection?.waypoints) return;
@@ -339,6 +345,42 @@ export const routingStore = {
 		);
 
 		graphStore.updateConnectionWaypoints(connectionId, updatedWaypoints);
+
+		// If getPortInfo is provided, recalculate route immediately
+		if (getPortInfo) {
+			const $state = get(state);
+			const sourceInfo = getPortInfo(connection.sourceNodeId, connection.sourcePortIndex, true);
+			const targetInfo = getPortInfo(connection.targetNodeId, connection.targetPortIndex, false);
+
+			if (sourceInfo && targetInfo && $state.context) {
+				const userWaypoints = updatedWaypoints.filter((w) => w.isUserWaypoint);
+				const result = userWaypoints.length > 0
+					? calculateRouteWithWaypoints(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction,
+						$state.context,
+						userWaypoints
+					)
+					: calculateRoute(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction,
+						$state.context
+					);
+
+				state.update((s) => {
+					const routes = new Map(s.routes);
+					routes.set(connectionId, result);
+					return { ...s, routes };
+				});
+				return;
+			}
+		}
+
+		// Fallback: just invalidate
 		routingStore.invalidateRoute(connectionId);
 	},
 
