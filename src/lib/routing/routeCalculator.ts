@@ -173,29 +173,6 @@ function inferExitDirection(path: Position[]): Direction {
 	return inferDirection(prev, last);
 }
 
-/**
- * Sort waypoints by their position along the source->target vector
- */
-function sortWaypointsByPathOrder(
-	source: Position,
-	target: Position,
-	waypoints: Waypoint[]
-): Waypoint[] {
-	const dx = target.x - source.x;
-	const dy = target.y - source.y;
-	const len = Math.sqrt(dx * dx + dy * dy);
-
-	if (len === 0) return waypoints;
-
-	const ux = dx / len;
-	const uy = dy / len;
-
-	return [...waypoints].sort((a, b) => {
-		const projA = (a.position.x - source.x) * ux + (a.position.y - source.y) * uy;
-		const projB = (b.position.x - source.x) * ux + (b.position.y - source.y) * uy;
-		return projA - projB;
-	});
-}
 
 /**
  * Calculate route through user waypoints using sequential A* segments
@@ -216,8 +193,7 @@ export function calculateRouteWithWaypoints(
 		return calculateRoute(sourcePos, targetPos, sourceDir, targetDir, grid, usedCells);
 	}
 
-	// Sort waypoints by their order along the path
-	const sortedWaypoints = sortWaypointsByPathOrder(sourcePos, targetPos, userWaypoints);
+	// Use waypoints in their stored order (insertion order from segment splitting)
 	const offset = grid.getOffset();
 
 	// Build path segments through all waypoints
@@ -226,8 +202,8 @@ export function calculateRouteWithWaypoints(
 	let currentDir = sourceDir;
 	let hasFallback = false;
 
-	for (let i = 0; i < sortedWaypoints.length; i++) {
-		const waypoint = sortedWaypoints[i];
+	for (let i = 0; i < userWaypoints.length; i++) {
+		const waypoint = userWaypoints[i];
 		const waypointPos = snapToGrid(waypoint.position);
 
 		// Route from current position to waypoint
@@ -256,8 +232,8 @@ export function calculateRouteWithWaypoints(
 			currentDir = inferExitDirection(segmentResult.path);
 		} else {
 			// Fallback: infer from next waypoint or target
-			const nextTarget = i < sortedWaypoints.length - 1
-				? sortedWaypoints[i + 1].position
+			const nextTarget = i < userWaypoints.length - 1
+				? userWaypoints[i + 1].position
 				: targetPos;
 			currentDir = inferDirection(waypointPos, nextTarget);
 		}
@@ -285,5 +261,5 @@ export function calculateRouteWithWaypoints(
 	// Simplify the combined path
 	const simplified = simplifyPath(fullPath);
 
-	return { path: simplified, waypoints: sortedWaypoints, isFallback: hasFallback };
+	return { path: simplified, waypoints: userWaypoints, isFallback: hasFallback };
 }
