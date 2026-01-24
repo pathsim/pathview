@@ -60,21 +60,8 @@
 	let draggingWaypointId = $state<string | null>(null);
 	let lastSnappedPos = $state<{ x: number; y: number } | null>(null);
 
-	// Drag handlers for waypoint markers - using pointer events with capture
-	function handleWaypointPointerDown(event: PointerEvent, waypoint: Waypoint) {
-		event.stopPropagation();
-		event.preventDefault();
-
-		const target = event.currentTarget as SVGCircleElement;
-		target.setPointerCapture(event.pointerId);
-
-		isDragging = true;
-		draggingWaypointId = waypoint.id;
-		lastSnappedPos = { ...waypoint.position };
-		historyStore.beginDrag();
-	}
-
-	function handleWaypointPointerMove(event: PointerEvent) {
+	// Document-level handlers for waypoint drag (robust against component recreation)
+	function onDocumentWaypointMove(event: PointerEvent) {
 		if (!isDragging || !draggingWaypointId) return;
 
 		event.stopPropagation();
@@ -96,20 +83,33 @@
 		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos, getPortInfo);
 	}
 
-	function handleWaypointPointerUp(event: PointerEvent) {
+	function onDocumentWaypointUp(event: PointerEvent) {
 		if (!isDragging) return;
 		event.stopPropagation();
-		endDrag();
+		event.preventDefault();
+		endWaypointDrag();
 	}
 
-	// Called when pointer capture is lost (ensures cleanup)
-	function handleLostPointerCapture() {
-		if (isDragging) {
-			endDrag();
-		}
+	// Start waypoint drag - uses document listeners for robustness
+	function handleWaypointPointerDown(event: PointerEvent, waypoint: Waypoint) {
+		event.stopPropagation();
+		event.preventDefault();
+
+		isDragging = true;
+		draggingWaypointId = waypoint.id;
+		lastSnappedPos = { ...waypoint.position };
+		historyStore.beginDrag();
+
+		// Use document-level listeners (survives component recreation)
+		document.addEventListener('pointermove', onDocumentWaypointMove, { capture: true });
+		document.addEventListener('pointerup', onDocumentWaypointUp, { capture: true });
 	}
 
-	function endDrag() {
+	function endWaypointDrag() {
+		// Remove document listeners
+		document.removeEventListener('pointermove', onDocumentWaypointMove, { capture: true });
+		document.removeEventListener('pointerup', onDocumentWaypointUp, { capture: true });
+
 		isDragging = false;
 		draggingWaypointId = null;
 		lastSnappedPos = null;
@@ -141,6 +141,8 @@
 	onDestroy(() => {
 		if (unsubscribeRoute) unsubscribeRoute();
 		// Clean up document listeners if drag was in progress (must match capture option)
+		document.removeEventListener('pointermove', onDocumentWaypointMove, { capture: true });
+		document.removeEventListener('pointerup', onDocumentWaypointUp, { capture: true });
 		document.removeEventListener('pointermove', onDocumentPointerMove, { capture: true });
 		document.removeEventListener('pointerup', onDocumentPointerUp, { capture: true });
 	});
@@ -496,9 +498,6 @@
 				class="waypoint-marker"
 				class:dragging={isDragging && draggingWaypointId === waypoint.id}
 				onpointerdown={(e) => handleWaypointPointerDown(e, waypoint)}
-				onpointermove={handleWaypointPointerMove}
-				onpointerup={handleWaypointPointerUp}
-				onlostpointercapture={handleLostPointerCapture}
 				ondblclick={(e) => handleWaypointDoubleClick(e, waypoint)}
 			/>
 		{/each}
