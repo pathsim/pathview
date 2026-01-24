@@ -32,7 +32,7 @@
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 		import { nodeRegistry } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
-	import { SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
+	import { GRID_SIZE, SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
 	import { calculateNodeDimensions } from '$lib/constants/dimensions';
 	import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 	import type { EventInstance } from '$lib/events/types';
@@ -94,6 +94,8 @@
 				const snappedX = Math.round(flowPos.x / gridSize) * gridSize;
 				const snappedY = Math.round(flowPos.y / gridSize) * gridSize;
 				routingStore.addUserWaypoint(selectedEdge.id, { x: snappedX, y: snappedY });
+				// Recalculate routes to show the new waypoint path
+				updateRoutingContext();
 			}
 			return;
 		}
@@ -640,13 +642,47 @@
 		setTimeout(() => updateRoutingContext(), 0);
 	}));
 
+	// Track last snapped positions during drag for discrete routing updates
+	let lastDraggedPositions = new Map<string, { x: number; y: number }>();
+
 	// Handle node drag start - capture state for undo
-	function handleNodeDragStart() {
+	function handleNodeDragStart({ nodes: draggedNodes }: { nodes: Node[] }) {
 		historyStore.beginDrag();
+		// Initialize last positions for all dragged nodes
+		lastDraggedPositions.clear();
+		for (const node of draggedNodes) {
+			const snappedX = Math.round(node.position.x / GRID_SIZE) * GRID_SIZE;
+			const snappedY = Math.round(node.position.y / GRID_SIZE) * GRID_SIZE;
+			lastDraggedPositions.set(node.id, { x: snappedX, y: snappedY });
+		}
+	}
+
+	// Handle node drag - reroute at discrete grid positions
+	function handleNodeDrag({ nodes: draggedNodes }: { nodes: Node[] }) {
+		// Check if any node moved to a new grid position
+		let positionChanged = false;
+		for (const node of draggedNodes) {
+			const snappedX = Math.round(node.position.x / GRID_SIZE) * GRID_SIZE;
+			const snappedY = Math.round(node.position.y / GRID_SIZE) * GRID_SIZE;
+			const lastPos = lastDraggedPositions.get(node.id);
+
+			if (!lastPos || lastPos.x !== snappedX || lastPos.y !== snappedY) {
+				lastDraggedPositions.set(node.id, { x: snappedX, y: snappedY });
+				positionChanged = true;
+			}
+		}
+
+		// Only recalculate routes if position actually changed on the grid
+		if (positionChanged) {
+			updateRoutingContext();
+		}
 	}
 
 	// Handle node drag end - sync position back to store and finalize undo entry
 	function handleNodeDragStop({ targetNode }: { targetNode: Node | null; nodes: Node[]; event: MouseEvent | TouchEvent }) {
+		// Clear drag position tracking
+		lastDraggedPositions.clear();
+
 		if (targetNode?.id && targetNode?.position) {
 			isSyncing = true;
 			// Check node type and update appropriate store
@@ -665,7 +701,7 @@
 		}
 		historyStore.endDrag();
 
-		// Update routing context and recalculate routes
+		// Update routing context and recalculate routes (final)
 		updateRoutingContext();
 	}
 
@@ -937,6 +973,7 @@
 		{edgeTypes}
 		onconnect={handleConnect}
 		onnodedragstart={handleNodeDragStart}
+		onnodedrag={handleNodeDrag}
 		onnodedragstop={handleNodeDragStop}
 		ondelete={handleDelete}
 		onselectionchange={handleSelectionChange}

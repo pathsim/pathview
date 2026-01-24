@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BaseEdge, getSmoothStepPath, type EdgeProps, Position } from '@xyflow/svelte';
+	import { BaseEdge, type EdgeProps, Position } from '@xyflow/svelte';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { routingStore, type PortInfo } from '$lib/stores/routing';
 	import { historyStore } from '$lib/stores/history';
@@ -58,6 +58,7 @@
 	// Drag state for waypoint markers
 	let isDragging = $state(false);
 	let draggingWaypointId = $state<string | null>(null);
+	let lastSnappedPos = $state<{ x: number; y: number } | null>(null);
 
 	// Drag handlers for waypoint markers - using pointer events with capture
 	function handleWaypointPointerDown(event: PointerEvent, waypoint: Waypoint) {
@@ -69,6 +70,7 @@
 
 		isDragging = true;
 		draggingWaypointId = waypoint.id;
+		lastSnappedPos = { ...waypoint.position };
 		historyStore.beginDrag();
 	}
 
@@ -83,6 +85,12 @@
 			x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
 			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
 		};
+
+		// Only update if position actually changed on the grid
+		if (lastSnappedPos && snappedPos.x === lastSnappedPos.x && snappedPos.y === lastSnappedPos.y) {
+			return;
+		}
+		lastSnappedPos = snappedPos;
 
 		// Pass getPortInfo for immediate route recalculation
 		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos, getPortInfo);
@@ -104,14 +112,17 @@
 	function endDrag() {
 		isDragging = false;
 		draggingWaypointId = null;
+		lastSnappedPos = null;
 		historyStore.endDrag();
+		// Clean up redundant/collinear waypoints
+		routingStore.cleanupWaypoints(id, getPortInfo);
 	}
 
 	// Double-click to delete waypoint
 	function handleWaypointDoubleClick(event: MouseEvent, waypoint: Waypoint) {
 		event.stopPropagation();
 		event.preventDefault();
-		routingStore.removeUserWaypoint(id, waypoint.id);
+		routingStore.removeUserWaypoint(id, waypoint.id, getPortInfo);
 	}
 
 	// Get cached route from routing store
@@ -191,6 +202,9 @@
 	// Corner radius for bends (0.5G = 5px)
 	const CORNER_RADIUS = 5;
 
+	// Tolerance for checking if route endpoints match current src/tgt (in pixels)
+	const POSITION_TOLERANCE = 15;
+
 	/**
 	 * Build SVG path with rounded corners using quadratic bezier curves
 	 */
@@ -243,29 +257,47 @@
 		return d;
 	}
 
-	// Build SVG path from route points or fallback to smoothstep
-	// Returns { path, isFallback } to avoid state mutation in derived
+	// Cache last valid SVG path string
+	let lastValidSvgPath = '';
+
+	// Check if route endpoints are compatible with current src/tgt positions
+	// (route might be stale if calculated for different positions)
+	function isRouteCompatible(
+		routePath: Array<{ x: number; y: number }>,
+		src: { x: number; y: number },
+		tgt: { x: number; y: number }
+	): boolean {
+		if (routePath.length === 0) return false;
+
+		const firstPathPoint = routePath[0];
+		const lastPathPoint = routePath[routePath.length - 1];
+
+		// Check if first path point is close to src
+		const srcDist = Math.hypot(firstPathPoint.x - src.x, firstPathPoint.y - src.y);
+		// Check if last path point is close to tgt
+		const tgtDist = Math.hypot(lastPathPoint.x - tgt.x, lastPathPoint.y - tgt.y);
+
+		return srcDist < POSITION_TOLERANCE && tgtDist < POSITION_TOLERANCE;
+	}
+
+	// Build SVG path from route points
 	const pathInfo = $derived(() => {
 		const src = adjustedSource();
 		const tgt = adjustedTarget();
 
 		if (routeResult?.path && routeResult.path.length >= 1) {
-			// Full path: src -> route points -> tgt
-			const allPoints = [src, ...routeResult.path, tgt];
-			return { path: buildRoundedPath(allPoints, CORNER_RADIUS), isFallback: false };
+			// Only use the route if its endpoints are compatible with current positions
+			// This prevents flickering when route is stale (calculated for old positions)
+			if (isRouteCompatible(routeResult.path, src, tgt)) {
+				const allPoints = [src, ...routeResult.path, tgt];
+				const path = buildRoundedPath(allPoints, CORNER_RADIUS);
+				lastValidSvgPath = path;
+				return { path, isFallback: false };
+			}
 		}
 
-		// Fallback: use SvelteFlow's smoothstep path
-		const [path] = getSmoothStepPath({
-			sourceX,
-			sourceY,
-			sourcePosition,
-			targetX,
-			targetY,
-			targetPosition,
-			borderRadius: CORNER_RADIUS
-		});
-		return { path, isFallback: true };
+		// Use last valid path if available, otherwise empty
+		return { path: lastValidSvgPath || '', isFallback: !lastValidSvgPath };
 	});
 
 	// Get user waypoints from route result or data
@@ -285,6 +317,17 @@
 		const src = adjustedSource();
 		const tgt = adjustedTarget();
 		const allPoints = [src, ...routeResult.path, tgt];
+		const waypoints = userWaypoints();
+
+		// Helper to check if a point is too close to any waypoint
+		const MIN_DISTANCE_FROM_WAYPOINT = 20;
+		const isTooCloseToWaypoint = (x: number, y: number): boolean => {
+			for (const wp of waypoints) {
+				const dist = Math.hypot(wp.position.x - x, wp.position.y - y);
+				if (dist < MIN_DISTANCE_FROM_WAYPOINT) return true;
+			}
+			return false;
+		};
 
 		const midpoints: Array<{ x: number; y: number; segmentIndex: number }> = [];
 		for (let i = 0; i < allPoints.length - 1; i++) {
@@ -293,11 +336,16 @@
 			// Only show midpoints on segments longer than 30px
 			const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
 			if (dist > 30) {
-				midpoints.push({
-					x: (p1.x + p2.x) / 2,
-					y: (p1.y + p2.y) / 2,
-					segmentIndex: i
-				});
+				const midX = (p1.x + p2.x) / 2;
+				const midY = (p1.y + p2.y) / 2;
+				// Skip if too close to an existing waypoint
+				if (!isTooCloseToWaypoint(midX, midY)) {
+					midpoints.push({
+						x: midX,
+						y: midY,
+						segmentIndex: i
+					});
+				}
 			}
 		}
 		return midpoints;
@@ -305,6 +353,9 @@
 
 	// Segment drag state (for creating new waypoints by dragging segment midpoints)
 	let isSegmentDragging = $state(false);
+
+	// Derived visibility state for waypoints - use function form for consistency
+	const waypointsVisible = $derived(() => selected);
 
 	function handleSegmentPointerDown(event: PointerEvent, segmentIndex: number) {
 		event.stopPropagation();
@@ -326,6 +377,7 @@
 		if (waypointId) {
 			isSegmentDragging = true;
 			draggingWaypointId = waypointId;
+			lastSnappedPos = snappedPos;
 		}
 	}
 
@@ -340,6 +392,12 @@
 			x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
 			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
 		};
+
+		// Only update if position actually changed on the grid
+		if (lastSnappedPos && snappedPos.x === lastSnappedPos.x && snappedPos.y === lastSnappedPos.y) {
+			return;
+		}
+		lastSnappedPos = snappedPos;
 
 		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos, getPortInfo);
 	}
@@ -359,7 +417,10 @@
 	function endSegmentDrag() {
 		isSegmentDragging = false;
 		draggingWaypointId = null;
+		lastSnappedPos = null;
 		historyStore.endDrag();
+		// Clean up redundant/collinear waypoints
+		routingStore.cleanupWaypoints(id, getPortInfo);
 	}
 
 	// Arrow at end of path
@@ -393,49 +454,40 @@
 <g class:highlighted={isHighlighted()} style="--highlight-color: {highlightColor()}">
 	<BaseEdge {id} path={pathInfo().path} {style} />
 
-	<!-- User waypoint markers (shown when edge is selected) -->
-	{#if selected}
+	<!-- User waypoint markers (always in DOM, visibility controlled by derived state) -->
+	<g
+		class="waypoint-group"
+		style="opacity: {waypointsVisible() ? 1 : 0}; pointer-events: {waypointsVisible() ? 'all' : 'none'};"
+	>
 		{#each userWaypoints() as waypoint (waypoint.id)}
 			<circle
 				cx={waypoint.position.x}
 				cy={waypoint.position.y}
-				r="6"
+				r="4"
 				class="waypoint-marker"
 				class:dragging={isDragging && draggingWaypointId === waypoint.id}
-				role="button"
-				tabindex="-1"
-				pointer-events="all"
 				onpointerdown={(e) => handleWaypointPointerDown(e, waypoint)}
 				onpointermove={handleWaypointPointerMove}
 				onpointerup={handleWaypointPointerUp}
 				onlostpointercapture={handleLostPointerCapture}
-				onclick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-				onmousedown={(e) => e.stopPropagation()}
 				ondblclick={(e) => handleWaypointDoubleClick(e, waypoint)}
 			/>
 		{/each}
-	{/if}
 
-	<!-- Segment midpoint indicators (shown when edge is selected) -->
-	{#if selected}
+		<!-- Segment midpoint indicators -->
 		{#each segmentMidpoints() as midpoint (midpoint.segmentIndex)}
 			<circle
 				cx={midpoint.x}
 				cy={midpoint.y}
-				r="5"
+				r="3"
 				class="segment-midpoint"
-				role="button"
-				tabindex="-1"
-				pointer-events="all"
 				onpointerdown={(e) => handleSegmentPointerDown(e, midpoint.segmentIndex)}
 				onpointermove={handleSegmentPointerMove}
 				onpointerup={handleSegmentPointerUp}
 				onlostpointercapture={handleSegmentLostPointerCapture}
-				onclick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-				onmousedown={(e) => e.stopPropagation()}
 			/>
 		{/each}
-	{/if}
+	</g>
 
 	<!-- Arrow at the end - offset forward 5px to reach target handle tip -->
 	<g
@@ -477,43 +529,35 @@
 		stroke: var(--highlight-color, var(--accent)) !important;
 	}
 
-	/* Waypoint markers */
+	/* Waypoint group - visibility controlled by inline styles */
+	.waypoint-group {
+		transition: opacity 0.1s ease;
+	}
+
+	/* Waypoint markers (SVG circles) */
 	.waypoint-marker {
 		fill: var(--surface-raised);
-		stroke: var(--edge);
-		stroke-width: 2;
+		stroke: var(--accent);
+		stroke-width: 1;
 		cursor: grab;
 		touch-action: none;
-		transition:
-			stroke 0.15s ease,
-			fill 0.15s ease;
-	}
-
-	.waypoint-marker:hover {
-		stroke: var(--accent);
-		stroke-width: 2.5;
-	}
-
-	.waypoint-marker.selected {
-		stroke: var(--accent);
-		fill: color-mix(in srgb, var(--accent) 30%, var(--surface-raised));
+		transition: fill 0.15s ease;
 	}
 
 	.waypoint-marker.dragging {
 		cursor: grabbing;
-		stroke: var(--accent);
-		stroke-width: 3;
+		stroke-width: 1.5;
 		fill: var(--accent);
 	}
 
-	/* Segment midpoint indicators for adding waypoints */
+	/* Segment midpoint indicators (SVG circles) */
 	.segment-midpoint {
 		fill: var(--surface-raised);
 		stroke: var(--edge);
-		stroke-width: 1.5;
+		stroke-width: 1;
 		cursor: grab;
 		touch-action: none;
-		opacity: 0.7;
+		opacity: 0.5;
 		transition:
 			opacity 0.15s ease,
 			stroke 0.15s ease;
@@ -522,6 +566,5 @@
 	.segment-midpoint:hover {
 		opacity: 1;
 		stroke: var(--accent);
-		stroke-width: 2;
 	}
 </style>

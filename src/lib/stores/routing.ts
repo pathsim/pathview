@@ -112,7 +112,8 @@ export const routingStore = {
 	): void {
 		const $state = get(state);
 
-		const routes = new Map<string, RouteResult>();
+		// Start with existing routes to preserve them if recalculation fails
+		const routes = new Map<string, RouteResult>($state.routes);
 		const usedCells = new Map<string, Set<Direction>>();
 
 		// Pre-build grid once for all routes (performance optimization)
@@ -310,8 +311,13 @@ export const routingStore = {
 
 	/**
 	 * Remove a user waypoint from a connection
+	 * @param getPortInfo - Optional callback to get port info for immediate route recalculation
 	 */
-	removeUserWaypoint(connectionId: string, waypointId: string): void {
+	removeUserWaypoint(
+		connectionId: string,
+		waypointId: string,
+		getPortInfo?: (nodeId: string, portIndex: number, isOutput: boolean) => PortInfo | null
+	): void {
 		historyStore.mutate(() => {
 			const connections = get(graphStore.connections);
 			const connection = connections.find((c) => c.id === connectionId);
@@ -322,6 +328,42 @@ export const routingStore = {
 			);
 
 			graphStore.updateConnectionWaypoints(connectionId, updatedWaypoints);
+
+			// Immediately recalculate route if we have port info (prevents flicker)
+			if (getPortInfo) {
+				const $state = get(state);
+				const sourceInfo = getPortInfo(connection.sourceNodeId, connection.sourcePortIndex, true);
+				const targetInfo = getPortInfo(connection.targetNodeId, connection.targetPortIndex, false);
+
+				if (sourceInfo && targetInfo && $state.context) {
+					const userWaypoints = updatedWaypoints.filter((w) => w.isUserWaypoint);
+					const result = userWaypoints.length > 0
+						? calculateRouteWithWaypoints(
+							sourceInfo.position,
+							targetInfo.position,
+							sourceInfo.direction,
+							targetInfo.direction,
+							$state.context,
+							userWaypoints
+						)
+						: calculateRoute(
+							sourceInfo.position,
+							targetInfo.position,
+							sourceInfo.direction,
+							targetInfo.direction,
+							$state.context
+						);
+
+					state.update((s) => {
+						const routes = new Map(s.routes);
+						routes.set(connectionId, result);
+						return { ...s, routes };
+					});
+					return;
+				}
+			}
+
+			// Fallback: just invalidate
 			routingStore.invalidateRoute(connectionId);
 		});
 	},
@@ -382,6 +424,130 @@ export const routingStore = {
 
 		// Fallback: just invalidate
 		routingStore.invalidateRoute(connectionId);
+	},
+
+	/**
+	 * Clean up waypoints after drag ends - removes redundant/collinear waypoints
+	 * and merges waypoints that are too close together
+	 */
+	cleanupWaypoints(
+		connectionId: string,
+		getPortInfo?: (nodeId: string, portIndex: number, isOutput: boolean) => PortInfo | null
+	): void {
+		const connections = get(graphStore.connections);
+		const connection = connections.find((c) => c.id === connectionId);
+		if (!connection?.waypoints) return;
+
+		const userWaypoints = connection.waypoints.filter((w) => w.isUserWaypoint);
+		if (userWaypoints.length === 0) return;
+
+		// Get source and target positions for collinearity check
+		let sourceInfo: PortInfo | null = null;
+		let targetInfo: PortInfo | null = null;
+		if (getPortInfo) {
+			sourceInfo = getPortInfo(connection.sourceNodeId, connection.sourcePortIndex, true);
+			targetInfo = getPortInfo(connection.targetNodeId, connection.targetPortIndex, false);
+		}
+		const sourcePos = sourceInfo?.position || null;
+		const targetPos = targetInfo?.position || null;
+
+		const MERGE_THRESHOLD = 15; // Pixels - merge waypoints closer than this
+		const COLLINEAR_THRESHOLD = 5; // Pixels - consider collinear if deviation less than this
+
+		// Helper to check if point is collinear with prev and next
+		const isCollinear = (prev: Position, curr: Position, next: Position): boolean => {
+			// Calculate perpendicular distance from curr to line prev->next
+			const dx = next.x - prev.x;
+			const dy = next.y - prev.y;
+			const len = Math.sqrt(dx * dx + dy * dy);
+			if (len < 1) return true; // prev and next are same point
+
+			// Perpendicular distance = |cross product| / |line length|
+			const cross = Math.abs((curr.x - prev.x) * dy - (curr.y - prev.y) * dx);
+			const dist = cross / len;
+			return dist < COLLINEAR_THRESHOLD;
+		};
+
+		// Helper to check distance between two points
+		const distance = (a: Position, b: Position): number => {
+			return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+		};
+
+		let cleaned = [...userWaypoints];
+		let changed = false;
+
+		// Pass 1: Merge waypoints that are too close together
+		for (let i = cleaned.length - 1; i > 0; i--) {
+			if (distance(cleaned[i].position, cleaned[i - 1].position) < MERGE_THRESHOLD) {
+				// Keep the earlier waypoint, remove the later one
+				cleaned.splice(i, 1);
+				changed = true;
+			}
+		}
+
+		// Pass 2: Remove collinear waypoints
+		// Build points array: [source, ...waypoints, target]
+		const points: Position[] = [];
+		if (sourcePos) points.push(sourcePos);
+		points.push(...cleaned.map(w => w.position));
+		if (targetPos) points.push(targetPos);
+
+		// Check each waypoint for collinearity (skip first and last which are source/target)
+		const startIdx = sourcePos ? 1 : 0;
+		const endIdx = targetPos ? points.length - 1 : points.length;
+
+		const toRemove = new Set<number>();
+		for (let i = startIdx; i < endIdx; i++) {
+			const waypointIdx = sourcePos ? i - 1 : i;
+			if (waypointIdx < 0 || waypointIdx >= cleaned.length) continue;
+
+			const prev = points[i - 1];
+			const curr = points[i];
+			const next = points[i + 1];
+
+			if (prev && next && isCollinear(prev, curr, next)) {
+				toRemove.add(waypointIdx);
+				changed = true;
+			}
+		}
+
+		// Remove collinear waypoints (in reverse order to preserve indices)
+		const removeIndices = Array.from(toRemove).sort((a, b) => b - a);
+		for (const idx of removeIndices) {
+			cleaned.splice(idx, 1);
+		}
+
+		// Only update if something changed
+		if (changed) {
+			graphStore.updateConnectionWaypoints(connectionId, cleaned);
+
+			// Immediately recalculate route if we have port info (prevents flicker)
+			const $state = get(state);
+			if (sourceInfo && targetInfo && $state.context) {
+				const result = cleaned.length > 0
+					? calculateRouteWithWaypoints(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction,
+						$state.context,
+						cleaned
+					)
+					: calculateRoute(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction,
+						$state.context
+					);
+
+				state.update((s) => {
+					const routes = new Map(s.routes);
+					routes.set(connectionId, result);
+					return { ...s, routes };
+				});
+			}
+		}
 	},
 
 	/**
