@@ -29,21 +29,26 @@
 
 	// Drag state for waypoint markers
 	let draggingWaypointId = $state<string | null>(null);
+	let dragTarget: SVGCircleElement | null = null;
 
-	// Drag handlers for waypoint markers
-	function handleWaypointMouseDown(event: MouseEvent, waypoint: Waypoint) {
+	// Drag handlers for waypoint markers - using pointer events with capture
+	function handleWaypointPointerDown(event: PointerEvent, waypoint: Waypoint) {
 		event.stopPropagation();
 		event.preventDefault();
 
+		const target = event.currentTarget as SVGCircleElement;
+		target.setPointerCapture(event.pointerId);
+		dragTarget = target;
+
 		draggingWaypointId = waypoint.id;
 		historyStore.beginDrag();
-
-		document.addEventListener('mousemove', handleWaypointDrag);
-		document.addEventListener('mouseup', handleWaypointDragEnd);
 	}
 
-	function handleWaypointDrag(event: MouseEvent) {
+	function handleWaypointPointerMove(event: PointerEvent) {
 		if (!draggingWaypointId) return;
+
+		event.stopPropagation();
+		event.preventDefault();
 
 		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
 		const snappedPos = {
@@ -54,11 +59,18 @@
 		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos);
 	}
 
-	function handleWaypointDragEnd() {
+	function handleWaypointPointerUp(event: PointerEvent) {
+		if (!draggingWaypointId) return;
+
+		event.stopPropagation();
+
+		if (dragTarget) {
+			dragTarget.releasePointerCapture(event.pointerId);
+			dragTarget = null;
+		}
+
 		draggingWaypointId = null;
 		historyStore.endDrag();
-		document.removeEventListener('mousemove', handleWaypointDrag);
-		document.removeEventListener('mouseup', handleWaypointDragEnd);
 	}
 
 	// Double-click to delete waypoint
@@ -80,17 +92,9 @@
 		unsubscribeRoute = routingStore.getRoute(id).subscribe((r) => (routeResult = r));
 	});
 
-	// Cleanup subscription and drag handlers
+	// Cleanup subscription
 	onDestroy(() => {
 		if (unsubscribeRoute) unsubscribeRoute();
-		if (draggingWaypointId) {
-			document.removeEventListener('mousemove', handleWaypointDrag);
-			document.removeEventListener('mouseup', handleWaypointDragEnd);
-		}
-		if (draggingNewWaypointId) {
-			document.removeEventListener('mousemove', handleWaypointDrag);
-			document.removeEventListener('mouseup', handleSegmentDragEnd);
-		}
 	});
 
 	// Check if this edge is connected to the hovered handle
@@ -266,11 +270,15 @@
 	});
 
 	// Segment drag state (for creating new waypoints by dragging segment midpoints)
-	let draggingNewWaypointId = $state<string | null>(null);
+	let segmentDragTarget: SVGCircleElement | null = null;
 
-	function handleSegmentMouseDown(event: MouseEvent, segmentIndex: number) {
+	function handleSegmentPointerDown(event: PointerEvent, segmentIndex: number) {
 		event.stopPropagation();
 		event.preventDefault();
+
+		const target = event.currentTarget as SVGCircleElement;
+		target.setPointerCapture(event.pointerId);
+		segmentDragTarget = target;
 
 		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
 		const snappedPos = {
@@ -285,20 +293,34 @@
 		// For now, we add at the end and let the routing algorithm sort by position
 		const waypointId = routingStore.addUserWaypoint(id, snappedPos);
 		if (waypointId) {
-			draggingNewWaypointId = waypointId;
 			draggingWaypointId = waypointId;
-
-			document.addEventListener('mousemove', handleWaypointDrag);
-			document.addEventListener('mouseup', handleSegmentDragEnd);
 		}
 	}
 
-	function handleSegmentDragEnd() {
-		draggingNewWaypointId = null;
+	function handleSegmentPointerMove(event: PointerEvent) {
+		if (!draggingWaypointId || !segmentDragTarget) return;
+
+		event.stopPropagation();
+		event.preventDefault();
+
+		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
+		const snappedPos = {
+			x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
+			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
+		};
+
+		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos);
+	}
+
+	function handleSegmentPointerUp(event: PointerEvent) {
+		if (!segmentDragTarget) return;
+
+		event.stopPropagation();
+
+		segmentDragTarget.releasePointerCapture(event.pointerId);
+		segmentDragTarget = null;
 		draggingWaypointId = null;
 		historyStore.endDrag();
-		document.removeEventListener('mousemove', handleWaypointDrag);
-		document.removeEventListener('mouseup', handleSegmentDragEnd);
 	}
 
 	// Arrow at end of path
@@ -337,13 +359,15 @@
 		<circle
 			cx={waypoint.position.x}
 			cy={waypoint.position.y}
-			r="4"
+			r="6"
 			class="waypoint-marker"
 			class:selected
 			class:dragging={draggingWaypointId === waypoint.id}
 			role="button"
 			tabindex="-1"
-			onmousedown={(e) => handleWaypointMouseDown(e, waypoint)}
+			onpointerdown={(e) => handleWaypointPointerDown(e, waypoint)}
+			onpointermove={handleWaypointPointerMove}
+			onpointerup={handleWaypointPointerUp}
 			ondblclick={(e) => handleWaypointDoubleClick(e, waypoint)}
 		/>
 	{/each}
@@ -354,11 +378,13 @@
 			<circle
 				cx={midpoint.x}
 				cy={midpoint.y}
-				r="3"
+				r="5"
 				class="segment-midpoint"
 				role="button"
 				tabindex="-1"
-				onmousedown={(e) => handleSegmentMouseDown(e, midpoint.segmentIndex)}
+				onpointerdown={(e) => handleSegmentPointerDown(e, midpoint.segmentIndex)}
+				onpointermove={handleSegmentPointerMove}
+				onpointerup={handleSegmentPointerUp}
 			/>
 		{/each}
 	{/if}
@@ -407,8 +433,9 @@
 	.waypoint-marker {
 		fill: var(--surface-raised);
 		stroke: var(--edge);
-		stroke-width: 1.5;
+		stroke-width: 2;
 		cursor: grab;
+		touch-action: none;
 		transition:
 			stroke 0.15s ease,
 			fill 0.15s ease;
@@ -416,7 +443,7 @@
 
 	.waypoint-marker:hover {
 		stroke: var(--accent);
-		stroke-width: 2;
+		stroke-width: 2.5;
 	}
 
 	.waypoint-marker.selected {
@@ -427,7 +454,7 @@
 	.waypoint-marker.dragging {
 		cursor: grabbing;
 		stroke: var(--accent);
-		stroke-width: 2.5;
+		stroke-width: 3;
 		fill: var(--accent);
 	}
 
@@ -435,18 +462,18 @@
 	.segment-midpoint {
 		fill: var(--surface-raised);
 		stroke: var(--edge);
-		stroke-width: 1;
+		stroke-width: 1.5;
 		cursor: grab;
-		opacity: 0.6;
+		touch-action: none;
+		opacity: 0.7;
 		transition:
 			opacity 0.15s ease,
-			stroke 0.15s ease,
-			r 0.15s ease;
+			stroke 0.15s ease;
 	}
 
 	.segment-midpoint:hover {
 		opacity: 1;
 		stroke: var(--accent);
-		stroke-width: 1.5;
+		stroke-width: 2;
 	}
 </style>
