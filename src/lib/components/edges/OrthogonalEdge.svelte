@@ -1,3 +1,15 @@
+<script module lang="ts">
+	// Module-level drag state - persists across component recreation
+	interface DragState {
+		edgeId: string;
+		waypointId: string;
+		lastSnappedPos: { x: number; y: number };
+		getPortInfo: (nodeId: string, portIndex: number, isOutput: boolean) => import('$lib/stores/routing').PortInfo | null;
+		cleanup: () => void;
+	}
+	let activeDrag: DragState | null = null;
+</script>
+
 <script lang="ts">
 	import { BaseEdge, type EdgeProps, Position } from '@xyflow/svelte';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
@@ -55,67 +67,68 @@
 		return null;
 	}
 
-	// Drag state for waypoint markers
-	let isDragging = $state(false);
-	let draggingWaypointId = $state<string | null>(null);
-	let lastSnappedPos = $state<{ x: number; y: number } | null>(null);
+	// Derived drag state from module-level activeDrag
+	const isDragging = $derived(activeDrag?.edgeId === id);
+	const draggingWaypointId = $derived(activeDrag?.edgeId === id ? activeDrag.waypointId : null);
 
-	// Document-level handlers for waypoint drag (robust against component recreation)
-	function onDocumentWaypointMove(event: PointerEvent) {
-		if (!isDragging || !draggingWaypointId) return;
-
-		event.stopPropagation();
-		event.preventDefault();
-
-		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
-		const snappedPos = {
-			x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
-			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
-		};
-
-		// Only update if position actually changed on the grid
-		if (lastSnappedPos && snappedPos.x === lastSnappedPos.x && snappedPos.y === lastSnappedPos.y) {
-			return;
-		}
-		lastSnappedPos = snappedPos;
-
-		// Pass getPortInfo for immediate route recalculation
-		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos, getPortInfo);
-	}
-
-	function onDocumentWaypointUp(event: PointerEvent) {
-		if (!isDragging) return;
-		event.stopPropagation();
-		event.preventDefault();
-		endWaypointDrag();
-	}
-
-	// Start waypoint drag - uses document listeners for robustness
+	// Start waypoint drag - uses module-level state that persists across component recreation
 	function handleWaypointPointerDown(event: PointerEvent, waypoint: Waypoint) {
 		event.stopPropagation();
 		event.preventDefault();
 
-		isDragging = true;
-		draggingWaypointId = waypoint.id;
-		lastSnappedPos = { ...waypoint.position };
+		// Document-level handlers that use module state
+		const onMove = (e: PointerEvent) => {
+			if (!activeDrag || activeDrag.edgeId !== id) return;
+
+			e.stopPropagation();
+			e.preventDefault();
+
+			const flowPos = screenToFlow({ x: e.clientX, y: e.clientY });
+			const snappedPos = {
+				x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
+				y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
+			};
+
+			// Only update if position actually changed on the grid
+			if (snappedPos.x === activeDrag.lastSnappedPos.x && snappedPos.y === activeDrag.lastSnappedPos.y) {
+				return;
+			}
+			activeDrag.lastSnappedPos = snappedPos;
+
+			routingStore.moveWaypoint(activeDrag.edgeId, activeDrag.waypointId, snappedPos, activeDrag.getPortInfo);
+		};
+
+		const onUp = (e: PointerEvent) => {
+			if (!activeDrag) return;
+			e.stopPropagation();
+			e.preventDefault();
+
+			// Cleanup
+			document.removeEventListener('pointermove', onMove, { capture: true });
+			document.removeEventListener('pointerup', onUp, { capture: true });
+
+			const dragState = activeDrag;
+			activeDrag = null;
+
+			historyStore.endDrag();
+			routingStore.cleanupWaypoints(dragState.edgeId, dragState.getPortInfo);
+		};
+
+		// Store drag state at module level
+		activeDrag = {
+			edgeId: id,
+			waypointId: waypoint.id,
+			lastSnappedPos: { ...waypoint.position },
+			getPortInfo,
+			cleanup: () => {
+				document.removeEventListener('pointermove', onMove, { capture: true });
+				document.removeEventListener('pointerup', onUp, { capture: true });
+			}
+		};
+
 		historyStore.beginDrag();
-
-		// Use document-level listeners (survives component recreation)
-		document.addEventListener('pointermove', onDocumentWaypointMove, { capture: true });
-		document.addEventListener('pointerup', onDocumentWaypointUp, { capture: true });
-	}
-
-	function endWaypointDrag() {
-		// Remove document listeners
-		document.removeEventListener('pointermove', onDocumentWaypointMove, { capture: true });
-		document.removeEventListener('pointerup', onDocumentWaypointUp, { capture: true });
-
-		isDragging = false;
-		draggingWaypointId = null;
-		lastSnappedPos = null;
-		historyStore.endDrag();
-		// Clean up redundant/collinear waypoints
-		routingStore.cleanupWaypoints(id, getPortInfo);
+		document.addEventListener('pointermove', onMove, { capture: true });
+		document.addEventListener('pointerup', onUp, { capture: true });
 	}
 
 	// Double-click to delete waypoint
@@ -137,14 +150,10 @@
 		unsubscribeRoute = routingStore.getRoute(id).subscribe((r) => (routeResult = r));
 	});
 
-	// Cleanup subscription and any active drag listeners
+	// Cleanup subscription on destroy
 	onDestroy(() => {
 		if (unsubscribeRoute) unsubscribeRoute();
-		// Clean up document listeners if drag was in progress (must match capture option)
-		document.removeEventListener('pointermove', onDocumentWaypointMove, { capture: true });
-		document.removeEventListener('pointerup', onDocumentWaypointUp, { capture: true });
-		document.removeEventListener('pointermove', onDocumentPointerMove, { capture: true });
-		document.removeEventListener('pointerup', onDocumentPointerUp, { capture: true });
+		// Note: drag uses module-level state with its own cleanup, don't interfere here
 	});
 
 	// Check if this edge is connected to the hovered handle
@@ -328,42 +337,10 @@
 		return midpoints;
 	});
 
-	// Segment drag state (for creating new waypoints by dragging segment midpoints)
-	// Uses document-level listeners because the segment element gets removed when route updates
-	let isSegmentDragging = $state(false);
+	// Derived visibility state for waypoints - visible when selected OR during drag on this edge
+	const waypointsVisible = $derived(() => selected || isDragging);
 
-	// Derived visibility state for waypoints - visible when selected OR during any drag
-	const waypointsVisible = $derived(() => selected || isDragging || isSegmentDragging);
-
-	// Document-level handlers for segment drag (bound versions for cleanup)
-	function onDocumentPointerMove(event: PointerEvent) {
-		if (!isSegmentDragging || !draggingWaypointId) return;
-
-		event.stopPropagation();
-		event.preventDefault();
-
-		const flowPos = screenToFlow({ x: event.clientX, y: event.clientY });
-		const snappedPos = {
-			x: Math.round(flowPos.x / GRID_SIZE) * GRID_SIZE,
-			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
-		};
-
-		// Only update if position actually changed on the grid
-		if (lastSnappedPos && snappedPos.x === lastSnappedPos.x && snappedPos.y === lastSnappedPos.y) {
-			return;
-		}
-		lastSnappedPos = snappedPos;
-
-		routingStore.moveWaypoint(id, draggingWaypointId, snappedPos, getPortInfo);
-	}
-
-	function onDocumentPointerUp(event: PointerEvent) {
-		if (!isSegmentDragging) return;
-		event.stopPropagation();
-		event.preventDefault();
-		endSegmentDrag();
-	}
-
+	// Segment drag creates a waypoint then starts dragging it (reuses module-level drag state)
 	function handleSegmentPointerDown(event: PointerEvent, segmentIndex: number) {
 		event.stopPropagation();
 		event.preventDefault();
@@ -374,8 +351,6 @@
 			y: Math.round(flowPos.y / GRID_SIZE) * GRID_SIZE
 		};
 
-		historyStore.beginDrag();
-
 		// Count how many waypoints appear before this segment in the path
 		const waypoints = userWaypoints();
 		const insertIndex = countWaypointsBeforeSegment(segmentIndex, waypoints);
@@ -383,15 +358,56 @@
 		// Create waypoint at correct position in the array
 		const waypointId = routingStore.addUserWaypointAtIndex(id, snappedPos, insertIndex, getPortInfo);
 		if (waypointId) {
-			isSegmentDragging = true;
-			draggingWaypointId = waypointId;
-			lastSnappedPos = snappedPos;
+			// Set up drag using the same module-level mechanism as waypoint drag
+			const onMove = (e: PointerEvent) => {
+				if (!activeDrag || activeDrag.edgeId !== id) return;
 
-			// Use document-level listeners for drag continuation
-			// (element-level won't work because segment element is removed when route updates)
-			// Use capture phase to handle events before SvelteFlow
-			document.addEventListener('pointermove', onDocumentPointerMove, { capture: true });
-			document.addEventListener('pointerup', onDocumentPointerUp, { capture: true });
+				e.stopPropagation();
+				e.preventDefault();
+
+				const pos = screenToFlow({ x: e.clientX, y: e.clientY });
+				const snap = {
+					x: Math.round(pos.x / GRID_SIZE) * GRID_SIZE,
+					y: Math.round(pos.y / GRID_SIZE) * GRID_SIZE
+				};
+
+				if (snap.x === activeDrag.lastSnappedPos.x && snap.y === activeDrag.lastSnappedPos.y) {
+					return;
+				}
+				activeDrag.lastSnappedPos = snap;
+
+				routingStore.moveWaypoint(activeDrag.edgeId, activeDrag.waypointId, snap, activeDrag.getPortInfo);
+			};
+
+			const onUp = (e: PointerEvent) => {
+				if (!activeDrag) return;
+				e.stopPropagation();
+				e.preventDefault();
+
+				document.removeEventListener('pointermove', onMove, { capture: true });
+				document.removeEventListener('pointerup', onUp, { capture: true });
+
+				const dragState = activeDrag;
+				activeDrag = null;
+
+				historyStore.endDrag();
+				routingStore.cleanupWaypoints(dragState.edgeId, dragState.getPortInfo);
+			};
+
+			activeDrag = {
+				edgeId: id,
+				waypointId,
+				lastSnappedPos: snappedPos,
+				getPortInfo,
+				cleanup: () => {
+					document.removeEventListener('pointermove', onMove, { capture: true });
+					document.removeEventListener('pointerup', onUp, { capture: true });
+				}
+			};
+
+			historyStore.beginDrag();
+			document.addEventListener('pointermove', onMove, { capture: true });
+			document.addEventListener('pointerup', onUp, { capture: true });
 		}
 	}
 
@@ -439,19 +455,6 @@
 		}
 
 		return count;
-	}
-
-	function endSegmentDrag() {
-		// Remove document listeners (must match capture option)
-		document.removeEventListener('pointermove', onDocumentPointerMove, { capture: true });
-		document.removeEventListener('pointerup', onDocumentPointerUp, { capture: true });
-
-		isSegmentDragging = false;
-		draggingWaypointId = null;
-		lastSnappedPos = null;
-		historyStore.endDrag();
-		// Clean up redundant/collinear waypoints
-		routingStore.cleanupWaypoints(id, getPortInfo);
 	}
 
 	// Arrow at end of path
