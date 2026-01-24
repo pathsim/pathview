@@ -351,8 +351,13 @@ export const routingStore = {
 
 	/**
 	 * Add a user waypoint to a connection
+	 * @param getPortInfo - Optional callback to get port info for immediate route recalculation
 	 */
-	addUserWaypoint(connectionId: string, position: Position): string | null {
+	addUserWaypoint(
+		connectionId: string,
+		position: Position,
+		getPortInfo?: (nodeId: string, portIndex: number, isOutput: boolean) => PortInfo | null
+	): string | null {
 		let waypointId: string | null = null;
 		historyStore.mutate(() => {
 			const connections = get(graphStore.connections);
@@ -372,7 +377,32 @@ export const routingStore = {
 
 			graphStore.updateConnectionWaypoints(connectionId, updatedWaypoints);
 
-			// Invalidate cached route
+			// Immediately recalculate route if we have port info (prevents full recalc)
+			if (getPortInfo) {
+				const $state = get(state);
+				const sourceInfo = getPortInfo(connection.sourceNodeId, connection.sourcePortIndex, true);
+				const targetInfo = getPortInfo(connection.targetNodeId, connection.targetPortIndex, false);
+
+				if (sourceInfo && targetInfo && $state.grid) {
+					const result = calculateRouteWithWaypoints(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction,
+						$state.grid,
+						updatedWaypoints
+					);
+
+					state.update((s) => {
+						const routes = new Map(s.routes);
+						routes.set(connectionId, result);
+						return { ...s, routes };
+					});
+					return;
+				}
+			}
+
+			// Fallback: just invalidate
 			routingStore.invalidateRoute(connectionId);
 		});
 		return waypointId;
@@ -380,9 +410,15 @@ export const routingStore = {
 
 	/**
 	 * Add a user waypoint at a specific index (for segment dragging)
+	 * @param getPortInfo - Optional callback to get port info for immediate route recalculation
 	 * @returns The ID of the new waypoint
 	 */
-	addUserWaypointAtIndex(connectionId: string, position: Position, insertIndex: number): string | null {
+	addUserWaypointAtIndex(
+		connectionId: string,
+		position: Position,
+		insertIndex: number,
+		getPortInfo?: (nodeId: string, portIndex: number, isOutput: boolean) => PortInfo | null
+	): string | null {
 		let waypointId: string | null = null;
 		historyStore.mutate(() => {
 			const connections = get(graphStore.connections);
@@ -407,6 +443,33 @@ export const routingStore = {
 			];
 
 			graphStore.updateConnectionWaypoints(connectionId, updatedWaypoints);
+
+			// Immediately recalculate route if we have port info (prevents full recalc)
+			if (getPortInfo) {
+				const $state = get(state);
+				const sourceInfo = getPortInfo(connection.sourceNodeId, connection.sourcePortIndex, true);
+				const targetInfo = getPortInfo(connection.targetNodeId, connection.targetPortIndex, false);
+
+				if (sourceInfo && targetInfo && $state.grid) {
+					const result = calculateRouteWithWaypoints(
+						sourceInfo.position,
+						targetInfo.position,
+						sourceInfo.direction,
+						targetInfo.direction,
+						$state.grid,
+						updatedWaypoints
+					);
+
+					state.update((s) => {
+						const routes = new Map(s.routes);
+						routes.set(connectionId, result);
+						return { ...s, routes };
+					});
+					return;
+				}
+			}
+
+			// Fallback: just invalidate
 			routingStore.invalidateRoute(connectionId);
 		});
 		return waypointId;

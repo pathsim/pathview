@@ -374,8 +374,8 @@
 
 		historyStore.beginDrag();
 
-		// Create waypoint at drag start position
-		const waypointId = routingStore.addUserWaypoint(id, snappedPos);
+		// Create waypoint at drag start position (pass getPortInfo for immediate single-route recalc)
+		const waypointId = routingStore.addUserWaypoint(id, snappedPos, getPortInfo);
 		if (waypointId) {
 			isSegmentDragging = true;
 			draggingWaypointId = waypointId;

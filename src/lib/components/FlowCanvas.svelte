@@ -93,9 +93,8 @@
 				const gridSize = 10;
 				const snappedX = Math.round(flowPos.x / gridSize) * gridSize;
 				const snappedY = Math.round(flowPos.y / gridSize) * gridSize;
-				routingStore.addUserWaypoint(selectedEdge.id, { x: snappedX, y: snappedY });
-				// Recalculate routes to show the new waypoint path
-				updateRoutingContext();
+				// Pass getPortInfo for immediate single-route recalculation (no full recalc needed)
+				routingStore.addUserWaypoint(selectedEdge.id, { x: snappedX, y: snappedY }, getPortInfo);
 			}
 			return;
 		}
