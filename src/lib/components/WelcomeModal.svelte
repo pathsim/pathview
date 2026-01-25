@@ -4,6 +4,7 @@
 	import { scale, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import { PATHVIEW_VERSION, EXTRACTED_VERSIONS } from '$lib/constants/dependencies';
 
 	interface Example {
 		name: string;
@@ -95,6 +96,9 @@
 <div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()} role="presentation">
 	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 	<div class="modal glass-panel" transition:scale={{ start: 0.95, duration: 200, easing: cubicOut }} onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
+		<div class="version-info">
+			PathView {PATHVIEW_VERSION} · {Object.entries(EXTRACTED_VERSIONS).map(([pkg, ver]) => `${pkg.replace('_', '-')} ${ver}`).join(' · ')}
+		</div>
 		<div class="header">
 			<img src="{base}/pathview_logo.png" alt="PathView" class="logo" />
 		</div>
@@ -163,6 +167,7 @@
 	/* Uses global .dialog-backdrop from app.css */
 
 	.modal {
+		position: relative;
 		width: 90%;
 		max-width: 780px;
 		padding: 24px;
@@ -171,6 +176,14 @@
 		gap: 16px;
 		background: var(--surface);
 		overflow: hidden;
+	}
+
+	.version-info {
+		position: absolute;
+		top: 8px;
+		right: 12px;
+		font-size: 9px;
+		color: var(--text-disabled);
 	}
 
 	.header {
