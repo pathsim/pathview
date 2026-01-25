@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { Handle, Position } from '@xyflow/svelte';
+	import { Handle, Position, useSvelteFlow } from '@xyflow/svelte';
 	import { nodeRegistry, type NodeInstance } from '$lib/nodes';
 	import { getShapeCssClass, isSubsystem } from '$lib/nodes/shapes/index';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
@@ -23,6 +23,9 @@
 	}
 
 	let { id, data, selected = false }: Props = $props();
+
+	// Get SvelteFlow instance for updating node dimensions
+	const { updateNode } = useSvelteFlow();
 
 	// Get type definition
 	const typeDef = $derived(nodeRegistry.get(data.type));
@@ -189,6 +192,16 @@
 		return nodeDimensions.width;
 	});
 	const nodeHeight = $derived(nodeDimensions.height);
+
+	// Update SvelteFlow node dimensions when math measurement changes the width
+	// This keeps SvelteFlow's internal bounds in sync with actual rendered size
+	$effect(() => {
+		if (measuredNameWidth !== null && nameHasMath) {
+			const actualWidth = nodeWidth();
+			// Update SvelteFlow's node bounds to match the rendered dimensions
+			updateNode(id, { width: actualWidth, height: nodeHeight });
+		}
+	});
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
 	const isSubsystemNode = $derived(isSubsystem(data));
