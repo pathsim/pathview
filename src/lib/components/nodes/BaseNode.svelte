@@ -524,7 +524,7 @@
 		min-width: 0;
 		height: 20px;
 		padding: 2px 8px;
-		font-size: 9px;
+		font-size: 8px;
 		font-family: var(--font-mono);
 		background: var(--surface-raised);
 		border: 1px solid var(--border);
