@@ -43,8 +43,8 @@ export const EVENT = {
 export const EXPORT_PADDING = G.x4;
 
 /**
- * Round up to next 2G (20px) boundary for symmetric expansion.
- * This ensures nodes expand evenly from center.
+ * Round up to next 2G (20px) boundary.
+ * This ensures nodes expand by 1G in each direction (symmetric from center).
  */
 export function snapTo2G(value: number): number {
 	return Math.ceil(value / G.x2) * G.x2;
@@ -92,9 +92,10 @@ export function calculateNodeDimensions(
 	const pinnedParamsHeight = pinnedParamCount > 0 ? 7 + 24 * pinnedParamCount : 0;
 
 	// Width: base, name estimate, type name estimate, pinned params minimum, port dimension (if vertical)
-	// Name uses 10px font (~5px per char), type uses 8px font (~4px per char), plus padding for node margins
-	const nameWidth = name.length * 5 + 20;
-	const typeWidth = typeName ? typeName.length * 4 + 20 : 0;
+	// Name uses 10px font (~6px per char), type uses 8px font (~5px per char), plus padding for node margins
+	// Use slightly larger estimates to ensure text fits (ceil behavior)
+	const nameWidth = name.length * 6 + 20;
+	const typeWidth = typeName ? typeName.length * 5 + 20 : 0;
 	const pinnedParamsWidth = pinnedParamCount > 0 ? 160 : 0;
 	const width = snapTo2G(Math.max(
 		NODE.baseWidth,

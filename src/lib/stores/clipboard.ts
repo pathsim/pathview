@@ -15,6 +15,7 @@ import { generateId } from '$lib/stores/utils';
 import { deleteSelectedItems } from '$lib/stores/selection';
 import { validateNodeTypes } from '$lib/schema/fileOps';
 import { nodeRegistry } from '$lib/nodes';
+import { GRID_SIZE } from '$lib/constants/grid';
 
 // ==================== TYPES ====================
 
@@ -44,6 +45,16 @@ const CLIPBOARD_VERSION = '1.0';
 const clipboard = writable<ClipboardContent | null>(null);
 
 // ==================== HELPERS ====================
+
+/**
+ * Snap a position to the grid
+ */
+function snapToGrid(pos: Position): Position {
+	return {
+		x: Math.round(pos.x / GRID_SIZE) * GRID_SIZE,
+		y: Math.round(pos.y / GRID_SIZE) * GRID_SIZE
+	};
+}
 
 /**
  * Calculate the bounding box center of a set of items with positions
@@ -289,25 +300,28 @@ async function paste(targetPosition: Position): Promise<{ nodeIds: string[]; eve
 	}
 
 	return historyStore.mutate(() => {
-		// Calculate offset from original center to target position
+		// Snap target position to grid
+		const snappedTarget = snapToGrid(targetPosition);
+
+		// Calculate offset from original center to snapped target position
 		const offset = {
-			x: targetPosition.x - content.center.x,
-			y: targetPosition.y - content.center.y
+			x: snappedTarget.x - content.center.x,
+			y: snappedTarget.y - content.center.y
 		};
 
 		// Map from old node ID to new node ID (needed for connection remapping)
 		const nodeIdMap = new Map<string, string>();
 		const nodesToPaste: NodeInstance[] = [];
 
-		// Prepare nodes with new IDs and offset positions
+		// Prepare nodes with new IDs and offset positions (snapped to grid)
 		for (const node of content.nodes) {
 			const newId = generateId();
 			nodeIdMap.set(node.id, newId);
 
-			const newPosition = {
+			const newPosition = snapToGrid({
 				x: node.position.x + offset.x,
 				y: node.position.y + offset.y
-			};
+			});
 
 			// Use shared utility for node cloning (handles subsystem ID regeneration)
 			const newNode = cloneNodeForPaste(node, newPosition, newId);
@@ -341,10 +355,10 @@ async function paste(targetPosition: Position): Promise<{ nodeIds: string[]; eve
 		// Paste events
 		const eventIds: string[] = [];
 		for (const event of content.events) {
-			const newPosition = {
+			const newPosition = snapToGrid({
 				x: event.position.x + offset.x,
 				y: event.position.y + offset.y
-			};
+			});
 
 			if (graphStore.isAtRoot()) {
 				// Add event at root level
@@ -376,10 +390,10 @@ async function paste(targetPosition: Position): Promise<{ nodeIds: string[]; eve
 		// Paste annotations
 		const annotationIds: string[] = [];
 		for (const annotation of content.annotations) {
-			const newPosition = {
+			const newPosition = snapToGrid({
 				x: annotation.position.x + offset.x,
 				y: annotation.position.y + offset.y
-			};
+			});
 
 			const newId = graphStore.addAnnotation(newPosition);
 			graphStore.updateAnnotation(newId, {

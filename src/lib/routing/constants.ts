@@ -1,0 +1,23 @@
+/**
+ * Routing constants
+ */
+
+import { G } from '$lib/constants/grid';
+
+/** Margin around nodes for routing (1G = 10px) */
+export const ROUTING_MARGIN = G.unit;
+
+/** Minimum distance from source port before first turn (0 - handle offset provides clearance) */
+export const SOURCE_CLEARANCE = 0;
+
+/** Minimum distance from target port before first turn (1G = 10px) */
+export const TARGET_CLEARANCE = G.unit;
+
+/** Grid resolution for pathfinding (matches base grid = 10px) */
+export const GRID_SIZE = G.unit;
+
+/** Handle tip offset from block edge (0.5 grid units = 5px) */
+export const HANDLE_OFFSET = G.unit / 2;
+
+/** Arrow head length - stub should start within arrowhead (0.25 grid units = 2.5px) */
+export const ARROW_INSET = G.unit / 4;
