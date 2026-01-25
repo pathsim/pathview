@@ -25,7 +25,7 @@ import {
 import { regenerateGraphIds, createPorts } from './helpers';
 import { syncPortNamesFromLabels } from './ports';
 import { triggerSelectNodes } from '$lib/stores/viewActions';
-import { portLabelParams } from '$lib/nodes/uiConfig';
+import { getPortLabelConfigs } from '$lib/nodes/uiConfig';
 
 /**
  * Add a new node to the current graph context
@@ -209,9 +209,10 @@ export function updateNodeParams(id: string, params: Record<string, unknown>): v
 	// Sync port names if this block has label-driven ports
 	const node = getCurrentGraph().nodes.get(id);
 	if (node) {
-		const labelConfig = portLabelParams[node.type];
-		if (labelConfig && labelConfig.param in params) {
-			syncPortNamesFromLabels(id, params[labelConfig.param], labelConfig.direction);
+		for (const config of getPortLabelConfigs(node.type)) {
+			if (config.param in params) {
+				syncPortNamesFromLabels(id, params[config.param], config.direction);
+			}
 		}
 	}
 }

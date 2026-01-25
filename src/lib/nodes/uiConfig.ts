@@ -4,13 +4,31 @@
  */
 
 /**
- * Blocks where a parameter controls port labels.
- * When the param value changes, port names are updated to match.
+ * Port label configuration for a single direction
  */
-export const portLabelParams: Record<string, { param: string; direction: 'input' | 'output' }> = {
+export interface PortLabelConfig {
+	param: string;
+	direction: 'input' | 'output';
+}
+
+/**
+ * Blocks where parameters control port labels.
+ * When the param value changes, port names are updated to match.
+ * Supports multiple configs per block (e.g., separate input and output labels).
+ */
+export const portLabelParams: Record<string, PortLabelConfig | PortLabelConfig[]> = {
 	Scope: { param: 'labels', direction: 'input' },
 	Spectrum: { param: 'labels', direction: 'input' }
 };
+
+/**
+ * Get all port label configs for a block type (normalized to array)
+ */
+export function getPortLabelConfigs(blockType: string): PortLabelConfig[] {
+	const config = portLabelParams[blockType];
+	if (!config) return [];
+	return Array.isArray(config) ? config : [config];
+}
 
 /**
  * Blocks where output port count must equal input port count.
