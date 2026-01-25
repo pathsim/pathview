@@ -33,8 +33,6 @@
 		import { nodeRegistry } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { GRID_SIZE, SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
-	import { calculateNodeDimensions, NODE } from '$lib/constants/dimensions';
-	import { mathWidthStore } from '$lib/stores/mathWidths';
 	import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 	import type { EventInstance } from '$lib/events/types';
 
@@ -530,26 +528,8 @@
 			// Interface blocks are not deletable
 			const isInterface = graphNode.type === NODE_TYPES.INTERFACE;
 
-			// Calculate node dimensions for SvelteFlow bounds
-			const typeDef = nodeRegistry.get(graphNode.type);
-			const pinnedParamCount = typeDef && graphNode.pinnedParams
-				? graphNode.pinnedParams.filter(name => typeDef.params.some(p => p.name === name)).length
-				: 0;
-			const rotation = (graphNode.params?.['_rotation'] as number) || 0;
-			const dims = calculateNodeDimensions(
-				graphNode.name,
-				graphNode.inputs.length,
-				graphNode.outputs.length,
-				pinnedParamCount,
-				rotation,
-				typeDef?.name
-			);
-			// Use measured math width if available, otherwise use calculated
-			const measuredWidth = mathWidthStore.get(graphNode.id);
-			const width = measuredWidth !== undefined
-				? Math.max(NODE.baseWidth, measuredWidth)
-				: dims.width;
-			const height = dims.height;
+			// Don't set explicit width/height - let SvelteFlow auto-measure from DOM
+			// BaseNode controls its size via CSS, SvelteFlow reads it via updateNodeInternals
 
 			// If node exists, update data but don't preserve selection here
 			// Selection is managed by SvelteFlow, trigger subscriptions, and merge effect
@@ -559,8 +539,6 @@
 					type: existingNode.type,
 					position,
 					data: graphNode,
-					width,
-					height,
 					// Explicit center origin for correct bounds calculation
 					origin: [0.5, 0.5] as [number, number],
 					selectable: existingNode.selectable,
@@ -576,8 +554,6 @@
 				type: 'pathview',
 				position,
 				data: graphNode,
-				width,
-				height,
 				// Explicit center origin for correct bounds calculation
 				origin: [0.5, 0.5] as [number, number],
 				selectable: true,

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { Handle, Position, useSvelteFlow } from '@xyflow/svelte';
+	import { Handle, Position, useUpdateNodeInternals } from '@xyflow/svelte';
 	import { nodeRegistry, type NodeInstance } from '$lib/nodes';
 	import { getShapeCssClass, isSubsystem } from '$lib/nodes/shapes/index';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
@@ -13,7 +13,6 @@
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
 	import { NODE, getPortPositionCalc, calculateNodeDimensions, snapTo2G } from '$lib/constants/dimensions';
 	import { containsMath, renderInlineMath, renderInlineMathSync, measureRenderedMath } from '$lib/utils/inlineMathRenderer';
-	import { mathWidthStore } from '$lib/stores/mathWidths';
 	import { getKatexCssUrl } from '$lib/utils/katexLoader';
 	import PlotPreview from './PlotPreview.svelte';
 
@@ -25,8 +24,8 @@
 
 	let { id, data, selected = false }: Props = $props();
 
-	// Get SvelteFlow instance for updating node bounds
-	const { getNode, updateNode } = useSvelteFlow();
+	// Get SvelteFlow hook to trigger re-measurement when node size changes
+	const updateNodeInternals = useUpdateNodeInternals();
 
 	// Get type definition
 	const typeDef = $derived(nodeRegistry.get(data.type));
@@ -104,38 +103,23 @@
 			const cached = renderInlineMathSync(data.name);
 			if (cached) {
 				renderedNameHtml = cached.html;
-				// Measure using unconstrained hidden element
 				const dims = measureRenderedMath(cached.html);
 				measuredNameWidth = dims.width;
-				// Store for FlowCanvas to use in SvelteFlow bounds
-				const newWidth = snapTo2G(dims.width);
-				mathWidthStore.set(id, newWidth);
-				// Update SvelteFlow node bounds directly
-				const sfNode = getNode(id);
-				if (sfNode && sfNode.width !== Math.max(NODE.baseWidth, newWidth)) {
-					updateNode(id, { width: Math.max(NODE.baseWidth, newWidth) });
-				}
+				// Tell SvelteFlow to re-measure node from DOM
+				updateNodeInternals(id);
 			} else {
 				// Render async
 				renderInlineMath(data.name).then((result) => {
 					renderedNameHtml = result.html;
-					// Measure using unconstrained hidden element
 					const dims = measureRenderedMath(result.html);
 					measuredNameWidth = dims.width;
-					// Store for FlowCanvas to use in SvelteFlow bounds
-					const newWidth = snapTo2G(dims.width);
-					mathWidthStore.set(id, newWidth);
-					// Update SvelteFlow node bounds directly
-					const sfNode = getNode(id);
-					if (sfNode && sfNode.width !== Math.max(NODE.baseWidth, newWidth)) {
-						updateNode(id, { width: Math.max(NODE.baseWidth, newWidth) });
-					}
+					// Tell SvelteFlow to re-measure node from DOM
+					updateNodeInternals(id);
 				});
 			}
 		} else {
 			renderedNameHtml = null;
 			measuredNameWidth = null;
-			mathWidthStore.remove(id);
 		}
 	});
 
