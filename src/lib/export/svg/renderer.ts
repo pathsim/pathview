@@ -96,9 +96,9 @@ async function renderMathLabel(
 		// Apply color to the SVG
 		svg = svg.replace(/currentColor/g, color);
 
-		// Scale factor: MathJax uses ex units, we need to scale to match our font size
-		// Base assumption: 1ex ≈ 8px, scale to match desired font size
-		const scale = fontSize / 10;
+		// Scale factor: MathJax renders at a larger default size
+		// Empirically tuned to match KaTeX rendering at 10px font-size
+		const scale = fontSize / 18;
 
 		// Calculate position (center the SVG)
 		const x = centerX - (dims.width * scale) / 2;
