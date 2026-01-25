@@ -98,6 +98,10 @@ async function renderMathLabel(
 		// Apply color to the SVG
 		svg = svg.replace(/currentColor/g, color);
 
+		// Add stroke to math paths to match system font weight (600)
+		// MathJax math fonts are lighter than system-ui bold
+		svg = svg.replace(/<path /g, `<path stroke="${color}" stroke-width="1" `);
+
 		// Scale factor: MathJax renders at a larger default size
 		// Empirically tuned to match KaTeX rendering at 10px font-size
 		const scale = fontSize / 18;
@@ -259,10 +263,11 @@ async function renderNode(node: NodeInstance, ctx: RenderContext): Promise<strin
 
 		if (ctx.options.showTypeLabels && nodeType) {
 			// Name above center (may contain math) - use original node.name for LaTeX source
-			parts.push(await renderMathLabel(node.name, centerX, contentCenterY - 4, color, 10, '600', ctx));
+			// Spacing: name at -6 and type at +10 gives 16px gap for better separation
+			parts.push(await renderMathLabel(node.name, centerX, contentCenterY - 6, color, 10, '600', ctx));
 			// Type below center
 			parts.push(
-				`<text x="${centerX}" y="${contentCenterY + 8}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(nodeType)}</text>`
+				`<text x="${centerX}" y="${contentCenterY + 10}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(nodeType)}</text>`
 			);
 		} else {
 			// Just name, centered (may contain math) - use original node.name for LaTeX source
