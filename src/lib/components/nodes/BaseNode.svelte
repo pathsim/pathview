@@ -12,7 +12,7 @@
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
 	import { NODE, getPortPositionCalc, calculateNodeDimensions, snapTo2G } from '$lib/constants/dimensions';
-	import { containsMath, renderInlineMath, renderInlineMathSync, measureRenderedMath } from '$lib/utils/inlineMathRenderer';
+	import { containsMath, renderInlineMath, renderInlineMathSync, measureRenderedMath, getBaselineTextHeight } from '$lib/utils/inlineMathRenderer';
 	import { getKatexCssUrl } from '$lib/utils/katexLoader';
 	import PlotPreview from './PlotPreview.svelte';
 
@@ -95,6 +95,7 @@
 	const nameHasMath = $derived(containsMath(data.name));
 	let renderedNameHtml = $state<string | null>(null);
 	let measuredNameWidth = $state<number | null>(null);
+	let measuredNameHeight = $state<number | null>(null);
 
 	// Render math when name contains $...$
 	$effect(() => {
@@ -105,6 +106,7 @@
 				renderedNameHtml = cached.html;
 				const dims = measureRenderedMath(cached.html);
 				measuredNameWidth = dims.width;
+				measuredNameHeight = dims.height;
 				// Tell SvelteFlow to re-measure node from DOM
 				updateNodeInternals(id);
 			} else {
@@ -113,6 +115,7 @@
 					renderedNameHtml = result.html;
 					const dims = measureRenderedMath(result.html);
 					measuredNameWidth = dims.width;
+					measuredNameHeight = dims.height;
 					// Tell SvelteFlow to re-measure node from DOM
 					updateNodeInternals(id);
 				});
@@ -120,6 +123,7 @@
 		} else {
 			renderedNameHtml = null;
 			measuredNameWidth = null;
+			measuredNameHeight = null;
 		}
 	});
 
@@ -207,7 +211,31 @@
 		}
 		return nodeDimensions.width;
 	});
-	const nodeHeight = $derived(nodeDimensions.height);
+
+	// Height calculation - only override for tall math (like \displaystyle)
+	// Compare measured math height to baseline text height for robustness
+	const nodeHeight = $derived(() => {
+		if (measuredNameHeight !== null && nameHasMath) {
+			// Get baseline height of standard text - only grow if math is significantly taller
+			const baselineHeight = getBaselineTextHeight();
+			if (measuredNameHeight > baselineHeight * 1.2) {
+				const isVertical = rotation === 1 || rotation === 3;
+				const maxPortsOnSide = Math.max(data.inputs.length, data.outputs.length);
+				const minPortDimension = Math.max(1, maxPortsOnSide) * NODE.portSpacing;
+
+				// Pinned params height: border(1) + padding(10) + rows(24 each)
+				const pinnedParamsHeight = pinnedCount > 0 ? 7 + 24 * pinnedCount : 0;
+
+				// Content height: math height + type label (12px) + padding (12px)
+				const contentHeight = measuredNameHeight + 24 + pinnedParamsHeight;
+
+				return isVertical
+					? snapTo2G(contentHeight)
+					: snapTo2G(Math.max(contentHeight, minPortDimension));
+			}
+		}
+		return nodeDimensions.height;
+	});
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
 	const isSubsystemNode = $derived(isSubsystem(data));
@@ -350,7 +378,7 @@
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
 	data-rotation={rotation}
-	style="width: {nodeWidth()}px; height: {nodeHeight}px; --node-color: {nodeColor};"
+	style="width: {nodeWidth()}px; height: {nodeHeight()}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}

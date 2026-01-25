@@ -88,6 +88,35 @@ export function clearMathCache(): void {
 	renderCache.clear();
 }
 
+/** Cached baseline text height for comparison */
+let baselineTextHeight: number | null = null;
+
+/**
+ * Get the baseline height of a standard text line with node-name styling.
+ * Used to determine if math is taller than normal text.
+ */
+export function getBaselineTextHeight(): number {
+	if (baselineTextHeight !== null) return baselineTextHeight;
+
+	const container = document.createElement('span');
+	container.style.cssText = `
+		position: absolute;
+		visibility: hidden;
+		white-space: nowrap;
+		font-size: 10px;
+		font-weight: 600;
+		font-family: system-ui, -apple-system, sans-serif;
+		letter-spacing: -0.2px;
+	`;
+	// Use "Ag" to include ascenders and descenders
+	container.textContent = 'Ag';
+	document.body.appendChild(container);
+	baselineTextHeight = Math.ceil(container.scrollHeight);
+	document.body.removeChild(container);
+
+	return baselineTextHeight;
+}
+
 /**
  * Measure the rendered dimensions of a math string
  * Creates a temporary hidden element to measure actual rendered size
