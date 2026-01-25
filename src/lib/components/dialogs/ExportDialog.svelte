@@ -38,16 +38,6 @@
 	let pythonCode = $state('');
 	let copied = $state(false);
 
-	// Line count for dynamic height
-	const MAX_LINES = 35;
-	const LINE_HEIGHT_PX = 18.2; // CodeMirror default with 14px font
-	const HEADER_HEIGHT_PX = 41; // Dialog header
-
-	let lineCount = $derived(pythonCode.split('\n').length);
-	let dialogHeight = $derived(() => {
-		const lines = Math.min(lineCount, MAX_LINES);
-		return Math.ceil(lines * LINE_HEIGHT_PX + HEADER_HEIGHT_PX);
-	});
 
 	// Handle dialog open/close
 	$effect(() => {
@@ -145,7 +135,7 @@
 
 {#if open}
 	<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={handleBackdropClick} role="presentation">
-		<div class="dialog glass-panel" style="height: {dialogHeight()}px" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
+		<div class="dialog glass-panel" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
 			<div class="dialog-header">
 				<span id="dialog-title">Export Python Code</span>
 				<div class="header-actions">
@@ -211,17 +201,16 @@
 	}
 
 	.dialog-body {
-		flex: 1;
 		overflow: hidden;
 	}
 
 	.code-preview {
-		height: 100%;
 		overflow: hidden;
+		max-height: 600px;
 	}
 
 	.code-preview :global(.cm-editor) {
-		height: 100%;
+		max-height: 600px;
 	}
 
 	.code-preview :global(.cm-scroller) {
