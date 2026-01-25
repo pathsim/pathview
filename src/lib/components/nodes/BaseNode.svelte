@@ -583,6 +583,11 @@
 	}
 
 	/* KaTeX math rendering in node names */
+	.node-name:has(:global(.katex)) {
+		overflow: visible;
+		text-overflow: clip;
+	}
+
 	.node-name :global(.katex) {
 		font-size: 1em;
 		font-weight: 600;
