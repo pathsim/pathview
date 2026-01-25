@@ -953,20 +953,24 @@
 					<Icon name="stop-filled" size={16} />
 				</button>
 			{:else}
-				<button
-					class="toolbar-btn"
-					class:active={!pyodideLoading}
-					onclick={handleRun}
-					disabled={pyodideLoading}
-					use:tooltip={{ text: pyodideReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
-					aria-label="Run"
-				>
-					{#if pyodideLoading}
-						<span class="spinner"><Icon name="loader" size={16} /></span>
-					{:else}
-						<Icon name="play-filled" size={16} />
-					{/if}
-				</button>
+				<div class="run-btn-wrapper" class:loading={pyodideLoading}>
+					<button
+						class="toolbar-btn run-btn"
+						class:active={!pyodideLoading}
+						class:loading={pyodideLoading}
+						onclick={handleRun}
+						disabled={pyodideLoading}
+						use:tooltip={{ text: pyodideReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
+						aria-label="Run"
+					>
+						{#if pyodideLoading}
+							<span class="loading-status">{statusText}</span>
+							<span class="spinner"><Icon name="loader" size={16} /></span>
+						{:else}
+							<Icon name="play-filled" size={16} />
+						{/if}
+					</button>
+				</div>
 			{/if}
 			<button
 				class="toolbar-btn"
@@ -1408,6 +1412,42 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	/* Run button wrapper - maintains fixed width in layout, button expands left */
+	.run-btn-wrapper {
+		position: relative;
+		width: var(--header-height);
+		height: var(--header-height);
+	}
+
+	.run-btn-wrapper .run-btn {
+		position: absolute;
+		right: 0;
+		top: 0;
+	}
+
+	/* Run button with loading expansion (expands left) */
+	.run-btn {
+		transition: width var(--transition-normal), padding var(--transition-normal), gap var(--transition-normal);
+		overflow: hidden;
+	}
+
+	.run-btn.loading {
+		width: 180px;
+		padding: 0 var(--space-sm);
+		gap: var(--space-xs);
+		justify-content: flex-end;
+	}
+
+	.loading-status {
+		font-size: 11px;
+		color: var(--text-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		flex: 1;
+		text-align: left;
 	}
 
 	/* Panel toggles */
