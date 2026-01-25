@@ -238,6 +238,24 @@ export const syncPortBlocks = new Set([
 ]);
 ```
 
+### Port Labels from Parameters
+
+Some blocks derive port names from a parameter (e.g., Scope and Spectrum use `labels` to name input traces). When the parameter changes, port names update automatically.
+
+Configure in `src/lib/nodes/uiConfig.ts`:
+
+```typescript
+export const portLabelParams: Record<string, PortLabelConfig | PortLabelConfig[]> = {
+  Scope: { param: 'labels', direction: 'input' },
+  Spectrum: { param: 'labels', direction: 'input' },
+  // Multiple directions supported:
+  // SomeBlock: [
+  //   { param: 'input_labels', direction: 'input' },
+  //   { param: 'output_labels', direction: 'output' }
+  // ]
+};
+```
+
 ---
 
 ## Adding New Toolboxes
