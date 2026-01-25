@@ -38,6 +38,19 @@
 	let pythonCode = $state('');
 	let copied = $state(false);
 
+	// Line count for dynamic height
+	const MAX_LINES = 35;
+	const LINE_HEIGHT_PX = 20; // Approximate line height in CodeMirror
+	const HEADER_HEIGHT_PX = 48; // Dialog header height
+	const PADDING_PX = 16; // Vertical padding
+
+	let lineCount = $derived(pythonCode.split('\n').length);
+	let dialogHeight = $derived(() => {
+		const lines = Math.min(lineCount, MAX_LINES);
+		const contentHeight = lines * LINE_HEIGHT_PX + PADDING_PX;
+		return contentHeight + HEADER_HEIGHT_PX;
+	});
+
 	// Handle dialog open/close
 	$effect(() => {
 		if (open) {
@@ -134,7 +147,7 @@
 
 {#if open}
 	<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={handleBackdropClick} role="presentation">
-		<div class="dialog glass-panel" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
+		<div class="dialog glass-panel" style="height: {dialogHeight()}px" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
 			<div class="dialog-header">
 				<span id="dialog-title">Export Python Code</span>
 				<div class="header-actions">
@@ -187,7 +200,6 @@
 	.dialog {
 		width: 90%;
 		max-width: 800px;
-		height: 70vh;
 		max-height: 80vh;
 		display: flex;
 		flex-direction: column;
