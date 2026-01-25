@@ -59,6 +59,7 @@ src/
 │   │   ├── core/          # Constants, types, utilities
 │   │   ├── processing/    # Data processing, render queue
 │   │   └── renderers/     # Plotly and SVG renderers
+│   ├── routing/           # Orthogonal wire routing (A* pathfinding)
 │   ├── pyodide/           # Python runtime (backend, bridge)
 │   │   └── backend/       # Modular backend system (registry, state, types)
 │   │       └── pyodide/   # Pyodide Web Worker implementation
@@ -119,6 +120,19 @@ Worker (10 Hz)              Main Thread                 UI (10 Hz)
 - **Queue-based**: Results accumulate in queue, merged on each UI frame
 - **Non-blocking**: Simulation never waits for plot rendering
 - **extendTraces**: Scope plots append data incrementally instead of full re-render
+
+### Wire Routing
+
+PathView uses Simulink-style orthogonal wire routing with A* pathfinding:
+
+- **Automatic routing**: Wires route around nodes with 90° bends only
+- **User waypoints**: Press `\` on selected edge to add manual waypoints
+- **Draggable waypoints**: Drag waypoint markers to reposition, double-click to delete
+- **Segment dragging**: Drag segment midpoints to create new waypoints
+- **Incremental updates**: Spatial indexing (O(1) node updates) for smooth dragging
+- **Hybrid routing**: Routes through user waypoints: Source → A* → W1 → A* → Target
+
+Key files: `src/lib/routing/` (pathfinder, grid builder, route calculator)
 
 ### Key Abstractions
 
@@ -202,6 +216,27 @@ This generates TypeScript files in `src/lib/*/generated/` with:
 ### 4. Verify
 
 Start the dev server and check that your block appears in the Block Library panel.
+
+### Port Synchronization
+
+Some blocks process inputs as parallel paths where each input has a corresponding output (e.g., Integrator, Amplifier, Sin). For these blocks, the UI only shows input port controls and outputs auto-sync.
+
+Configure in `src/lib/nodes/uiConfig.ts`:
+
+```typescript
+export const syncPortBlocks = new Set([
+  'Integrator',
+  'Differentiator',
+  'Delay',
+  'PID',
+  'PID_Antiwindup',
+  'Amplifier',
+  'Sin', 'Cos', 'Tan', 'Tanh',
+  'Abs', 'Sqrt', 'Exp', 'Log', 'Log10',
+  'Mod', 'Clip', 'Pow',
+  'SampleHold'
+]);
+```
 
 ---
 
@@ -448,6 +483,7 @@ Press `?` to see all shortcuts in the app. Key shortcuts:
 | **Transform** | `R` | Rotate 90° |
 | | `X` / `Y` | Flip H/V |
 | | `Arrows` | Nudge selection |
+| **Wires** | `\` | Add waypoint to selected edge |
 | **View** | `F` | Fit view |
 | | `H` | Go to root |
 | | `T` | Toggle theme |
