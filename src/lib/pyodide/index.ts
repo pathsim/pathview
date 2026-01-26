@@ -31,7 +31,7 @@ export {
 	sanitizeName
 } from './pathsimRunner';
 
-// Low-level backend API
+// Low-level backend API (for advanced usage and future streaming)
 export {
 	init as initRepl,
 	exec,
@@ -40,8 +40,14 @@ export {
 	isReady as isReplReady,
 	isLoading as isReplLoading,
 	replState,
+	// Backend registry for switching backends
 	getBackend,
+	createBackend,
+	switchBackend,
+	getBackendType,
+	hasBackend,
 	terminateBackend,
+	type BackendType,
 	type Backend,
 	type BackendState
 } from './backend';
