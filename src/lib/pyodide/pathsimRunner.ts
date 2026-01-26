@@ -68,76 +68,6 @@ function generateEventParams(
 	return generateParamString(params, validParamNames, { multiLine });
 }
 
-/**
- * Generate Python code for events
- */
-function generateEventCode(
-	events: EventInstance[],
-	lines: string[],
-	nodeVars: Map<string, string>,
-	varNames: string[],
-	multiLine: boolean = false
-): void {
-	if (events.length === 0) return;
-
-	lines.push('# EVENTS');
-
-	for (const event of events) {
-		const typeDef = eventRegistry.get(event.type);
-		if (!typeDef) continue;
-
-		// Generate variable name for event
-		let varName = sanitizeName(event.name);
-		if (!varName || varNames.includes(varName)) {
-			varName = `event_${varNames.length}`;
-		}
-		varNames.push(varName);
-
-		const validParamNames = new Set(typeDef.params.map(p => p.name));
-		const params = generateEventParams(event.params, validParamNames, multiLine);
-
-		if (params) {
-			lines.push(`${varName} = ${typeDef.eventClass}(${params})`);
-		} else {
-			lines.push(`${varName} = ${typeDef.eventClass}()`);
-		}
-	}
-
-	lines.push('');
-	lines.push('events = [');
-	// Only add events we generated (not blocks)
-	for (const event of events) {
-		const varName = varNames.find(v => v === sanitizeName(event.name) || v.startsWith('event_'));
-		if (varName) {
-			lines.push(`    ${varName},`);
-		}
-	}
-	lines.push(']');
-	lines.push('');
-}
-
-/**
- * Get child nodes of a subsystem (from nested graph structure)
- */
-function getChildNodes(subsystemNode: NodeInstance): NodeInstance[] {
-	return subsystemNode.graph?.nodes ?? [];
-}
-
-/**
- * Get child connections of a subsystem (from nested graph structure)
- */
-function getChildConnections(subsystemNode: NodeInstance): Connection[] {
-	return subsystemNode.graph?.connections ?? [];
-}
-
-/**
- * Get child events of a subsystem (from nested graph structure)
- */
-function getChildEvents(subsystemNode: NodeInstance): EventInstance[] {
-	return subsystemNode.graph?.events ?? [];
-}
-
-
 
 /**
  * Generate event definitions and return event variable names
@@ -212,8 +142,7 @@ function getAllNodesRecursively(nodes: NodeInstance[]): NodeInstance[] {
 	for (const node of nodes) {
 		allNodes.push(node);
 		if (isSubsystem(node)) {
-			const childNodes = getChildNodes(node);
-			allNodes.push(...getAllNodesRecursively(childNodes));
+			allNodes.push(...getAllNodesRecursively(node.graph?.nodes ?? []));
 		}
 	}
 	return allNodes;
@@ -238,9 +167,9 @@ function generateSubsystemCode(
 	options: SubsystemCodeOptions = {}
 ): string {
 	const { formatted = false } = options;
-	const childNodes = getChildNodes(subsystemNode);
-	const childConnections = getChildConnections(subsystemNode);
-	const childEvents = getChildEvents(subsystemNode);
+	const childNodes = subsystemNode.graph?.nodes ?? [];
+	const childConnections = subsystemNode.graph?.connections ?? [];
+	const childEvents = subsystemNode.graph?.events ?? [];
 
 	// Generate subsystem variable name
 	let subsystemVarName = sanitizeName(subsystemNode.name);
