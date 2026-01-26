@@ -10,6 +10,7 @@
     "extract:simulation": "python scripts/extract.py --simulation",
     "extract:deps": "python scripts/extract.py --deps",
     "extract:validate": "python scripts/extract.py --validate",
+    "pvm2py": "python scripts/pvm2py.py",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
