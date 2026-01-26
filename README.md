@@ -81,7 +81,10 @@ scripts/
 │   ├── pyodide.json       # Pyodide version and preload packages
 │   ├── requirements-pyodide.txt   # Runtime Python packages
 │   └── requirements-build.txt     # Build-time Python packages
-└── extract.py             # Unified extraction script
+├── generated/             # Generated files (from extract.py)
+│   └── registry.json      # Block/event registry with import paths
+├── extract.py             # Unified extraction script
+└── pvm2py.py              # Standalone .pvm to Python converter
 ```
 
 ---
@@ -590,6 +593,7 @@ https://view.pathsim.org/?modelgh=pathsim/pathview/static/examples/feedback-syst
 | `npm run extract:simulation` | Simulation params only |
 | `npm run extract:deps` | Dependencies only |
 | `npm run extract:validate` | Validate config files |
+| `npm run pvm2py -- <file>` | Convert `.pvm` file to standalone Python script |
 
 ---
 
