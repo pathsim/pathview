@@ -1013,33 +1013,27 @@
 			</button>
 			<button
 				class="toolbar-btn"
-				class:save-flash={saveFlash === 'save'}
 				onclick={() => handleSave()}
 				use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }}
 				aria-label="Save"
 			>
-				<span class="save-icon" class:flashing={saveFlash === 'save'}>
-					{#if saveFlash === 'save'}
-						<Icon name="check" size={16} />
-					{:else}
-						<Icon name="save" size={16} />
-					{/if}
-				</span>
+				{#if saveFlash === 'save'}
+					<Icon name="check" size={16} />
+				{:else}
+					<Icon name="upload" size={16} />
+				{/if}
 			</button>
 			<button
 				class="toolbar-btn"
-				class:save-flash={saveFlash === 'save-as'}
 				onclick={() => handleSaveAs()}
 				use:tooltip={{ text: "Save As", shortcut: "Ctrl+Shift+S" }}
 				aria-label="Save As"
 			>
-				<span class="save-icon" class:flashing={saveFlash === 'save-as'}>
-					{#if saveFlash === 'save-as'}
-						<Icon name="check" size={16} />
-					{:else}
-						<Icon name="file-plus" size={16} />
-					{/if}
-				</span>
+				{#if saveFlash === 'save-as'}
+					<Icon name="check" size={16} />
+				{:else}
+					<Icon name="upload-plus" size={16} />
+				{/if}
 			</button>
 			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code">
 				<Icon name="braces" size={16} />
@@ -1420,30 +1414,6 @@
 		color: var(--error);
 		border-color: var(--error);
 		background: color-mix(in srgb, var(--error) 15%, var(--surface-raised));
-	}
-
-	/* Save flash animation */
-	.toolbar-btn.save-flash {
-		color: var(--success);
-		border-color: var(--success);
-		background: color-mix(in srgb, var(--success) 12%, var(--surface-raised));
-	}
-
-	.save-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.save-icon.flashing {
-		animation: save-check 1.5s ease forwards;
-	}
-
-	@keyframes save-check {
-		0% { transform: scale(1.3); opacity: 0.7; }
-		15% { transform: scale(1); opacity: 1; }
-		70% { opacity: 1; }
-		100% { opacity: 1; }
 	}
 
 	/* Logo overlay */
