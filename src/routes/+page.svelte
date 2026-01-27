@@ -1017,11 +1017,17 @@
 				use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }}
 				aria-label="Save"
 			>
-				{#if saveFlash === 'save'}
-					<Icon name="check" size={16} />
-				{:else}
-					<Icon name="upload" size={16} />
-				{/if}
+				<span class="icon-crossfade">
+					{#if saveFlash === 'save'}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="check" size={16} />
+						</span>
+					{:else}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="upload" size={16} />
+						</span>
+					{/if}
+				</span>
 			</button>
 			<button
 				class="toolbar-btn"
@@ -1029,11 +1035,17 @@
 				use:tooltip={{ text: "Save As", shortcut: "Ctrl+Shift+S" }}
 				aria-label="Save As"
 			>
-				{#if saveFlash === 'save-as'}
-					<Icon name="check" size={16} />
-				{:else}
-					<Icon name="upload-plus" size={16} />
-				{/if}
+				<span class="icon-crossfade">
+					{#if saveFlash === 'save-as'}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="check" size={16} />
+						</span>
+					{:else}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="upload-plus" size={16} />
+						</span>
+					{/if}
+				</span>
 			</button>
 			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code">
 				<Icon name="braces" size={16} />
@@ -1414,6 +1426,20 @@
 		color: var(--error);
 		border-color: var(--error);
 		background: color-mix(in srgb, var(--error) 15%, var(--surface-raised));
+	}
+
+	.icon-crossfade {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+	}
+
+	.icon-crossfade-item {
+		position: absolute;
+		display: flex;
 	}
 
 	/* Logo overlay */
