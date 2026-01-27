@@ -19,7 +19,7 @@
 </script>
 
 <script lang="ts">
-	import { BaseEdge, type EdgeProps, Position } from '@xyflow/svelte';
+	import { BaseEdge, getSmoothStepPath, type EdgeProps, Position } from '@xyflow/svelte';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { routingStore, type PortInfo } from '$lib/stores/routing';
 	import { historyStore } from '$lib/stores/history';
@@ -294,9 +294,26 @@
 		}
 	});
 
-	// Always use the cached path - never show fallback routes
+	// Smooth-step fallback when no valid orthogonal path exists
+	const smoothStepFallback = $derived(() => {
+		const src = adjustedSource();
+		const tgt = adjustedTarget();
+		const [edgePath] = getSmoothStepPath({
+			sourceX: src.x,
+			sourceY: src.y,
+			sourcePosition,
+			targetX: tgt.x,
+			targetY: tgt.y,
+			targetPosition,
+			borderRadius: 8
+		});
+		return edgePath;
+	});
+
+	// Use cached orthogonal path, or fall back to smooth-step
 	const pathInfo = $derived(() => {
-		return { path: cachedPath, isFallback: !cachedPath };
+		if (cachedPath) return { path: cachedPath, isFallback: false };
+		return { path: smoothStepFallback(), isFallback: true };
 	});
 
 	// Get user waypoints from route result or data
@@ -488,13 +505,19 @@
 			return { x: endPoint.x, y: endPoint.y, angle };
 		}
 
-		// Fallback (smoothstep): arrow based on target position, use unadjusted target
-		let angle = 0;
-		if (targetPosition === 'left') angle = 180;
-		else if (targetPosition === 'top') angle = -90;
-		else if (targetPosition === 'bottom') angle = 90;
+		// Fallback (smoothstep): derive arrow position and angle from SVG path geometry
+		const { path } = pathInfo();
+		if (path) {
+			const svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			svgPath.setAttribute('d', path);
+			const totalLength = svgPath.getTotalLength();
+			const endPoint = svgPath.getPointAtLength(totalLength);
+			const nearEnd = svgPath.getPointAtLength(totalLength - 5);
+			const angle = Math.atan2(endPoint.y - nearEnd.y, endPoint.x - nearEnd.x) * (180 / Math.PI);
+			return { x: endPoint.x, y: endPoint.y, angle };
+		}
 
-		return { x: targetX, y: targetY, angle };
+		return { x: tgt.x, y: tgt.y, angle: 0 };
 	});
 </script>
 

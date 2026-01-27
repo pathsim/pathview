@@ -7,7 +7,7 @@ import { G } from '$lib/constants/grid';
 /** Margin around nodes for routing (1G = 10px) */
 export const ROUTING_MARGIN = G.unit;
 
-/** Minimum distance from source port before first turn (0 - handle offset provides clearance) */
+/** Minimum distance from source port before first turn (0 - handle provides clearance) */
 export const SOURCE_CLEARANCE = 0;
 
 /** Minimum distance from target port before first turn (1G = 10px) */
