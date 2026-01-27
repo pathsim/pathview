@@ -4,8 +4,8 @@
 
 import { G } from '$lib/constants/grid';
 
-/** Margin around nodes for routing (1G = 10px) */
-export const ROUTING_MARGIN = G.unit;
+/** Margin around nodes for routing (0 - block edges are grid-aligned, giving natural 1G clearance) */
+export const ROUTING_MARGIN = 0;
 
 /** Minimum distance from source port before first turn (0 - handle offset provides clearance) */
 export const SOURCE_CLEARANCE = 0;
