@@ -220,60 +220,31 @@
 		overflow: hidden;
 	}
 
+	/* Hide header in docs code blocks - no copy button or label needed */
 	.docs-content :global(.code-block-header) {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--space-xs) var(--space-sm);
-		background: var(--surface-raised);
-		border-bottom: 1px solid var(--border);
-	}
-
-	.docs-content :global(.code-label) {
-		font-size: 9px;
-		font-weight: 600;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
-
-	.docs-content :global(.copy-btn) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 2px;
-		background: none;
-		border: none;
-		color: var(--text-muted);
-		cursor: pointer;
-		border-radius: var(--radius-sm);
-		transition: all var(--transition-fast);
-	}
-
-	.docs-content :global(.copy-btn:hover) {
-		color: var(--text);
-		background: var(--surface-hover);
+		display: none;
 	}
 
 	.docs-content :global(.cm-container) {
-		font-size: 10px;
-		line-height: 1.5;
+		font-size: 11px;
+		line-height: 1.4;
 	}
 
 	/* CodeMirror overrides for compact display */
 	.docs-content :global(.cm-editor) {
 		background: var(--surface);
+		font-size: 11px !important;
 	}
 
+	.docs-content :global(.cm-scroller),
+	.docs-content :global(.cm-content),
+	.docs-content :global(.cm-line) {
+		font-size: 11px !important;
+	}
+
+	/* Hide line numbers in docs code blocks */
 	.docs-content :global(.cm-gutters) {
-		background: var(--surface);
-		border-right: 1px solid var(--border);
-	}
-
-	.docs-content :global(.cm-lineNumbers .cm-gutterElement) {
-		padding: 0 4px 0 8px;
-		min-width: 24px;
-		font-size: 9px;
+		display: none;
 	}
 
 	/* Fallback pre/code styles (before CodeMirror processes) */

@@ -11,6 +11,7 @@ Usage:
     python scripts/extract.py --events     # Events only
     python scripts/extract.py --simulation # Simulation only
     python scripts/extract.py --deps       # Dependencies only
+    python scripts/extract.py --registry   # JSON registry only (for pvm2py)
     python scripts/extract.py --validate   # Validate configs only
 """
 
@@ -23,14 +24,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
-# =============================================================================
-# PathSim Path Discovery
-# =============================================================================
-
-PATHSIM_PATH = Path(__file__).parent.parent.parent / "pathsim" / "src"
-if PATHSIM_PATH.exists():
-    sys.path.insert(0, str(PATHSIM_PATH))
 
 # Optional docutils for RST to HTML conversion
 try:
@@ -50,9 +43,12 @@ def rst_to_html(rst_text: str) -> str:
     if not rst_text or not HAS_DOCUTILS:
         return ""
 
+    # Clean the docstring - removes common leading whitespace from indented docstrings
+    cleaned = inspect.cleandoc(rst_text)
+
     try:
         parts = publish_parts(
-            rst_text,
+            cleaned,
             writer_name="html",
             settings_overrides={
                 "report_level": 5,
@@ -278,26 +274,28 @@ class BlockExtractor:
         self.config = config_loader
         self._module_cache: dict[str, Any] = {}
 
-    def extract_all(self) -> tuple[dict, dict]:
+    def extract_all(self) -> tuple[dict, dict, dict[str, str]]:
         """Extract blocks from all toolboxes.
 
         Returns:
-            (extractedBlocks, blockConfig)
+            (extractedBlocks, blockConfig, blockImportPaths)
         """
         all_blocks = {}
         block_config = {}
+        block_import_paths: dict[str, str] = {}
 
         for toolbox_dir in self.config.discover_toolboxes():
             blocks_json = toolbox_dir / "blocks.json"
             config = self.config.load_json(blocks_json)
+            import_path = config["importPath"]
 
             print(f"  Processing toolbox: {config['toolbox']}")
 
             # Import the module
             try:
-                module = self._import_module(config["importPath"])
+                module = self._import_module(import_path)
             except Exception as e:
-                print(f"  Warning: Failed to import {config['importPath']}: {e}")
+                print(f"  Warning: Failed to import {import_path}: {e}")
                 continue
 
             # Extract each category
@@ -313,6 +311,7 @@ class BlockExtractor:
                         block_data = self._extract_block(cls, config)
                         all_blocks[class_name] = block_data
                         block_config[category].append(class_name)
+                        block_import_paths[class_name] = import_path
                         print(f"    Extracted {class_name}")
 
                     except Exception as e:
@@ -335,7 +334,7 @@ class BlockExtractor:
                 except Exception as e:
                     print(f"    Warning: Failed to extract docstring for {class_name}: {e}")
 
-        return all_blocks, block_config
+        return all_blocks, block_config, block_import_paths
 
     def _extract_block(self, cls, config: dict) -> dict:
         """Extract metadata from a single block class using .info()."""
@@ -464,9 +463,14 @@ class EventExtractor:
     def __init__(self, config_loader: ConfigLoader):
         self.config = config_loader
 
-    def extract_all(self) -> list[dict]:
-        """Extract events from all toolboxes."""
+    def extract_all(self) -> tuple[list[dict], dict[str, str]]:
+        """Extract events from all toolboxes.
+
+        Returns:
+            (extractedEvents, eventImportPaths)
+        """
         all_events = []
+        event_import_paths: dict[str, str] = {}
 
         for toolbox_dir in self.config.discover_toolboxes():
             events_json = toolbox_dir / "events.json"
@@ -474,12 +478,13 @@ class EventExtractor:
                 continue
 
             config = self.config.load_json(events_json)
+            import_path = config["importPath"]
             print(f"  Processing events from: {config['toolbox']}")
 
             try:
-                module = importlib.import_module(config["importPath"])
+                module = importlib.import_module(import_path)
             except ImportError as e:
-                print(f"  Warning: Failed to import {config['importPath']}: {e}")
+                print(f"  Warning: Failed to import {import_path}: {e}")
                 continue
 
             for event_name in config["events"]:
@@ -487,11 +492,12 @@ class EventExtractor:
                     cls = getattr(module, event_name)
                     event_data = self._extract_event(cls)
                     all_events.append(event_data)
+                    event_import_paths[event_name] = import_path
                     print(f"    Extracted {event_name}")
                 except Exception as e:
                     print(f"    Warning: Failed to extract event {event_name}: {e}")
 
-        return all_events
+        return all_events, event_import_paths
 
     def _extract_event(self, cls) -> dict:
         """Extract metadata from a single event class."""
@@ -691,14 +697,42 @@ class DependencyExtractor:
     def __init__(self, config_loader: ConfigLoader):
         self.config = config_loader
 
+    def _get_package_version(self, import_name: str) -> str | None:
+        """Get installed version of a package (strips local version identifiers)."""
+        try:
+            module = importlib.import_module(import_name)
+            version = getattr(module, '__version__', None)
+            if version:
+                # Strip local version identifier (e.g., +g22f8f27) - not supported by PyPI
+                version = version.split('+')[0]
+            return version
+        except ImportError:
+            return None
+
     def extract(self) -> dict:
-        """Extract all dependency information."""
+        """Extract all dependency information including installed versions."""
         pyodide_config = self.config.load_pyodide_config()
         pyodide_packages = self.config.load_requirements("requirements-pyodide.txt")
 
+        # Get installed versions and create pinned package specs
+        extracted_versions = {}
+        for pkg in pyodide_packages:
+            version = self._get_package_version(pkg["import"])
+            if version:
+                extracted_versions[pkg["import"]] = version
+                base_name = pkg["pip"].split(">=")[0].split("==")[0].split("<=")[0].split("<")[0].split(">")[0]
+
+                # Only pin release versions (not dev versions which aren't on PyPI)
+                if ".dev" in version:
+                    print(f"    {base_name} {version} is dev version, keeping original spec: {pkg['pip']}")
+                else:
+                    pkg["pip"] = f"{base_name}=={version}"
+                    print(f"    Pinned {base_name} to version {version}")
+
         return {
             "pyodide": pyodide_config,
-            "packages": pyodide_packages
+            "packages": pyodide_packages,
+            "extracted_versions": extracted_versions
         }
 
 
@@ -706,13 +740,50 @@ class DependencyExtractor:
 # TypeScript Generation
 # =============================================================================
 
+class RegistryGenerator:
+    """Generate JSON registry for pvm2py converter."""
+
+    def __init__(self, output_dir: Path):
+        self.output_dir = output_dir
+
+    def write_registry(self, blocks: dict, block_import_paths: dict[str, str],
+                       events: list, event_import_paths: dict[str, str]) -> None:
+        """Write registry.json with import paths and valid param names."""
+        registry: dict[str, Any] = {"blocks": {}, "events": {}}
+
+        for block_name, block_data in blocks.items():
+            params = list(block_data.get("params", {}).keys())
+            registry["blocks"][block_name] = {
+                "blockClass": block_data["blockClass"],
+                "importPath": block_import_paths.get(block_name, "pathsim.blocks"),
+                "params": params,
+            }
+
+        for event_data in events:
+            event_name = event_data["name"]
+            params = [p["name"] for p in event_data.get("params", [])]
+            registry["events"][event_name] = {
+                "eventClass": event_data["eventClass"],
+                "importPath": event_import_paths.get(event_name, "pathsim.events"),
+                "params": params,
+            }
+
+        output_path = self.output_dir / "generated" / "registry.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(registry, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8"
+        )
+        print(f"Generated: {output_path}")
+
+
 class TypeScriptGenerator:
     """Generate TypeScript output files."""
 
     def __init__(self, output_dir: Path):
         self.output_dir = output_dir
 
-    def write_blocks(self, blocks: dict, config: dict) -> None:
+    def write_blocks(self, blocks: dict, config: dict, import_paths: dict[str, str] | None = None) -> None:
         """Write blocks.ts file."""
         lines = [
             "// Auto-generated by scripts/extract.py - DO NOT EDIT",
@@ -748,6 +819,14 @@ class TypeScriptGenerator:
             lines.append(f"  {category}: [{names_str}],")
         lines.append("};")
         lines.append("")
+
+        # Import paths map (block name -> Python import path)
+        if import_paths:
+            lines.append("export const blockImportPaths: Record<string, string> = {")
+            for block_name, path in sorted(import_paths.items()):
+                lines.append(f'  "{block_name}": "{path}",')
+            lines.append("};")
+            lines.append("")
 
         output_path = self.output_dir / "nodes" / "generated" / "blocks.ts"
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -821,15 +900,31 @@ class TypeScriptGenerator:
         """Write dependencies.ts file."""
         pyodide = data.get("pyodide", {})
         packages = data.get("packages", [])
+        extracted_versions = data.get("extracted_versions", {})
+
+        # Read PathView version from package.json (at project root, 2 levels up from src/lib)
+        package_json_path = self.output_dir.parent.parent / "package.json"
+        pathview_version = "0.0.0"
+        if package_json_path.exists():
+            try:
+                package_data = json.loads(package_json_path.read_text(encoding="utf-8"))
+                pathview_version = package_data.get("version", "0.0.0")
+            except Exception:
+                pass
 
         lines = [
             "// Auto-generated by scripts/extract.py - DO NOT EDIT",
             "// Source: scripts/config/requirements-pyodide.txt, scripts/config/pyodide.json",
             "",
+            f"export const PATHVIEW_VERSION = '{pathview_version}';",
+            "",
             f"export const PYODIDE_VERSION = '{pyodide.get('version', '0.26.2')}';",
             "export const PYODIDE_CDN_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.mjs`;",
             "",
             f"export const PYODIDE_PRELOAD = {json.dumps(pyodide.get('preload', []))} as const;",
+            "",
+            "/** Package versions extracted at build time (pinned for runtime) */",
+            f"export const EXTRACTED_VERSIONS: Record<string, string> = {json.dumps(extracted_versions)};",
             "",
             "export interface PackageConfig {",
             "  pip: string;",
@@ -865,6 +960,7 @@ Examples:
   python scripts/extract.py --events     # Events only
   python scripts/extract.py --simulation # Simulation only
   python scripts/extract.py --deps       # Dependencies only
+  python scripts/extract.py --registry   # JSON registry only (for pvm2py)
   python scripts/extract.py --validate   # Validate configs only
 """
     )
@@ -872,11 +968,12 @@ Examples:
     parser.add_argument("--events", action="store_true", help="Extract events only")
     parser.add_argument("--simulation", action="store_true", help="Extract simulation only")
     parser.add_argument("--deps", action="store_true", help="Extract dependencies only")
+    parser.add_argument("--registry", action="store_true", help="Generate JSON registry only")
     parser.add_argument("--validate", action="store_true", help="Validate configs only")
     args = parser.parse_args()
 
     # If no specific flag, extract all
-    extract_all = not (args.blocks or args.events or args.simulation or args.deps or args.validate)
+    extract_all = not (args.blocks or args.events or args.simulation or args.deps or args.registry or args.validate)
 
     config_dir = Path(__file__).parent / "config"
     output_dir = Path(__file__).parent.parent / "src" / "lib"
@@ -886,7 +983,9 @@ Examples:
         sys.exit(1)
 
     config = ConfigLoader(config_dir)
+    scripts_dir = Path(__file__).parent
     generator = TypeScriptGenerator(output_dir)
+    registry_gen = RegistryGenerator(scripts_dir)
 
     if args.validate:
         print("Validating configs...")
@@ -913,16 +1012,24 @@ Examples:
         deps = DependencyExtractor(config).extract()
         generator.write_dependencies(deps)
 
-    if extract_all or args.blocks:
+    # Track extracted data for registry generation
+    blocks = None
+    block_import_paths: dict[str, str] = {}
+    events = None
+    event_import_paths: dict[str, str] = {}
+
+    if extract_all or args.blocks or args.registry:
         print("\nExtracting blocks...")
-        blocks, block_config = BlockExtractor(config).extract_all()
-        generator.write_blocks(blocks, block_config)
+        blocks, block_config, block_import_paths = BlockExtractor(config).extract_all()
+        if extract_all or args.blocks:
+            generator.write_blocks(blocks, block_config, block_import_paths)
         print(f"  Total: {len(blocks)} blocks")
 
-    if extract_all or args.events:
+    if extract_all or args.events or args.registry:
         print("\nExtracting events...")
-        events = EventExtractor(config).extract_all()
-        generator.write_events(events)
+        events, event_import_paths = EventExtractor(config).extract_all()
+        if extract_all or args.events:
+            generator.write_events(events)
         print(f"  Total: {len(events)} events")
 
     if extract_all or args.simulation:
@@ -930,6 +1037,11 @@ Examples:
         sim = SimulationExtractor(config).extract()
         generator.write_simulation(sim)
         print(f"  Total: {len(sim.get('extractedSimulationParams', {}))} parameters")
+
+    if extract_all or args.registry:
+        if blocks is not None and events is not None:
+            print("\nGenerating JSON registry...")
+            registry_gen.write_registry(blocks, block_import_paths, events, event_import_paths)
 
     print("\nDone!")
 

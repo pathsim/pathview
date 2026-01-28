@@ -1,6 +1,6 @@
 {
   "name": "pathview",
-  "version": "0.4.4",
+  "version": "0.4.9",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,9 +10,9 @@
     "extract:simulation": "python scripts/extract.py --simulation",
     "extract:deps": "python scripts/extract.py --deps",
     "extract:validate": "python scripts/extract.py --validate",
-    "examples": "node scripts/generate-examples-manifest.js",
-    "dev": "npm run examples && vite dev",
-    "build": "npm run examples && vite build",
+    "pvm2py": "python scripts/pvm2py.py",
+    "dev": "vite dev",
+    "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -26,6 +26,7 @@
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@types/node": "^22.0.0",
+    "@types/pathfinding": "^0.1.0",
     "@types/plotly.js": "^3.0.8",
     "eslint": "^9.0.0",
     "eslint-plugin-svelte": "^2.0.0",
@@ -43,6 +44,7 @@
     "codemirror": "^6.0.0",
     "dotenv": "^17.2.3",
     "katex": "^0.16.0",
+    "pathfinding": "^0.4.18",
     "plotly.js-dist-min": "^2.35.0",
     "pyodide": "^0.26.0"
   }

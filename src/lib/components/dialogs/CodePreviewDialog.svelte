@@ -23,6 +23,9 @@
 	let currentTheme = $state<Theme>('dark');
 	let copied = $state(false);
 
+	// Max height before scrolling
+	const MAX_CONTENT_HEIGHT = 600;
+
 	// Subscribe to theme changes
 	const unsubscribeTheme = themeStore.subscribe((theme) => {
 		currentTheme = theme;
@@ -167,8 +170,7 @@
 	.dialog {
 		width: 90%;
 		max-width: 700px;
-		height: auto;
-		max-height: 70vh;
+		max-height: 80vh;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
@@ -181,19 +183,24 @@
 	}
 
 	.dialog-body {
-		flex: 1;
 		overflow: hidden;
-		min-height: 200px;
 	}
 
 	.code-preview {
-		height: 100%;
 		overflow: hidden;
+		max-height: 600px;
 	}
 
 	.code-preview :global(.cm-editor) {
-		height: 100%;
-		max-height: calc(70vh - 60px);
+		max-height: 600px;
+	}
+
+	.code-preview :global(.cm-scroller) {
+		overflow: auto;
+	}
+
+	.code-preview :global(.cm-content) {
+		padding: 0;
 	}
 
 	.loading {

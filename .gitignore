@@ -37,4 +37,4 @@ CLAUDE.md
 tmpclaude-*
 
 
-*.Identifier
+__pycache__/

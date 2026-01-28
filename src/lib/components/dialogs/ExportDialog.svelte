@@ -38,6 +38,7 @@
 	let pythonCode = $state('');
 	let copied = $state(false);
 
+
 	// Handle dialog open/close
 	$effect(() => {
 		if (open) {
@@ -187,7 +188,6 @@
 	.dialog {
 		width: 90%;
 		max-width: 800px;
-		height: 70vh;
 		max-height: 80vh;
 		display: flex;
 		flex-direction: column;
@@ -201,17 +201,24 @@
 	}
 
 	.dialog-body {
-		flex: 1;
 		overflow: hidden;
 	}
 
 	.code-preview {
-		height: 100%;
 		overflow: hidden;
+		max-height: 600px;
 	}
 
 	.code-preview :global(.cm-editor) {
-		height: 100%;
+		max-height: 600px;
+	}
+
+	.code-preview :global(.cm-scroller) {
+		overflow: auto;
+	}
+
+	.code-preview :global(.cm-content) {
+		padding: 0;
 	}
 
 	.loading {

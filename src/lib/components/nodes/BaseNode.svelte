@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { Handle, Position } from '@xyflow/svelte';
+	import { Handle, Position, useUpdateNodeInternals } from '@xyflow/svelte';
 	import { nodeRegistry, type NodeInstance } from '$lib/nodes';
 	import { getShapeCssClass, isSubsystem } from '$lib/nodes/shapes/index';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { openNodeDialog } from '$lib/stores/nodeDialog';
 	import { graphStore } from '$lib/stores/graph';
+	import { historyStore } from '$lib/stores/history';
 	import { pinnedPreviewsStore } from '$lib/stores/pinnedPreviews';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
-	import { NODE, getPortPositionCalc, calculateNodeDimensions } from '$lib/constants/dimensions';
+	import { NODE, getPortPositionCalc, calculateNodeDimensions, snapTo2G } from '$lib/constants/dimensions';
+	import { containsMath, renderInlineMath, renderInlineMathSync, measureRenderedMath, getBaselineTextHeight } from '$lib/utils/inlineMathRenderer';
+	import { getKatexCssUrl } from '$lib/utils/katexLoader';
 	import PlotPreview from './PlotPreview.svelte';
 
 	interface Props {
@@ -21,6 +24,9 @@
 	}
 
 	let { id, data, selected = false }: Props = $props();
+
+	// Get SvelteFlow hook to trigger re-measurement when node size changes
+	const updateNodeInternals = useUpdateNodeInternals();
 
 	// Get type definition
 	const typeDef = $derived(nodeRegistry.get(data.type));
@@ -86,9 +92,46 @@
 		}
 	}
 
+	// Math rendering for node names with $...$ LaTeX
+	const nameHasMath = $derived(containsMath(data.name));
+	let renderedNameHtml = $state<string | null>(null);
+	let measuredNameWidth = $state<number | null>(null);
+	let measuredNameHeight = $state<number | null>(null);
+
+	// Render math when name contains $...$
+	$effect(() => {
+		if (nameHasMath) {
+			// Try sync first (cached)
+			const cached = renderInlineMathSync(data.name);
+			if (cached) {
+				renderedNameHtml = cached.html;
+				const dims = measureRenderedMath(cached.html);
+				measuredNameWidth = dims.width;
+				measuredNameHeight = dims.height;
+				// Tell SvelteFlow to re-measure node from DOM
+				updateNodeInternals(id);
+			} else {
+				// Render async
+				renderInlineMath(data.name).then((result) => {
+					renderedNameHtml = result.html;
+					const dims = measureRenderedMath(result.html);
+					measuredNameWidth = dims.width;
+					measuredNameHeight = dims.height;
+					// Tell SvelteFlow to re-measure node from DOM
+					updateNodeInternals(id);
+				});
+			}
+		} else {
+			renderedNameHtml = null;
+			measuredNameWidth = null;
+			measuredNameHeight = null;
+		}
+	});
+
 	// Check if this node allows dynamic ports
 	const allowsDynamicInputs = $derived(typeDef?.ports.maxInputs === null);
 	const allowsDynamicOutputs = $derived(typeDef?.ports.maxOutputs === null);
+	const syncPorts = $derived(typeDef?.ports.syncPorts ?? false);
 
 	// Rotation state (0, 1, 2, 3 = 0°, 90°, 180°, 270°) - stored in node params
 	const rotation = $derived((data.params?.['_rotation'] as number) || 0);
@@ -145,8 +188,56 @@
 		rotation,
 		typeDef?.name
 	));
-	const nodeWidth = $derived(nodeDimensions.width);
-	const nodeHeight = $derived(nodeDimensions.height);
+	// Use measured width if math is rendered and measured, otherwise use calculated
+	const nodeWidth = $derived(() => {
+		if (measuredNameWidth !== null && nameHasMath) {
+			// For math names, use measured width instead of string-length estimate
+			// But still respect minimum width needed for ports, pinned params, type label
+			const isVertical = rotation === 1 || rotation === 3;
+			const maxPortsOnSide = Math.max(data.inputs.length, data.outputs.length);
+			const minPortDimension = Math.max(1, maxPortsOnSide) * NODE.portSpacing;
+			const typeWidth = typeDef ? typeDef.name.length * 5 + 20 : 0;
+			const pinnedParamsWidth = pinnedCount > 0 ? 160 : 0;
+
+			// Minimum width for layout (without name string-length estimate)
+			const minLayoutWidth = snapTo2G(Math.max(
+				NODE.baseWidth,
+				typeWidth,
+				pinnedParamsWidth,
+				isVertical ? minPortDimension : 0
+			));
+
+			// Add horizontal padding from .node-content (12px each side = 24px)
+			const measuredMathWidth = snapTo2G(measuredNameWidth + 24);
+			return Math.max(minLayoutWidth, measuredMathWidth);
+		}
+		return nodeDimensions.width;
+	});
+
+	// Height calculation - only override for tall math (like \displaystyle)
+	// Compare measured math height to baseline text height for robustness
+	const nodeHeight = $derived(() => {
+		if (measuredNameHeight !== null && nameHasMath) {
+			// Get baseline height of standard text - only grow if math is significantly taller
+			const baselineHeight = getBaselineTextHeight();
+			if (measuredNameHeight > baselineHeight * 1.2) {
+				const isVertical = rotation === 1 || rotation === 3;
+				const maxPortsOnSide = Math.max(data.inputs.length, data.outputs.length);
+				const minPortDimension = Math.max(1, maxPortsOnSide) * NODE.portSpacing;
+
+				// Pinned params height: border(1) + padding(10) + rows(24 each)
+				const pinnedParamsHeight = pinnedCount > 0 ? 7 + 24 * pinnedCount : 0;
+
+				// Content height: math height + type label (12px) + padding (12px)
+				const contentHeight = measuredNameHeight + 24 + pinnedParamsHeight;
+
+				return isVertical
+					? snapTo2G(contentHeight)
+					: snapTo2G(Math.max(contentHeight, minPortDimension));
+			}
+		}
+		return nodeDimensions.height;
+	});
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
 	const isSubsystemNode = $derived(isSubsystem(data));
@@ -167,7 +258,7 @@
 	// Add input port
 	function handleAddInput(event: MouseEvent) {
 		event.stopPropagation();
-		graphStore.addInputPort(id);
+		historyStore.mutate(() => graphStore.addInputPort(id));
 	}
 
 	// Get min ports from type definition
@@ -178,21 +269,21 @@
 	function handleRemoveInput(event: MouseEvent) {
 		event.stopPropagation();
 		if (data.inputs.length > minInputs) {
-			graphStore.removeInputPort(id);
+			historyStore.mutate(() => graphStore.removeInputPort(id));
 		}
 	}
 
 	// Add output port
 	function handleAddOutput(event: MouseEvent) {
 		event.stopPropagation();
-		graphStore.addOutputPort(id);
+		historyStore.mutate(() => graphStore.addOutputPort(id));
 	}
 
 	// Remove output port (respects minOutputs)
 	function handleRemoveOutput(event: MouseEvent) {
 		event.stopPropagation();
 		if (data.outputs.length > minOutputs) {
-			graphStore.removeOutputPort(id);
+			historyStore.mutate(() => graphStore.removeOutputPort(id));
 		}
 	}
 
@@ -204,7 +295,7 @@
 
 	// Handle pinned param change
 	function handlePinnedParamChange(paramName: string, value: string) {
-		graphStore.updateNodeParams(id, { [paramName]: value });
+		historyStore.mutate(() => graphStore.updateNodeParams(id, { [paramName]: value }));
 	}
 
 	// Format value for display
@@ -276,6 +367,11 @@
 	});
 </script>
 
+<!-- Load KaTeX CSS for math rendering in node names -->
+<svelte:head>
+	<link rel="stylesheet" href={getKatexCssUrl()} />
+</svelte:head>
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="node {shapeClass()}"
@@ -284,7 +380,7 @@
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
 	data-rotation={rotation}
-	style="width: {nodeWidth}px; height: {nodeHeight}px; --node-color: {nodeColor};"
+	style="width: {nodeWidth()}px; height: {nodeHeight()}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
@@ -308,7 +404,11 @@
 	<div class="node-inner">
 		<!-- Node content -->
 		<div class="node-content">
-			<span class="node-name">{data.name}</span>
+			{#if renderedNameHtml}
+				<span class="node-name">{@html renderedNameHtml}</span>
+			{:else}
+				<span class="node-name">{data.name}</span>
+			{/if}
 			{#if typeDef}
 				<span class="node-type">{typeDef.name}</span>
 			{/if}
@@ -348,8 +448,8 @@
 		</div>
 	{/if}
 
-	<!-- Port controls for dynamic outputs (only show when selected) -->
-	{#if allowsDynamicOutputs && selected}
+	<!-- Port controls for dynamic outputs (only show when selected, hide for syncPorts blocks) -->
+	{#if allowsDynamicOutputs && selected && !syncPorts}
 		<div class="port-controls port-controls-output" class:port-controls-right={rotation === 0} class:port-controls-bottom={rotation === 1} class:port-controls-left={rotation === 2} class:port-controls-top={rotation === 3}>
 			<button class="port-btn" onclick={handleAddOutput} ondblclick={(e) => e.stopPropagation()} title="Add output">+</button>
 			<button class="port-btn" onclick={handleRemoveOutput} ondblclick={(e) => e.stopPropagation()} disabled={data.outputs.length <= minOutputs} title="Remove output">-</button>
@@ -484,6 +584,28 @@
 		letter-spacing: -0.2px;
 	}
 
+	/* KaTeX math rendering in node names */
+	.node-name:has(:global(.katex)) {
+		overflow: visible;
+		text-overflow: clip;
+	}
+
+	.node-name :global(.katex) {
+		font-size: 1em;
+		font-weight: 600;
+		color: inherit;
+	}
+
+	.node-name :global(.katex-html) {
+		white-space: nowrap;
+	}
+
+	.node-name :global(.math-error) {
+		color: var(--error);
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+	}
+
 	.node-type {
 		display: block;
 		font-size: 8px;
@@ -523,7 +645,7 @@
 		min-width: 0;
 		height: 20px;
 		padding: 2px 8px;
-		font-size: 9px;
+		font-size: 8px;
 		font-family: var(--font-mono);
 		background: var(--surface-raised);
 		border: 1px solid var(--border);

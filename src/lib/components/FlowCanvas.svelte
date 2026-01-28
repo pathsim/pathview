@@ -13,24 +13,27 @@
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 
+	import { isInputFocused } from '$lib/utils/focus';
 	import BaseNode from './nodes/BaseNode.svelte';
 	import EventNode from './nodes/EventNode.svelte';
 	import AnnotationNode from './nodes/AnnotationNode.svelte';
-	import ArrowEdge from './edges/ArrowEdge.svelte';
+	import OrthogonalEdge from './edges/OrthogonalEdge.svelte';
 	import FlowUpdater from './FlowUpdater.svelte';
 	import { graphStore } from '$lib/stores/graph';
 	import { eventStore, setEventSelection } from '$lib/stores/events';
 	import { selectedNodeIds as graphSelectedNodeIds } from '$lib/stores/graph/state';
 	import { historyStore } from '$lib/stores/history';
+	import { routingStore, buildRoutingContext, type PortInfo } from '$lib/stores/routing';
+	import { HANDLE_OFFSET, ARROW_INSET, type Direction, type PortStub } from '$lib/routing';
 	import { themeStore, type Theme } from '$lib/stores/theme';
 	import { clearSelectionTrigger, nudgeTrigger, selectNodeTrigger, registerHasSelection, triggerFitView } from '$lib/stores/viewActions';
+	import { screenToFlow } from '$lib/utils/viewUtils';
 	import { dropTargetBridge } from '$lib/stores/dropTargetBridge';
 	import { contextMenuStore } from '$lib/stores/contextMenu';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 		import { nodeRegistry } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
-	import { SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
-	import { calculateNodeDimensions } from '$lib/constants/dimensions';
+	import { GRID_SIZE, SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
 	import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 	import type { EventInstance } from '$lib/events/types';
 
@@ -52,14 +55,16 @@
 	});
 
 	
+	// Track mouse position for waypoint placement
+	let mousePosition = { x: 0, y: 0 };
+
+	function handleMouseMove(event: MouseEvent) {
+		mousePosition = { x: event.clientX, y: event.clientY };
+	}
+
 	// Keyboard shortcuts for node manipulation
 	function handleKeydown(event: KeyboardEvent) {
-		// Ignore if typing in an input field or code editor
-		const isInputFocused =
-			event.target instanceof HTMLInputElement ||
-			event.target instanceof HTMLTextAreaElement ||
-			(event.target as HTMLElement)?.closest?.('.cm-editor');
-		if (isInputFocused) return;
+		if (isInputFocused(event)) return;
 
 		// Handle Delete key (SvelteFlow's deleteKeyCode doesn't work reliably for 'Delete')
 		if (event.key === 'Delete') {
@@ -68,6 +73,23 @@
 			if (selectedNodes.length > 0 || selectedEdges.length > 0) {
 				event.preventDefault();
 				handleDelete({ nodes: selectedNodes, edges: selectedEdges });
+			}
+			return;
+		}
+
+		// Handle backslash key - add waypoint to selected edge
+		if (event.key === '\\') {
+			const selectedEdge = edges.find(e => e.selected);
+			if (selectedEdge) {
+				event.preventDefault();
+				// Convert screen position to flow coordinates
+				const flowPos = screenToFlow(mousePosition);
+				// Snap to grid
+				const gridSize = 10;
+				const snappedX = Math.round(flowPos.x / gridSize) * gridSize;
+				const snappedY = Math.round(flowPos.y / gridSize) * gridSize;
+				// Pass getPortInfo for immediate single-route recalculation (no full recalc needed)
+				routingStore.addUserWaypoint(selectedEdge.id, { x: snappedX, y: snappedY }, getPortInfo);
 			}
 			return;
 		}
@@ -90,6 +112,11 @@
 
 		if (updatedNodes.length > 0) {
 			pendingNodeUpdates = [...updatedNodes];
+			// Recalculate routes for rotated/flipped nodes after FlowUpdater processes
+			setTimeout(() => {
+				const connections = get(graphStore.connections);
+				routingStore.recalculateRoutesForNodes(new Set(updatedNodes), connections, getPortInfo);
+			}, 0);
 		}
 	}
 
@@ -139,21 +166,23 @@
 				return n;
 			});
 
-			// Sync positions to appropriate stores
-			nodes.forEach(n => {
-				if (n.selected) {
-					if (n.type === 'eventNode') {
-						if (graphStore.isAtRoot()) {
-							eventStore.updateEventPosition(n.id, n.position);
+			// Sync positions to appropriate stores (as a single undoable action)
+			historyStore.mutate(() => {
+				nodes.forEach(n => {
+					if (n.selected) {
+						if (n.type === 'eventNode') {
+							if (graphStore.isAtRoot()) {
+								eventStore.updateEventPosition(n.id, n.position);
+							} else {
+								graphStore.updateSubsystemEventPosition(n.id, n.position);
+							}
+						} else if (n.type === 'annotation') {
+							graphStore.updateAnnotationPosition(n.id, n.position);
 						} else {
-							graphStore.updateSubsystemEventPosition(n.id, n.position);
+							graphStore.updateNodePosition(n.id, n.position);
 						}
-					} else if (n.type === 'annotation') {
-						graphStore.updateAnnotationPosition(n.id, n.position);
-					} else {
-						graphStore.updateNodePosition(n.id, n.position);
 					}
-				}
+				});
 			});
 		}
 	});
@@ -215,6 +244,122 @@
 		pendingNodeUpdates = [];
 	}
 
+	// Helper to get port position and direction in world coordinates
+	// Returns handle tip position (accounting for handle offset from block edge)
+	// For inputs, also accounts for arrowhead so stub starts within arrow
+	function getPortInfo(nodeId: string, portIndex: number, isOutput: boolean): PortInfo | null {
+		const node = nodes.find(n => n.id === nodeId);
+		if (!node) return null;
+
+		const nodeData = node.data as NodeInstance;
+		const ports = isOutput ? nodeData.outputs : nodeData.inputs;
+		if (portIndex >= ports.length) return null;
+
+		const rotation = (nodeData.params?.['_rotation'] as number) || 0;
+		const width = node.measured?.width ?? node.width ?? 80;
+		const height = node.measured?.height ?? node.height ?? 40;
+
+		// Calculate port offset from center based on rotation
+		const portCount = ports.length;
+		const portSpacing = 20; // G.x2
+		const span = (portCount - 1) * portSpacing;
+		const offsetFromCenter = -span / 2 + portIndex * portSpacing;
+
+		let x = node.position.x;
+		let y = node.position.y;
+		let direction: Direction;
+
+		// Additional offset: handle tip is HANDLE_OFFSET outside block edge
+		// For inputs (targets), add ARROW_INSET so stub starts within arrowhead
+		const extraOffset = isOutput ? HANDLE_OFFSET : (HANDLE_OFFSET + ARROW_INSET);
+
+		// Position and direction based on rotation (output = right side for rotation 0)
+		if (isOutput) {
+			switch (rotation) {
+				case 1: // outputs at bottom
+					x += offsetFromCenter;
+					y += height / 2 + extraOffset;
+					direction = 'down';
+					break;
+				case 2: // outputs at left
+					x -= width / 2 + extraOffset;
+					y += offsetFromCenter;
+					direction = 'left';
+					break;
+				case 3: // outputs at top
+					x += offsetFromCenter;
+					y -= height / 2 + extraOffset;
+					direction = 'up';
+					break;
+				default: // rotation 0 - outputs at right
+					x += width / 2 + extraOffset;
+					y += offsetFromCenter;
+					direction = 'right';
+					break;
+			}
+		} else {
+			// Inputs are opposite to outputs
+			switch (rotation) {
+				case 1: // inputs at top
+					x += offsetFromCenter;
+					y -= height / 2 + extraOffset;
+					direction = 'up';
+					break;
+				case 2: // inputs at right
+					x += width / 2 + extraOffset;
+					y += offsetFromCenter;
+					direction = 'right';
+					break;
+				case 3: // inputs at bottom
+					x += offsetFromCenter;
+					y += height / 2 + extraOffset;
+					direction = 'down';
+					break;
+				default: // rotation 0 - inputs at left
+					x -= width / 2 + extraOffset;
+					y += offsetFromCenter;
+					direction = 'left';
+					break;
+			}
+		}
+
+		return { position: { x, y }, direction };
+	}
+
+	// Update routing context and recalculate all routes
+	function updateRoutingContext() {
+		// Only include block nodes (not events or annotations) for routing
+		const blockNodesForRouting = nodes.filter(n => n.type === 'pathview');
+		if (blockNodesForRouting.length === 0) {
+			routingStore.clearRoutes();
+			return;
+		}
+
+		const { nodeBounds, canvasBounds } = buildRoutingContext(blockNodesForRouting);
+
+		// Collect all port stubs for obstacle marking
+		const portStubs: PortStub[] = [];
+		for (const node of blockNodesForRouting) {
+			const nodeData = node.data as NodeInstance;
+			// Collect input port stubs
+			for (let i = 0; i < nodeData.inputs.length; i++) {
+				const info = getPortInfo(node.id, i, false);
+				if (info) portStubs.push({ position: info.position, direction: info.direction });
+			}
+			// Collect output port stubs
+			for (let i = 0; i < nodeData.outputs.length; i++) {
+				const info = getPortInfo(node.id, i, true);
+				if (info) portStubs.push({ position: info.position, direction: info.direction });
+			}
+		}
+
+		routingStore.setContext(nodeBounds, canvasBounds, portStubs);
+
+		// Recalculate all routes
+		const connections = get(graphStore.connections);
+		routingStore.recalculateAllRoutes(connections, getPortInfo);
+	}
+
 	// Custom node types - will add more for different shapes
 	const nodeTypes: NodeTypes = {
 		pathview: BaseNode,
@@ -222,9 +367,9 @@
 		annotation: AnnotationNode
 	};
 
-	// Custom edge types with arrow in middle
+	// Custom edge types - orthogonal routing with arrow
 	const edgeTypes: EdgeTypes = {
-		arrow: ArrowEdge
+		orthogonal: OrthogonalEdge
 	};
 
 	// SvelteFlow state - this is the source of truth for visual state
@@ -381,20 +526,8 @@
 			// Interface blocks are not deletable
 			const isInterface = graphNode.type === NODE_TYPES.INTERFACE;
 
-			// Calculate node dimensions for SvelteFlow bounds
-			const typeDef = nodeRegistry.get(graphNode.type);
-			const pinnedParamCount = typeDef && graphNode.pinnedParams
-				? graphNode.pinnedParams.filter(name => typeDef.params.some(p => p.name === name)).length
-				: 0;
-			const rotation = (graphNode.params?.['_rotation'] as number) || 0;
-			const { width, height } = calculateNodeDimensions(
-				graphNode.name,
-				graphNode.inputs.length,
-				graphNode.outputs.length,
-				pinnedParamCount,
-				rotation,
-				typeDef?.name
-			);
+			// Don't set explicit width/height - let SvelteFlow auto-measure from DOM
+			// BaseNode controls its size via CSS, SvelteFlow reads it via updateNodeInternals
 
 			// If node exists, update data but don't preserve selection here
 			// Selection is managed by SvelteFlow, trigger subscriptions, and merge effect
@@ -404,8 +537,6 @@
 					type: existingNode.type,
 					position,
 					data: graphNode,
-					width,
-					height,
 					// Explicit center origin for correct bounds calculation
 					origin: [0.5, 0.5] as [number, number],
 					selectable: existingNode.selectable,
@@ -421,8 +552,6 @@
 				type: 'pathview',
 				position,
 				data: graphNode,
-				width,
-				height,
 				// Explicit center origin for correct bounds calculation
 				origin: [0.5, 0.5] as [number, number],
 				selectable: true,
@@ -440,9 +569,14 @@
 
 		blockNodes = updatedNodes;
 
-		// Queue node internal updates for nodes with changed ports
+		// Queue node internal updates for nodes with changed ports/rotation
 		if (nodesToUpdate.length > 0) {
 			pendingNodeUpdates = [...nodesToUpdate];
+			// Recalculate routes for affected nodes after FlowUpdater processes
+			setTimeout(() => {
+				const connections = get(graphStore.connections);
+				routingStore.recalculateRoutesForNodes(new Set(nodesToUpdate), connections, getPortInfo);
+			}, 0);
 		}
 
 		// Mark initial load as complete after first non-empty sync
@@ -470,6 +604,8 @@
 	cleanups.push(graphStore.currentPath.subscribe((path) => {
 		currentPath = path;
 		updateEventNodes();
+		// Clear grid and routes when navigating - forces full rebuild for new context
+		routingStore.clearContext();
 	}));
 
 	// Subscribe to root-level events (eventStore)
@@ -492,16 +628,77 @@
 	// Subscribe to current connections (filtered by current navigation context)
 	cleanups.push(graphStore.connections.subscribe((connections: Connection[]) => {
 		if (isSyncing) return;
-		edges = connections.map(toFlowEdge);
+		// Preserve selection state from existing edges
+		const currentEdgeSelection = new Map(edges.map(e => [e.id, e.selected]));
+		edges = connections.map(conn => {
+			const edge = toFlowEdge(conn);
+			// Preserve selection state
+			const wasSelected = currentEdgeSelection.get(conn.id);
+			if (wasSelected) {
+				edge.selected = true;
+			}
+			return edge;
+		});
+		// Recalculate routes when connections change
+		// Use setTimeout to ensure nodes are updated first
+		setTimeout(() => updateRoutingContext(), 0);
 	}));
 
+	// Track last snapped positions during drag for discrete routing updates
+	let lastDraggedPositions = new Map<string, { x: number; y: number }>();
+
 	// Handle node drag start - capture state for undo
-	function handleNodeDragStart() {
+	function handleNodeDragStart({ nodes: draggedNodes }: { nodes: Node[] }) {
 		historyStore.beginDrag();
+		// Initialize last positions for all dragged nodes
+		lastDraggedPositions.clear();
+		for (const node of draggedNodes) {
+			const snappedX = Math.round(node.position.x / GRID_SIZE) * GRID_SIZE;
+			const snappedY = Math.round(node.position.y / GRID_SIZE) * GRID_SIZE;
+			lastDraggedPositions.set(node.id, { x: snappedX, y: snappedY });
+		}
+	}
+
+	// Handle node drag - reroute at discrete grid positions (only affected routes)
+	function handleNodeDrag({ nodes: draggedNodes }: { nodes: Node[] }) {
+		// Check if any node moved to a new grid position
+		const changedNodeIds = new Set<string>();
+		for (const node of draggedNodes) {
+			// Skip non-block nodes (events, annotations don't affect routing)
+			if (node.type !== 'pathview') continue;
+
+			const snappedX = Math.round(node.position.x / GRID_SIZE) * GRID_SIZE;
+			const snappedY = Math.round(node.position.y / GRID_SIZE) * GRID_SIZE;
+			const lastPos = lastDraggedPositions.get(node.id);
+
+			if (!lastPos || lastPos.x !== snappedX || lastPos.y !== snappedY) {
+				lastDraggedPositions.set(node.id, { x: snappedX, y: snappedY });
+				changedNodeIds.add(node.id);
+
+				// Incrementally update grid obstacle for this node
+				const width = node.measured?.width ?? node.width ?? 80;
+				const height = node.measured?.height ?? node.height ?? 40;
+				routingStore.updateNodeBounds(node.id, {
+					x: snappedX - width / 2,
+					y: snappedY - height / 2,
+					width,
+					height
+				});
+			}
+		}
+
+		// Only recalculate routes connected to moved nodes
+		if (changedNodeIds.size > 0) {
+			const connections = get(graphStore.connections);
+			routingStore.recalculateRoutesForNodes(changedNodeIds, connections, getPortInfo);
+		}
 	}
 
 	// Handle node drag end - sync position back to store and finalize undo entry
 	function handleNodeDragStop({ targetNode }: { targetNode: Node | null; nodes: Node[]; event: MouseEvent | TouchEvent }) {
+		// Clear drag position tracking
+		lastDraggedPositions.clear();
+
 		if (targetNode?.id && targetNode?.position) {
 			isSyncing = true;
 			// Check node type and update appropriate store
@@ -519,6 +716,9 @@
 			isSyncing = false;
 		}
 		historyStore.endDrag();
+
+		// Update routing context and recalculate routes (final)
+		updateRoutingContext();
 	}
 
 	// Handle node and edge delete
@@ -604,47 +804,49 @@
 		const targetMatch = connection.targetHandle.match(/-input-(\d+)$/);
 
 		if (sourceMatch && targetMatch) {
-			const sourcePortIndex = parseInt(sourceMatch[1], 10);
-			let targetPortIndex = parseInt(targetMatch[1], 10);
+			historyStore.mutate(() => {
+				const sourcePortIndex = parseInt(sourceMatch[1], 10);
+				let targetPortIndex = parseInt(targetMatch[1], 10);
 
-			// Check if the target port is already connected
-			const currentConnections = get(graphStore.connections);
-			const isPortOccupied = currentConnections.some(
-				(c) => c.targetNodeId === connection.target && c.targetPortIndex === targetPortIndex
-			);
+				// Check if the target port is already connected
+				const currentConnections = get(graphStore.connections);
+				const isPortOccupied = currentConnections.some(
+					(c) => c.targetNodeId === connection.target && c.targetPortIndex === targetPortIndex
+				);
 
-			if (isPortOccupied) {
-				// Find the first available port instead
-				const availablePort = findFirstAvailableInputPort(connection.target);
+				if (isPortOccupied) {
+					// Find the first available port instead
+					const availablePort = findFirstAvailableInputPort(connection.target);
 
-				if (availablePort !== null) {
-					// Use the first available port
-					targetPortIndex = availablePort;
-				} else {
-					// No available port - check if we can create a new one
-					const graphNodes = get(graphStore.nodesArray);
-					const targetNode = graphNodes.find((n) => n.id === connection.target);
-					if (!targetNode) return;
+					if (availablePort !== null) {
+						// Use the first available port
+						targetPortIndex = availablePort;
+					} else {
+						// No available port - check if we can create a new one
+						const graphNodes = get(graphStore.nodesArray);
+						const targetNode = graphNodes.find((n) => n.id === connection.target);
+						if (!targetNode) return;
 
-					const typeDef = nodeRegistry.get(targetNode.type);
-					if (!typeDef || typeDef.ports.maxInputs !== null) {
-						// Can't create new port, abort
-						return;
+						const typeDef = nodeRegistry.get(targetNode.type);
+						if (!typeDef || typeDef.ports.maxInputs !== null) {
+							// Can't create new port, abort
+							return;
+						}
+
+						// Create a new port and use it
+						graphStore.addInputPort(connection.target);
+						targetPortIndex = targetNode.inputs.length; // The new port index
 					}
-
-					// Create a new port and use it
-					graphStore.addInputPort(connection.target);
-					targetPortIndex = targetNode.inputs.length; // The new port index
 				}
-			}
 
-			// addConnection uses current navigation context automatically
-			graphStore.addConnection(
-				connection.source,
-				sourcePortIndex,
-				connection.target,
-				targetPortIndex
-			);
+				// addConnection uses current navigation context automatically
+				graphStore.addConnection(
+					connection.source,
+					sourcePortIndex,
+					connection.target,
+					targetPortIndex
+				);
+			});
 		}
 	}
 
@@ -771,6 +973,7 @@
 	ondragenter={handleDragEnter}
 	ondragleave={handleDragLeave}
 	ondblclick={handleCanvasDoubleClick}
+	onmousemove={handleMouseMove}
 >
 	{#if isFileDragOver}
 		<div class="drop-zone-overlay">
@@ -788,6 +991,7 @@
 		{edgeTypes}
 		onconnect={handleConnect}
 		onnodedragstart={handleNodeDragStart}
+		onnodedrag={handleNodeDrag}
 		onnodedragstop={handleNodeDragStop}
 		ondelete={handleDelete}
 		onselectionchange={handleSelectionChange}
@@ -805,7 +1009,7 @@
 		connectOnClick
 		edgesReconnectable
 		edgesFocusable
-		edgesSelectable={false}
+		edgesSelectable
 		zoomOnDoubleClick={false}
 		proOptions={{ hideAttribution: true }}
 	>

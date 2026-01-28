@@ -293,17 +293,25 @@ export class FlaskBackend implements Backend {
 							function pump(): any {
 								return reader?.read().then((chunk) => {
 									console.log("Chunk: ", chunk);
+									console.log("Uint8Array for Chunk is ", chunk.value)
 
 									const decoder = new TextDecoder("utf-8");
 									const jsonString = decoder.decode(
 										chunk.value,
 									);
 
+
+									console.log(jsonString)
+
 									// console.log("JSON String: ", jsonString);
 
-									let data = JSON.parse(jsonString);
+									try {
+										let data = JSON.parse(jsonString);
+										console.log("Parsed Data: ", data);
+									} catch (error) {
+										console.log("We encountered an error: ", error)
+									}
 
-									console.log("Parsed Data: ", data);
 
 									// When no more data needs to be consumed, close the stream
 									if (chunk.done) {

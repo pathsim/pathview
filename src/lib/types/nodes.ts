@@ -67,6 +67,7 @@ export interface NodeTypeDefinition {
 		minOutputs: number; // minimum number of output ports (default 1)
 		maxInputs: number | null; // null = unlimited
 		maxOutputs: number | null;
+		syncPorts?: boolean; // When true, output count always equals input count (parallel paths)
 	};
 
 	// Parameter definitions
@@ -117,6 +118,13 @@ export interface NodeInstance {
 	[key: string]: unknown;
 }
 
+/** Waypoint on a connection route */
+export interface Waypoint {
+	id: string;
+	position: Position;
+	isUserWaypoint: boolean; // true = user-placed (persisted), false = auto-calculated
+}
+
 /** Connection between ports */
 export interface Connection {
 	id: string;
@@ -124,6 +132,7 @@ export interface Connection {
 	sourcePortIndex: number;
 	targetNodeId: string;
 	targetPortIndex: number;
+	waypoints?: Waypoint[]; // Optional - empty/undefined means auto-route entire path
 }
 
 /** Canvas annotation (markdown/LaTeX text) */

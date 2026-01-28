@@ -4,6 +4,7 @@
 	import { scale, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import { PATHVIEW_VERSION, EXTRACTED_VERSIONS } from '$lib/constants/dependencies';
 
 	interface Example {
 		name: string;
@@ -95,20 +96,23 @@
 <div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()} role="presentation">
 	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 	<div class="modal glass-panel" transition:scale={{ start: 0.95, duration: 200, easing: cubicOut }} onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
+		<div class="version-info">
+			PathView {PATHVIEW_VERSION} · {Object.entries(EXTRACTED_VERSIONS).map(([pkg, ver]) => `${pkg.replace('_', '-')} ${ver}`).join(' · ')}
+		</div>
 		<div class="header">
 			<img src="{base}/pathview_logo.png" alt="PathView" class="logo" />
 		</div>
 
 		<div class="actions">
-			<a href="https://pathsim.org" target="_blank" class="action-card">
-				<Icon name="home" size={20} />
-				<span class="action-label">Home</span>
-			</a>
-
 			<button class="action-card" onclick={handleNew}>
 				<Icon name="new-canvas" size={20} />
 				<span class="action-label">New</span>
 			</button>
+
+			<a href="https://pathsim.org" target="_blank" class="action-card">
+				<Icon name="home" size={20} />
+				<span class="action-label">Home</span>
+			</a>
 
 			<a href="https://docs.pathsim.org" target="_blank" class="action-card">
 				<Icon name="book" size={20} />
@@ -163,14 +167,23 @@
 	/* Uses global .dialog-backdrop from app.css */
 
 	.modal {
+		position: relative;
 		width: 90%;
 		max-width: 780px;
 		padding: 24px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		background: var(--surface-raised);
+		background: var(--surface);
 		overflow: hidden;
+	}
+
+	.version-info {
+		position: absolute;
+		top: 8px;
+		right: 12px;
+		font-size: 9px;
+		color: var(--text-disabled);
 	}
 
 	.header {
@@ -245,7 +258,7 @@
 		align-items: start;
 		gap: 10px;
 		overflow-y: auto;
-		max-height: 320px;
+		max-height: 420px;
 		padding: 16px;
 	}
 
@@ -263,6 +276,7 @@
 		text-align: left;
 		overflow: hidden;
 		font-family: inherit;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 		transition: border-color 0.15s ease, box-shadow 0.15s ease;
 	}
 
@@ -280,7 +294,7 @@
 		z-index: 1;
 		padding: 6px 8px;
 		text-align: left;
-		background: var(--surface);
+		background: var(--surface-raised);
 		border-bottom: 1px solid var(--border);
 		border-radius: var(--radius-md) var(--radius-md) 0 0;
 		transition: padding 0.15s ease;

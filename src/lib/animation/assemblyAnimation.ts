@@ -172,6 +172,20 @@ export function runAssemblyAnimation(
 		return;
 	}
 
+	// Cancel any previous animation (important when loading new graph mid-animation)
+	if (isActive || cleanupTimeoutId) {
+		if (cleanupTimeoutId) {
+			clearTimeout(cleanupTimeoutId);
+			cleanupTimeoutId = null;
+		}
+		// Quick cleanup of old animation classes
+		document.querySelectorAll('.assembling').forEach((el) => {
+			el.classList.remove('assembling');
+		});
+		isActive = false;
+		removeSkipListeners();
+	}
+
 	// Hide everything immediately
 	document.body.classList.add('assembly-pending');
 
@@ -237,6 +251,12 @@ function calculateAnimationTiming(nodes: NodeInfo[], edges: EdgeInfo[], viewport
 		const bothNodesLanded = Math.max(sourceDelay, targetDelay) + CONFIG.nodeDuration * 0.7;
 		edgeDelays.set(edge.id, bothNodesLanded);
 	});
+
+	// Cancel any previous animation's cleanup timeout
+	if (cleanupTimeoutId) {
+		clearTimeout(cleanupTimeoutId);
+		cleanupTimeoutId = null;
+	}
 
 	isActive = true;
 	addSkipListeners();

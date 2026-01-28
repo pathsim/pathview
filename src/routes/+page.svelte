@@ -67,9 +67,30 @@
 
 	// --------------------------- ROOT PAGE IMPORTS | END ---------------------------
 
+	import { isInputFocused } from '$lib/utils/focus';
 	
 	// Track mouse position for paste operations
 	let mousePosition = $state({ x: 0, y: 0 });
+
+	// Save feedback animation state
+	let saveFlash = $state<'save' | 'save-as' | null>(null);
+	let saveFlashTimeout: ReturnType<typeof setTimeout> | undefined;
+
+	function flashSaveButton(which: 'save' | 'save-as') {
+		clearTimeout(saveFlashTimeout);
+		saveFlash = which;
+		saveFlashTimeout = setTimeout(() => { saveFlash = null; }, 1500);
+	}
+
+	async function handleSave() {
+		const success = await saveFile();
+		if (success) flashSaveButton('save');
+	}
+
+	async function handleSaveAs() {
+		const success = await saveAsFile();
+		if (success) flashSaveButton('save-as');
+	}
 
 	// Panel visibility state
 	let showProperties = $state(false);
@@ -309,14 +330,15 @@
 		return buildContextMenuItems(contextMenuTarget, contextMenuPosition, contextMenuCallbacks);
 	}
 
-	// Helper to rotate a node (single node, creates its own snapshot)
+	// Helper to rotate a node (single node)
 	function rotateNode(nodeId: string) {
 		const node = graphStore.getNode(nodeId);
 		if (node) {
-			const currentRotation = (node.params?.['_rotation'] as number) || 0;
-			const newRotation = (currentRotation + 1) % 4;
-			// Note: updateNodeParams creates a snapshot internally
-			graphStore.updateNodeParams(nodeId, { '_rotation': newRotation });
+			historyStore.mutate(() => {
+				const currentRotation = (node.params?.['_rotation'] as number) || 0;
+				const newRotation = (currentRotation + 1) % 4;
+				graphStore.updateNodeParams(nodeId, { '_rotation': newRotation });
+			});
 			// Queue update to re-render handles
 			nodeUpdatesStore.queueUpdate([nodeId]);
 		}
@@ -537,9 +559,7 @@
 
 	// Keyboard shortcuts
 	function handleKeydown(event: KeyboardEvent) {
-		const isInputFocused = event.target instanceof HTMLInputElement ||
-			event.target instanceof HTMLTextAreaElement ||
-			(event.target as HTMLElement)?.closest?.('.cm-editor');
+		const inputFocused = isInputFocused(event);
 
 		// Shift+Enter for continue simulation
 		if (event.shiftKey && event.key === 'Enter') {
@@ -556,9 +576,9 @@
 				case 's':
 					event.preventDefault();
 					if (event.shiftKey) {
-						saveAsFile();
+						handleSaveAs();
 					} else {
-						saveFile();
+						handleSave();
 					}
 					return;
 				case 'o':
@@ -575,29 +595,29 @@
 					return;
 				case 'd':
 					event.preventDefault();
-					graphStore.duplicateSelected();
+					historyStore.mutate(() => graphStore.duplicateSelected());
 					return;
 				case 'c':
-					if (!isInputFocused) {
+					if (!inputFocused) {
 						event.preventDefault();
 						clipboardStore.copy();
 					}
 					return;
 				case 'x':
-					if (!isInputFocused) {
+					if (!inputFocused) {
 						event.preventDefault();
 						clipboardStore.cut();
 					}
 					return;
 				case 'v':
-					if (!isInputFocused) {
+					if (!inputFocused) {
 						event.preventDefault();
 						const flowPosition = screenToFlow(mousePosition);
 						clipboardStore.paste(flowPosition);
 					}
 					return;
 				case 'a':
-					if (!isInputFocused) {
+					if (!inputFocused) {
 						event.preventDefault();
 						graphStore.selectAll();
 					}
@@ -622,7 +642,7 @@
 		}
 
 		// Non-modifier shortcuts (only when not typing)
-		if (!isInputFocused) {
+		if (!inputFocused) {
 			switch (event.key) {
 				case 'Escape':
 					// Progressive close - one thing at a time
@@ -994,7 +1014,7 @@
 
 		// addNode uses current navigation context automatically
 		// Subsystem creation auto-creates Interface block inside
-		graphStore.addNode(type, position);
+		historyStore.mutate(() => graphStore.addNode(type, position));
 	}
 </script>
 
@@ -1034,20 +1054,24 @@
 					<Icon name="stop-filled" size={16} />
 				</button>
 			{:else}
-				<button
-					class="toolbar-btn"
-					class:active={!pyodideLoading}
-					onclick={handleRun}
-					disabled={pyodideLoading}
-					use:tooltip={{ text: pyodideReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
-					aria-label="Run"
-				>
-					{#if pyodideLoading}
-						<span class="spinner"><Icon name="loader" size={16} /></span>
-					{:else}
-						<Icon name="play-filled" size={16} />
-					{/if}
-				</button>
+				<div class="run-btn-wrapper" class:loading={pyodideLoading}>
+					<button
+						class="toolbar-btn run-btn"
+						class:active={!pyodideLoading}
+						class:loading={pyodideLoading}
+						onclick={handleRun}
+						disabled={pyodideLoading}
+						use:tooltip={{ text: pyodideReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
+						aria-label="Run"
+					>
+						{#if pyodideLoading}
+							<span class="loading-status">{statusText}</span>
+							<span class="spinner"><Icon name="loader" size={16} /></span>
+						{:else}
+							<Icon name="play-filled" size={16} />
+						{/if}
+					</button>
+				</div>
 			{/if}
 			<button
 				class="toolbar-btn"
@@ -1069,8 +1093,41 @@
 			<button class="toolbar-btn" onclick={handleOpen} use:tooltip={{ text: "Open/Import", shortcut: "Ctrl+O" }} aria-label="Open/Import">
 				<Icon name="download" size={16} />
 			</button>
-			<button class="toolbar-btn" onclick={() => saveFile()} use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }} aria-label="Save">
-				<Icon name="upload" size={16} />
+			<button
+				class="toolbar-btn"
+				onclick={() => handleSave()}
+				use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }}
+				aria-label="Save"
+			>
+				<span class="icon-crossfade">
+					{#if saveFlash === 'save'}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="check" size={16} />
+						</span>
+					{:else}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="upload" size={16} />
+						</span>
+					{/if}
+				</span>
+			</button>
+			<button
+				class="toolbar-btn"
+				onclick={() => handleSaveAs()}
+				use:tooltip={{ text: "Save As", shortcut: "Ctrl+Shift+S" }}
+				aria-label="Save As"
+			>
+				<span class="icon-crossfade">
+					{#if saveFlash === 'save-as'}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="check" size={16} />
+						</span>
+					{:else}
+						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
+							<Icon name="upload-plus" size={16} />
+						</span>
+					{/if}
+				</span>
 			</button>
 			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code">
 				<Icon name="braces" size={16} />
@@ -1461,6 +1518,20 @@
 		background: color-mix(in srgb, var(--error) 15%, var(--surface-raised));
 	}
 
+	.icon-crossfade {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+	}
+
+	.icon-crossfade-item {
+		position: absolute;
+		display: flex;
+	}
+
 	/* Logo overlay */
 	.logo-overlay {
 		position: fixed;
@@ -1497,6 +1568,42 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	/* Run button wrapper - maintains fixed width in layout, button expands left */
+	.run-btn-wrapper {
+		position: relative;
+		width: var(--header-height);
+		height: var(--header-height);
+	}
+
+	.run-btn-wrapper .run-btn {
+		position: absolute;
+		right: 0;
+		top: 0;
+	}
+
+	/* Run button with loading expansion (expands left) */
+	.run-btn {
+		transition: width var(--transition-normal), padding var(--transition-normal), gap var(--transition-normal);
+		overflow: hidden;
+	}
+
+	.run-btn.loading {
+		width: 180px;
+		padding: 0 var(--space-sm);
+		gap: var(--space-xs);
+		justify-content: flex-end;
+	}
+
+	.loading-status {
+		font-size: 11px;
+		color: var(--text-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		flex: 1;
+		text-align: left;
 	}
 
 	/* Panel toggles */
