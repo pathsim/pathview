@@ -293,10 +293,11 @@ export class FlaskBackend implements Backend {
 					"We have begun asynchronously reading the readable stream",
 				);
 
-				let individualResponses:string[] = [];
+				let individualResponses: string[] = [];
 
 				if (response.body) {
 					for await (const chunk of response.body) {
+						let resArray: string[] = [];
 
 						const decoder = new TextDecoder("utf-8");
 						let jsonString = decoder.decode(chunk);
@@ -326,7 +327,7 @@ export class FlaskBackend implements Backend {
 							// console.log(`First index: ${firstIndex}, Second index: ${secondIndex}`)
 
 							if (secondIndex == -1 || firstIndex == -1) {
-								individualResponses.push(jsonString);
+								resArray.push(jsonString);
 								// console.log("Adding response: ", jsonString)
 								doneBreakingUp = true;
 							} else {
@@ -338,7 +339,7 @@ export class FlaskBackend implements Backend {
 										2,
 								);
 								// console.log("Adding response: ", request)
-								individualResponses.push(request);
+								resArray.push(request);
 								jsonString = jsonString.slice(
 									firstIndex +
 										responseSubstr.length +
@@ -348,33 +349,37 @@ export class FlaskBackend implements Backend {
 								);
 							}
 						}
-					}
 
-					
-					console.log("The individual responses are: ", individualResponses)
-
-					let dataChunks = individualResponses.flatMap((res) => {
-						let parsedResponse = JSON.parse(res)
-						console.log("Done status is: ", parsedResponse.result.done)
-						if(parsedResponse.success && !parsedResponse.result.done && parsedResponse.result.result) {
-							return parsedResponse
-						} else {
-							return []
+						let dataChunks = resArray.flatMap((res) => {
+							let parsedResponse = JSON.parse(res);
+							console.log(
+								"Done status is: ",
+								parsedResponse.result.done,
+							);
+							if (
+								parsedResponse.success &&
+								!parsedResponse.result.done &&
+								parsedResponse.result.result
+							) {
+								return parsedResponse;
+							} else {
+								return [];
+							}
+						});
+						
+						for (let dataChunk of dataChunks) {
+							console.log(
+								"Passing through stream data: ",
+								dataChunk.result,
+							);
+							this.handleResponse({
+								type: "stream-data",
+								id,
+								value: JSON.stringify(
+									dataChunk.result,
+								) as string,
+							});
 						}
-					})
-					
-					console.log(
-						"The data chunks are: ",
-						dataChunks
-					);
-
-					for(let dataChunk of dataChunks) {
-						console.log("Passing through stream data: ", dataChunk.result)
-						this.handleResponse({
-							type: "stream-data",
-							id,
-							value: JSON.stringify(dataChunk.result) as string
-						})
 					}
 				}
 
