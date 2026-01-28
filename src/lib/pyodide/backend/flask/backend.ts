@@ -366,7 +366,7 @@ export class FlaskBackend implements Backend {
 								return [];
 							}
 						});
-						
+
 						for (let dataChunk of dataChunks) {
 							console.log(
 								"Passing through stream data: ",
