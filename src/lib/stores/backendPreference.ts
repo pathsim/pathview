@@ -41,9 +41,7 @@ export const backendPreferenceStore = {
 	 * Toggle between a preference for flask or pyodide
 	 */
 	toggle(): void {
-		console.log(`Value (Before), ${this.get()}`)
 		backendPreference.update((current) => (current === 'pyodide' ? 'flask' : 'pyodide'));
-		console.log(`Value (After), ${this.get()}`)
 		switchBackend(this.get())
 	},
 

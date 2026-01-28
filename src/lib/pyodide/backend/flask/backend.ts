@@ -69,15 +69,10 @@ export class FlaskBackend implements Backend {
 		const state = this.getState();
 		if (state.initialized || state.loading) return;
 
-		console.log(
-			"We are ready, this is a flask web server so we don't concern with initialization. Our only concern is whether the server is currently running.",
-		);
 		this.handleResponse({
 			type: "stdout",
 			value: "Your backend preference has been set to a Flask web server, initialization has already occured",
 		});
-
-		console.log("Concluded intialziation state change");
 
 		this.handleResponse({ type: "ready" });
 	}
@@ -120,7 +115,6 @@ export class FlaskBackend implements Backend {
 
 		return new Promise<void>((resolve, reject) => {
 			const timeoutId = setTimeout(() => {
-				console.log("Timeout triggered");
 				if (this.pendingRequests.has(id)) {
 					this.pendingRequests.delete(id);
 					reject(new Error("Execution timeout"));
@@ -160,10 +154,6 @@ export class FlaskBackend implements Backend {
 					try {
 						resolve(JSON.parse(value) as T);
 					} catch {
-						console.log(
-							"Error in evaluating the expression:",
-							value,
-						);
 						reject(
 							new Error(`Failed to parse eval result: ${value}`),
 						);
@@ -232,15 +222,6 @@ export class FlaskBackend implements Backend {
 
 			this.streamingCodeQueue.length = 0;
 
-			if (this.streamingCodeQueue.length == 0) {
-				console.log("Streaming code queue is empty...");
-			} else {
-				console.log(
-					"There is something in the streaming code queue...",
-					this.streamingCodeQueue,
-				);
-			}
-
 			// Unlike the Pyodide version, we only need a while loop to go through commands that are queued up,
 			// It isn't necessary that we maintain a while loop while streaming as we are reading it with the fetch API
 
@@ -279,189 +260,85 @@ export class FlaskBackend implements Backend {
 				}
 			}
 
-			console.log("Streaming code expression is: ", expr);
+			let response = await fetch(getFlaskBackendUrl() + "/streamData");
 
-			let streaming = true;
+			if (response.body) {
+				for await (const chunk of response.body) {
+					let resArray: string[] = [];
 
-			if (streaming) {
-				let streamingData: object[] = [];
-				let response = await fetch(
-					getFlaskBackendUrl() + "/streamData",
-				);
+					const decoder = new TextDecoder("utf-8");
+					let jsonString = decoder.decode(chunk);
 
-				console.log(
-					"We have begun asynchronously reading the readable stream",
-				);
+					const responseSubstr = "success";
 
-				let individualResponses: string[] = [];
+					/* Sometimes within the same chunk I'll receive more than one API response
+					 * such that it appears liked jsonString = "{"success":...,"data":...}{"success":...,"data":...}"
+					 * so we need to take the time to break it up into its individual requests
+					 * */
 
-				if (response.body) {
-					for await (const chunk of response.body) {
-						let resArray: string[] = [];
+					let doneBreakingUp = false;
 
-						const decoder = new TextDecoder("utf-8");
-						let jsonString = decoder.decode(chunk);
+					while (
+						jsonString.indexOf(responseSubstr) &&
+						!doneBreakingUp
+					) {
+						let firstIndex = jsonString.indexOf(responseSubstr);
 
-						const responseSubstr = "success";
+						let remainingString = jsonString.slice(
+							firstIndex + responseSubstr.length,
+							jsonString.length,
+						);
+						let secondIndex =
+							remainingString.indexOf(responseSubstr);
 
-						/* Sometimes within the same chunk I'll receive more than one API response
-						 * such that it appears liked jsonString = "{"success":...,"data":...}{"success":...,"data":...}"
-						 * so we need to take the time to break it up into its individual requests
-						 * */
-
-						let doneBreakingUp = false;
-
-						while (
-							jsonString.indexOf(responseSubstr) &&
-							!doneBreakingUp
-						) {
-							let firstIndex = jsonString.indexOf(responseSubstr);
-
-							let remainingString = jsonString.slice(
-								firstIndex + responseSubstr.length,
+						if (secondIndex == -1 || firstIndex == -1) {
+							resArray.push(jsonString);
+							doneBreakingUp = true;
+						} else {
+							let request = jsonString.slice(
+								firstIndex - 2,
+								firstIndex +
+									responseSubstr.length +
+									secondIndex -
+									2,
+							);
+							resArray.push(request);
+							jsonString = jsonString.slice(
+								firstIndex +
+									responseSubstr.length +
+									secondIndex -
+									2,
 								jsonString.length,
 							);
-							let secondIndex =
-								remainingString.indexOf(responseSubstr);
-
-							// console.log(`First index: ${firstIndex}, Second index: ${secondIndex}`)
-
-							if (secondIndex == -1 || firstIndex == -1) {
-								resArray.push(jsonString);
-								// console.log("Adding response: ", jsonString)
-								doneBreakingUp = true;
-							} else {
-								let request = jsonString.slice(
-									firstIndex - 2,
-									firstIndex +
-										responseSubstr.length +
-										secondIndex -
-										2,
-								);
-								// console.log("Adding response: ", request)
-								resArray.push(request);
-								jsonString = jsonString.slice(
-									firstIndex +
-										responseSubstr.length +
-										secondIndex -
-										2,
-									jsonString.length,
-								);
-							}
-						}
-
-						let dataChunks = resArray.flatMap((res) => {
-							let parsedResponse = JSON.parse(res);
-							console.log(
-								"Done status is: ",
-								parsedResponse.result.done,
-							);
-							if (
-								parsedResponse.success &&
-								!parsedResponse.result.done &&
-								parsedResponse.result.result
-							) {
-								return parsedResponse;
-							} else {
-								return [];
-							}
-						});
-
-						for (let dataChunk of dataChunks) {
-							console.log(
-								"Passing through stream data: ",
-								dataChunk.result,
-							);
-							this.handleResponse({
-								type: "stream-data",
-								id,
-								value: JSON.stringify(
-									dataChunk.result,
-								) as string,
-							});
 						}
 					}
-				}
 
-				console.log("We have closed the readable stream");
-			} else {
-				// ---------------- OLD WAY OF FETCHING (without streaming) -----------------
-
-				while (this.streamingActive) {
-					let data = await fetch(
-						getFlaskBackendUrl() + "/evaluate-expression",
-						{
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-							},
-							body: JSON.stringify({ expr: expr }),
-						},
-					).then((res) => res.json());
-					// ---------------------------------------------------------------------------
-
-					// ------- (Need to rework) DATA ERROR and SUCCESS HANDLING ------------------
-					if (data.success && !data.error) {
-						console.log("Data: ", data);
-						if (data.output) {
-							this.handleResponse({
-								type: "stdout",
-								value: data.output,
-							});
+					let dataChunks = resArray.flatMap((res) => {
+						let parsedResponse = JSON.parse(res);
+						if (
+							parsedResponse.success &&
+							!parsedResponse.result.done &&
+							parsedResponse.result.result
+						) {
+							return parsedResponse;
+						} else {
+							return [];
 						}
-						data = data.result;
-					} else {
-						throw Error(data.error);
-					}
-					// ---------------------------------------------------------------------------
-
-					// ------- (Need to rework) LOGIC ABOUT INACTIVE STREAMING SO THAT WE STOP ---
-					if (!this.streamingActive) {
-						if (!data.done && data.result) {
-							// console.log("Still streaming data....")
-							if (data.result) {
-								console.log(
-									"(Flask) Still streaming data, but this value was returned: ",
-									data.result,
-								);
-							}
-							this.handleResponse({
-								type: "stream-data",
-								id,
-								value: JSON.stringify(data.result) as string,
-							});
-						}
-						break;
-					}
-					// ---------------------------------------------------------------------------
-
-					/* Subbed by the FLASK functionality ---------------
-					 * The Flask backend already handles the logic for looping until all data is concluded,
-					 * and it provides all the information in chunks */
-
-					if (data.done) {
-						break;
-					}
-
-					console.log(
-						"(Flask) Done streaming data, the final value is....",
-						data,
-					);
-
-					this.handleResponse({
-						type: "stream-data",
-						id,
-						value: JSON.stringify(data) as string,
 					});
-				}
 
-				// --------------------------------------------------
+					for (let dataChunk of dataChunks) {
+						this.handleResponse({
+							type: "stream-data",
+							id,
+							value: JSON.stringify(dataChunk.result) as string,
+						});
+					}
+				}
 			}
 		} catch (error) {
 			return this.runTracebackWithFlask(id, error);
 		} finally {
 			this.streamingActive = false;
-			console.log("Have completely finished streaming!");
 			this.handleResponse({ type: "stream-done", id });
 		}
 	}
@@ -670,11 +547,6 @@ export class FlaskBackend implements Backend {
 								value: data.output,
 							});
 						}
-						console.log(
-							"\n\n(Flask) The evaluated result from evaluating the expression: ",
-							JSON.stringify(data.result),
-							"\n\n",
-						);
 						this.handleResponse({
 							type: "value",
 							id,

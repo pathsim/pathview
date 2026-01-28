@@ -33,17 +33,12 @@ export function getBackend(): Backend {
  * Create a backend by type
  */
 export function createBackend(type: null |  BackendPreference): Backend {
-	console.log("(registry.ts, createBackend) Current Backend Preference is: ", type)
 	switch (type) {
 		case 'pyodide':
 		case null:
 			return new PyodideBackend();
 		case 'flask':
-			// let backend = new PyodideBackend()
-			// backend.setBackendPreference("flask")
 			return new FlaskBackend()
-		// case 'remote':
-		// 	throw new Error(`Backend type '${type}' not yet implemented`);
 		default:
 			throw new Error(`Unknown backend type: ${type}`);
 	}
@@ -54,7 +49,6 @@ export function createBackend(type: null |  BackendPreference): Backend {
  * Terminates the current backend before creating the new one
  */
 export function switchBackend(type: BackendPreference | null): Backend {
-	console.log("(registry.ts, switchBackend) Switching backend type to ", type)
 	if (currentBackend) {
 		currentBackend.terminate();
 	}

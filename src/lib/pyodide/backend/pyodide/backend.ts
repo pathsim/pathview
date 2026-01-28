@@ -7,7 +7,6 @@ import type { Backend, BackendState, REPLRequest, REPLResponse, REPLErrorRespons
 import { backendState } from '../state';
 import { TIMEOUTS } from '$lib/constants/python';
 import { PROGRESS_MESSAGES, STATUS_MESSAGES } from '$lib/constants/messages';
-import type { BackendPreference } from '$lib/types';
 
 interface PendingRequest {
 	resolve: (value: string | undefined) => void;
@@ -33,7 +32,6 @@ export class PyodideBackend implements Backend {
 	private messageId = 0;
 	private pendingRequests = new Map<string, PendingRequest>();
 	private isInitializing = false;
-	private backendPreference : null | BackendPreference = "pyodide";
 
 	private streamState: StreamState = {
 		id: null,
@@ -73,14 +71,11 @@ export class PyodideBackend implements Backend {
 		this.isInitializing = true;
 
 		try {
-			console.log("(backend.ts, init) The backend preference is: ", this.backendPreference)
 			this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
 
 			this.worker.onmessage = (event: MessageEvent<REPLResponse>) => {
 				this.handleResponse(event.data);
 			};
-
-			console.log("The worker is: ", this.worker)
 
 			this.worker.onerror = (event) => {
 				backendState.update((s) => ({
@@ -91,7 +86,7 @@ export class PyodideBackend implements Backend {
 			};
 
 			// Send init message
-			this.sendRequest({ type: 'init', backendPreference: this.backendPreference });
+			this.sendRequest({ type: 'init' });
 
 			// Wait for ready
 			await new Promise<void>((resolve, reject) => {
@@ -234,7 +229,6 @@ export class PyodideBackend implements Backend {
 					try {
 						resolve(JSON.parse(value) as T);
 					} catch {
-						console.log("Error in evaluating the expression:", value)
 						reject(new Error(`Failed to parse eval result: ${value}`));
 					}
 				},
@@ -323,7 +317,6 @@ export class PyodideBackend implements Backend {
 
 	private sendRequest(request: REPLRequest): void {
 		if (!this.worker) {
-			console.log(`Within sendRequest() I have an uninitialized worker!`) // Debugging console
 			throw new Error('Worker not initialized');
 		}
 		this.worker.postMessage(request);
@@ -431,14 +424,5 @@ export class PyodideBackend implements Backend {
 		}
 
 		backendState.update((s) => ({ ...s, error: error || 'Unknown error' }));
-	}
-
-	setBackendPreference(currentBackendPreference : null | BackendPreference):void {
-		console.log("(backend.ts) Setting backend preference: ", currentBackendPreference)
-		this.backendPreference = currentBackendPreference
-	}
-
-	getBackendPreference(): null | BackendPreference {
-		return this.backendPreference
 	}
 }

@@ -102,7 +102,6 @@ print(f"${pkg.import} {${pkg.import}.__version__} loaded successfully")
 async function execCode(id: string, code: string): Promise<void> {
     // Default to pyodide use
     if (!pyodide) {
-      console.log(`Within execCode() I have an uninitialized worker!`); // Debugging console
       throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
     }
     try {
@@ -132,7 +131,6 @@ traceback.format_exc()
 async function evalExpr(id: string, expr: string): Promise<void> {
     // Default to pyodide use
     if (!pyodide) {
-      console.log(`Within evalExpr() I have an uninitialized worker!`); // Debugging console
       throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
     }
 
@@ -141,11 +139,6 @@ async function evalExpr(id: string, expr: string): Promise<void> {
 _eval_result = ${expr}
 json.dumps(_eval_result, default=_to_json if '_to_json' in dir() else str)
 		`);
-      console.log(
-        "\n\n(Pyodide) The evaluated result from evaluating the expression: ",
-        result,
-        "\n\n",
-      );
       send({ type: "value", id, value: result as string });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -169,7 +162,6 @@ traceback.format_exc()
  */
 async function runStreamingLoop(id: string, expr: string): Promise<void> {
     if (!pyodide) {
-      console.log(`Within runStreamingLoop() I have an uninitialized worker!`); // Debugging console
       throw new Error(ERROR_MESSAGES.WORKER_NOT_INITIALIZED);
     }
 
@@ -192,8 +184,6 @@ async function runStreamingLoop(id: string, expr: string): Promise<void> {
           }
         }
 
-        console.log(`(Pyodide) The expression being sent is: `, expr)
-
         // Step the generator
         const result = await pyodide.runPythonAsync(`
 _eval_result = ${expr}
@@ -215,12 +205,7 @@ json.dumps(_eval_result, default=_to_json if '_to_json' in dir() else str)
         if (parsed.done) {
           break;
         }
-
-        // Send result and continue
-        console.log(
-          "(Pyodide) Done streaming data, the final value is....",
-          JSON.parse(result as string)
-        );
+        
         send({ type: "stream-data", id, value: result as string });
       }
     } catch (error) {

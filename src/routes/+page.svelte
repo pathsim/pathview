@@ -426,12 +426,10 @@
 		});
 
 		const unsubTheme = themeStore.subscribe((theme) => {
-			console.log("Unsubscribing from the theme store")
 			currentTheme = theme;
 		});
 
 		const unsubBackendPreference = backendPreferenceStore.subscribe((backendPreference) => {
-			console.log("Unsubscribing from the backend preference store")
 			currentBackendPreference = backendPreference
 		})
 
@@ -769,7 +767,6 @@
 	// Run simulation (auto-initializes if needed) - Interacts with "backend"
 	async function handleRun() {
 		// Logging the current backend preference
-		console.log(`(+page.svelte) The current backend preference is ${currentBackendPreference}`)
 
 		let usingPyodide = currentBackendPreference == "pyodide"
 
@@ -786,7 +783,6 @@
 		// Auto-initialize if not ready
 		if (!pyodideReady && usingPyodide) {
 			try {
-				console.log("Initializing Pyodide")
 				await initPyodide();
 			} catch (error) {
 				console.error('Failed to initialize Pyodide:', error);
@@ -817,29 +813,9 @@
 				statusText = 'Validating...';
 
 				let validation
-
-				// if(usingPyodide) {
+				
 				validation = await validateGraphSimulation(nodes, codeContext);
-				// } else {
-				// 	console.log("[Sending to Flask web server] The node registry is: ", nodeRegistry.getAll())
-				// 	let fetchedData = await fetch(getFlaskBackendUrl()+"/validateGraphSimulation", {
-				// 		method: "POST",
-				// 		body: JSON.stringify({
-				// 			nodes,
-				// 			codeContext,
-				// 			nodeRegistryNodes: nodeRegistry.getAll() // It is necessary to pass in the node registry to the backend since it doesn't have it
-				// 		}),
-				// 		headers: {
-				// 			"Content-Type":"application/json"
-				// 		}
-				// 	}).then(res => res.json())
-				// 	if(!fetchedData.success) {
-				// 		throw Error(fetchedData.error)
-				// 	} else {
-				// 		validation = fetchedData.data satisfies ValidationResult
-				// 	}
-				// }
-
+				
 				if (!validation.valid) {
 					// Show validation errors
 					showConsole = true;
@@ -867,7 +843,6 @@
 			// Run streaming simulation
 			try {
 				const events = eventStore.toJSON();
-				console.log("-- Starting STREAMING --")
 				await runGraphStreamingSimulation(
 					nodes,
 					connections,
