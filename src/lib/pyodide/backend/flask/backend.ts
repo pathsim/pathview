@@ -284,81 +284,101 @@ export class FlaskBackend implements Backend {
 			let streaming = true;
 
 			if (streaming) {
-				let stream = await fetch(
+				let streamingData: object[] = [];
+				let response = await fetch(
 					getFlaskBackendUrl() + "/streamData",
-				).then((res) => {
-					const reader = res.body?.getReader();
-					return new ReadableStream({
-						start(controller) {
-							function pump(): any {
-								return reader?.read().then((chunk) => {
-									console.log("Chunk: ", chunk);
-									console.log("Uint8Array for Chunk is ", chunk.value)
+				);
 
-									const decoder = new TextDecoder("utf-8");
-									let jsonString = decoder.decode(
-										chunk.value,
-									);
-									
-									console.log("Original JSON String: ", jsonString)
+				console.log(
+					"We have begun asynchronously reading the readable stream",
+				);
 
-									let individualResponses = []
-									const responseSubstr = "success"
+				let individualResponses:string[] = [];
 
-									/* Sometimes within the same chunk I'll receive more than one API response
-									 * such that it appears liked jsonString = "{"success":...,"data":...}{"success":...,"data":...}"
-									 * so we need to take the time to break it up into its individual requests
-									 * */
+				if (response.body) {
+					for await (const chunk of response.body) {
 
-									let doneBreakingUp = false
+						const decoder = new TextDecoder("utf-8");
+						let jsonString = decoder.decode(chunk);
 
-									while(jsonString.indexOf(responseSubstr) && !doneBreakingUp) {
-										let firstIndex = jsonString.indexOf(responseSubstr)
+						const responseSubstr = "success";
 
-										let remainingString = jsonString.slice(firstIndex+responseSubstr.length, jsonString.length)
-										let secondIndex = remainingString.indexOf(responseSubstr)
+						/* Sometimes within the same chunk I'll receive more than one API response
+						 * such that it appears liked jsonString = "{"success":...,"data":...}{"success":...,"data":...}"
+						 * so we need to take the time to break it up into its individual requests
+						 * */
 
-										// console.log(`First index: ${firstIndex}, Second index: ${secondIndex}`)
+						let doneBreakingUp = false;
 
-										if(secondIndex == -1 || firstIndex == -1) {
-											individualResponses.push(jsonString)
-											console.log("Adding response: ", jsonString)
-											doneBreakingUp = true
-										} else {
-											let request = jsonString.slice(firstIndex-2, firstIndex+responseSubstr.length+secondIndex-2)
-											console.log("Adding response: ", request)
-											individualResponses.push(request)
-											jsonString = jsonString.slice(firstIndex+responseSubstr.length+secondIndex-2, jsonString.length)
-										}
-									}
+						while (
+							jsonString.indexOf(responseSubstr) &&
+							!doneBreakingUp
+						) {
+							let firstIndex = jsonString.indexOf(responseSubstr);
 
+							let remainingString = jsonString.slice(
+								firstIndex + responseSubstr.length,
+								jsonString.length,
+							);
+							let secondIndex =
+								remainingString.indexOf(responseSubstr);
 
-									console.log("The individual responses from the string are: ", individualResponses)
+							// console.log(`First index: ${firstIndex}, Second index: ${secondIndex}`)
 
-									// console.log("JSON String: ", jsonString);
-
-									try {
-										let data = JSON.parse(jsonString);
-										console.log("Parsed Data: ", data);
-									} catch (error) {
-										console.log("We encountered an error: ", error)
-									}
-
-
-									// When no more data needs to be consumed, close the stream
-									if (chunk.done) {
-										controller.close();
-										return;
-									}
-									// Enqueue the next data chunk into our target stream
-									controller.enqueue(chunk.value);
-									return pump();
-								});
+							if (secondIndex == -1 || firstIndex == -1) {
+								individualResponses.push(jsonString);
+								// console.log("Adding response: ", jsonString)
+								doneBreakingUp = true;
+							} else {
+								let request = jsonString.slice(
+									firstIndex - 2,
+									firstIndex +
+										responseSubstr.length +
+										secondIndex -
+										2,
+								);
+								// console.log("Adding response: ", request)
+								individualResponses.push(request);
+								jsonString = jsonString.slice(
+									firstIndex +
+										responseSubstr.length +
+										secondIndex -
+										2,
+									jsonString.length,
+								);
 							}
-							return pump();
-						},
-					});
-				});
+						}
+					}
+
+					
+					console.log("The individual responses are: ", individualResponses)
+
+					let dataChunks = individualResponses.flatMap((res) => {
+						let parsedResponse = JSON.parse(res)
+						console.log("Done status is: ", parsedResponse.result.done)
+						if(parsedResponse.success && !parsedResponse.result.done && parsedResponse.result.result) {
+							return parsedResponse
+						} else {
+							return []
+						}
+					})
+					
+					console.log(
+						"The data chunks are: ",
+						dataChunks
+					);
+
+					for(let dataChunk of dataChunks) {
+						console.log("Passing through stream data: ", dataChunk.result)
+						this.handleResponse({
+							type: "stream-data",
+							id,
+							value: JSON.stringify(dataChunk.result) as string
+						})
+					}
+				}
+
+				console.log("We have closed the readable stream");
 			} else {
 				// ---------------- OLD WAY OF FETCHING (without streaming) -----------------
 
@@ -432,7 +452,6 @@ export class FlaskBackend implements Backend {
 
 				// --------------------------------------------------
 			}
-
 		} catch (error) {
 			return this.runTracebackWithFlask(id, error);
 		} finally {
