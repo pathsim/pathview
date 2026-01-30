@@ -3,8 +3,9 @@ import json
 import traceback
 import requests as req
 from flask import Flask, request, jsonify, Response, stream_with_context, session
-from flask_cors import CORS
 from flask_session import Session
+from flask_cors import CORS
+
 from cachelib import FileSystemCache
 
 from dotenv import load_dotenv
@@ -36,19 +37,25 @@ rather there would be some type of deployment of this application such that it c
 
 load_dotenv()
 
-server_namespace = {}
+server_namespaces = {}
 
 app = Flask(__name__, static_folder="../static", static_url_path="")
 
-print("The secret key is: ", os.getenv("SECRET_KEY"))
+# app.secret_key = os.getenv("SECRET_KEY")
+# app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-SESSION_TYPE = 'cachelib'
-SESSION_SERIALIZATION_FORMAT = 'json'
-SESSION_CACHELIB = FileSystemCache(threshold=500, cache_dir="/sessions")
-app.config.from_object(__name__)
+# app.config["SESSION_PERMANENT"] = False
+# app.config["SESSION_TYPE"] = 'filesystem'
+app.config.update(
+    SECRET_KEY=os.getenv("SECRET_KEY"), # Required for session
+    SESSION_COOKIE_SAMESITE='None',
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+)
+# app.config["SESSION_SERIALIZATION_FORMAT"] = 'json'
+# app.config["SESSION_CACHELIB"] = FileSystemCache(threshold=500, cache_dir="/sessions"),
 
-Session(app)
+# Session(app)
 
 if os.getenv("FLASK_ENV") == "production":
     CORS(app,
@@ -57,8 +64,8 @@ if os.getenv("FLASK_ENV") == "production":
                  "origins": ["*"],
                  "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                  "allow_headers": ["Content-Type", "Authorization"]
-             } 
-         })
+             }
+         }, supports_credentials=True)
 else:
     print("We are not in production...")
     CORS(
@@ -73,17 +80,20 @@ else:
 
 @app.route("/initialize", methods=["GET"])
 def initalize():
-    session_id = "None provided...."
+    session_id = None
 
     if "id" in session:
-        app.logger.info("Our current session ID is %s", session["id"])
         session_id = session["id"]
+        app.logger.info("We already have a session ID it is...")
+        app.logger.info(session_id)
     else:
         app.logger.info("Making a session id...")
-        session_id = uuid.uuid4()
+        session_id = str(os.urandom(12))
+        app.logger.info("Made the id: ")
+        app.logger.info(session_id)
         session["id"] = session_id
-        session.permanent = True
-        app.logger.info("Made the id: ", session_id)
+
+    server_namespaces[session_id] = {}
 
     try:
 
@@ -98,13 +108,29 @@ def initalize():
         }), 400
 
 @app.route("/idCheck", methods=["GET"])
-def namespaceCheck():
-    session_id = "No ID provided"
+def idCheck():
+    session_id = None
     if "id" in session:
         session_id = session["id"]
 
     return jsonify({ "success": True, "id": session_id })
 
+@app.route("/namespaceCheck", methods=["GET"])
+def namespaceCheck():
+    namespace = {}
+    session_id = None
+    if "id" in session:
+        app.logger.info("The id exists...")
+        session_id = session["id"]
+        if session_id in server_namespaces:
+            app.logger.info("Found an associated namespace...")
+            namespace = server_namespaces[session["id"]]
+    keys = ""
+    if isinstance(namespace, dict):
+        for k in server_namespaces.keys():
+            keys += k + ", "
+
+    return jsonify({ "success": True, "namespace_keys": keys})
 # Execute Python route copied from the previous repository
 @app.route("/execute-code", methods=["POST"])
 def execute_code():
@@ -121,11 +147,18 @@ def execute_code():
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()
 
-        temp_namespace = {}
+        user_namespace = {}
+        app.logger.info("Session: ", session)
+        app.logger.info("Session ID: ", session["id"])
+        if "id" in session:
+            user_namespace = server_namespaces[session["id"]]
 
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                exec(code, server_namespace)
+                exec(code, user_namespace)
+
+            if "id" in session:
+                server_namespaces[session["id"]] = user_namespace
 
             # Capture any output
             output = stdout_capture.getvalue()
@@ -158,16 +191,21 @@ def evaluate_expression():
         
         if not expr.strip():
             return jsonify({"success": False, "error": "No Python expression provided"}), 400
-        
-        temp_namespace = {}
 
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()
 
+        user_namespace = {}
+        if "id" in session:
+            user_namespace = server_namespaces[session["id"]]
+
         try:
             result = ""
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                result = eval(expr, server_namespace)
+                result = eval(expr, user_namespace)
+
+            if "id" in session:
+                server_namespaces[session["id"]] = user_namespace
 
             # Capture any output
             output = stdout_capture.getvalue()
@@ -208,13 +246,21 @@ def stream_data():
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()
 
+        user_namespace = {}
+        if "id" in session:
+            user_namespace = server_namespaces[session["id"]]
+
         isDone = False
         
         while not isDone:
 
             result = " "
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                result = eval(expr, server_namespace)
+                result = eval(expr, user_namespace)
+
+
+            if "id" in session:
+                server_namespaces[session["id"]] = user_namespace
 
             # Capture any output
             output = stdout_capture.getvalue()
@@ -282,4 +328,6 @@ def handle_exception(e):
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
+    print("Hello there...our port is: ", port)
+    print("Application Configuration: ", app.config)
     app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_ENV") != "production")

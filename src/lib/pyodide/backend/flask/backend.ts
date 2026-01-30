@@ -74,7 +74,9 @@ export class FlaskBackend implements Backend {
 
 		this.isInitializing = true
 
-		let data:any = await fetch(getFlaskBackendUrl()+"/initialize").then(res => res.json())
+		let data:any = await fetch(getFlaskBackendUrl()+"/initialize", {
+			credentials: "include"
+		}).then(res => res.json())
 
 		if(data.success) {
 			this.handleResponse({
@@ -257,6 +259,7 @@ export class FlaskBackend implements Backend {
 					let data = await fetch(
 						getFlaskBackendUrl() + "/execute-code",
 						{
+							credentials: "include",
 							method: "POST",
 							headers: {
 								"Content-Type": "application/json",
@@ -282,7 +285,9 @@ export class FlaskBackend implements Backend {
 				}
 			}
 
-			let response = await fetch(getFlaskBackendUrl() + "/streamData");
+			let response = await fetch(getFlaskBackendUrl() + "/streamData", {
+				credentials: "include"
+			});
 
 			if (response.body) {
 				for await (const chunk of response.body) {
@@ -418,7 +423,9 @@ export class FlaskBackend implements Backend {
 
 		try {
 			traceback = (
-				await fetch(getFlaskBackendUrl() + "/traceback")
+				await fetch(getFlaskBackendUrl() + "/traceback", {
+					credentials: "include"
+				})
 					.then((res) => res.json())
 					.then((res) => res.json)
 			).traceback as string;
@@ -527,6 +534,7 @@ export class FlaskBackend implements Backend {
 					let data = await fetch(
 						getFlaskBackendUrl() + "/execute-code",
 						{
+							credentials: "include",
 							method: "POST",
 							headers: {
 								"Content-Type": "application/json",
@@ -559,6 +567,7 @@ export class FlaskBackend implements Backend {
 					let data = await fetch(
 						getFlaskBackendUrl() + "/evaluate-expression",
 						{
+							credentials: "include",
 							method: "POST",
 							headers: {
 								"Content-Type": "application/json",
