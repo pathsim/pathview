@@ -55,7 +55,7 @@ app.config.update(
 # app.config["SESSION_SERIALIZATION_FORMAT"] = 'json'
 # app.config["SESSION_CACHELIB"] = FileSystemCache(threshold=500, cache_dir="/sessions"),
 
-# Session(app)
+# Session(app)f
 
 if os.getenv("FLASK_ENV") == "production":
     CORS(app,
@@ -157,6 +157,8 @@ def execute_code():
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
                 exec(code, user_namespace)
 
+            app.logger.info("User Namespace: ", user_namespace)
+
             if "id" in session:
                 server_namespaces[session["id"]] = user_namespace
 
@@ -203,6 +205,8 @@ def evaluate_expression():
             result = ""
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
                 result = eval(expr, user_namespace)
+
+            app.logger.info("User Namespace: ", user_namespace)
 
             if "id" in session:
                 server_namespaces[session["id"]] = user_namespace
@@ -258,7 +262,8 @@ def stream_data():
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
                 result = eval(expr, user_namespace)
 
-
+            app.logger.info("User Namespace: ", user_namespace)
+            
             if "id" in session:
                 server_namespaces[session["id"]] = user_namespace
 

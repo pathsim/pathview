@@ -68,6 +68,7 @@
 	// --------------------------- ROOT PAGE IMPORTS | END ---------------------------
 
 	import { isInputFocused } from '$lib/utils/focus';
+	import { page } from '$app/state';
 	
 	// Track mouse position for paste operations
 	let mousePosition = $state({ x: 0, y: 0 });
@@ -403,7 +404,7 @@
 	let hasRunSimulation = $state(false);
 	let statusText = $state('Ready');
 	let currentTheme = $state<Theme>('dark');
-	let currentBackendPreference = $state<BackendPreference>('pyodide');
+	let currentBackendPreference = $state<BackendPreference>(page.url.searchParams.get("backend") as BackendPreference ?? "pyodide");
 	let consoleLogCount = $state(0);
 	let plotActiveTab = $state(0);
 	let plotViewMode = $state<'tabs' | 'tiles'>('tabs');
@@ -709,10 +710,6 @@
 				case 't':
 					event.preventDefault();
 					themeStore.toggle();
-					return;
-				case 'q':
-					event.preventDefault();
-					backendPreferenceStore.toggle();
 					return;
 				case '+':
 				case '=':
@@ -1171,14 +1168,6 @@
 				aria-label="Console"
 			>
 				<Icon name="terminal" size={18} />
-			</button>
-			<button
-				class="toggle-btn"
-				onclick={() => backendPreferenceStore.toggle()}
-				use:tooltip={{ text: currentBackendPreference === 'pyodide' ? 'You are using Pyodide Web Assembly' : 'You are using a Flask Web Server', shortcut: "Q", position: "right" }}
-				aria-label="Toggle your backend preference"
-			>
-				<Icon name={currentBackendPreference === 'pyodide' ? 'laptop' : 'server'} size={18} />
 			</button>
 		</div>
 

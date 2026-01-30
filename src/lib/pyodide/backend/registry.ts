@@ -8,6 +8,7 @@ import { PyodideBackend } from './pyodide/backend';
 import type { BackendPreference } from '$lib/types';
 import { backendPreferenceStore } from '$lib/stores';
 import { FlaskBackend } from './flask/backend';
+import { page } from '$app/state';
 
 export type BackendType = 'pyodide' | 'local' | 'remote';
 
@@ -18,14 +19,13 @@ let currentBackendType: BackendPreference | null = null;
  * Get the current backend, creating a Pyodide backend if none exists
  */
 export function getBackend(): Backend {
-	
-	let currentBackendPreference = backendPreferenceStore.get()
+	let currentBackendPreference = page.url.searchParams.get('backend') ?? "pyodide"
 	if (!currentBackend) {
 		if(currentBackendPreference == null) currentBackendPreference = "pyodide"
-		currentBackend = createBackend(currentBackendPreference);
+		currentBackend = createBackend(currentBackendPreference as BackendPreference);
 	}
 	if(getBackendType() !== currentBackendPreference) {
-		switchBackend(currentBackendPreference)
+		switchBackend(currentBackendPreference as BackendPreference)
 	}
 	return currentBackend;
 }
