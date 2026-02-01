@@ -1,24 +1,17 @@
 import os
 import json
 import traceback
-import requests as req
 from flask import Flask, request, jsonify, Response, stream_with_context, session
-from flask_session import Session
 from flask_cors import CORS
 
-from cachelib import FileSystemCache
-
 from dotenv import load_dotenv
-import pickle
-import types
-import uuid
 
 import io
 from contextlib import redirect_stdout, redirect_stderr
 
 # Initialization Code
 
-import ast
+from datetime import datetime
 import numpy as np
 import gc
 import pathsim, pathsim_chem
@@ -26,7 +19,7 @@ import pathsim, pathsim_chem
 print(f"PathSim {pathsim.__version__} loaded successfully")
 
 STREAMING_STEP_EXPR = "_step_streaming_gen()"
-
+NAMESPACE_LIFETIME = 60* 60 * 1000 # A namespace will persist for a maximum of 1 hour before deletion
 _clean_globals = set(globals().keys())
 
 '''
@@ -93,7 +86,11 @@ def initalize():
         app.logger.info(session_id)
         session["id"] = session_id
 
-    server_namespaces[session_id] = {}
+    server_namespaces[session_id] = {
+        "namespace": {},
+        "lifetime": NAMESPACE_LIFETIME,
+        "created": datetime.now()
+    }
 
     try:
 
@@ -124,7 +121,7 @@ def namespaceCheck():
         session_id = session["id"]
         if session_id in server_namespaces:
             app.logger.info("Found an associated namespace...")
-            namespace = server_namespaces[session["id"]]
+            namespace = server_namespaces[session["id"]]["namespace"]
     keys = ""
     if isinstance(namespace, dict):
         for k in server_namespaces.keys():
@@ -151,7 +148,7 @@ def execute_code():
         app.logger.info("Session: ", session)
         app.logger.info("Session ID: ", session["id"])
         if "id" in session:
-            user_namespace = server_namespaces[session["id"]]
+            user_namespace = server_namespaces[session["id"]]["namespace"]
 
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
@@ -160,7 +157,7 @@ def execute_code():
             app.logger.info("User Namespace: ", user_namespace)
 
             if "id" in session:
-                server_namespaces[session["id"]] = user_namespace
+                server_namespaces[session["id"]]["namespace"] = user_namespace
 
             # Capture any output
             output = stdout_capture.getvalue()
@@ -199,7 +196,7 @@ def evaluate_expression():
 
         user_namespace = {}
         if "id" in session:
-            user_namespace = server_namespaces[session["id"]]
+            user_namespace = server_namespaces[session["id"]]["namespace"]
 
         try:
             result = ""
@@ -209,7 +206,7 @@ def evaluate_expression():
             app.logger.info("User Namespace: ", user_namespace)
 
             if "id" in session:
-                server_namespaces[session["id"]] = user_namespace
+                server_namespaces[session["id"]]["namespace"] = user_namespace
 
             # Capture any output
             output = stdout_capture.getvalue()
@@ -252,7 +249,7 @@ def stream_data():
 
         user_namespace = {}
         if "id" in session:
-            user_namespace = server_namespaces[session["id"]]
+            user_namespace = server_namespaces[session["id"]]["namespace"]
 
         isDone = False
         
@@ -263,9 +260,9 @@ def stream_data():
                 result = eval(expr, user_namespace)
 
             app.logger.info("User Namespace: ", user_namespace)
-            
+
             if "id" in session:
-                server_namespaces[session["id"]] = user_namespace
+                server_namespaces[session["id"]]["namespace"] = user_namespace
 
             # Capture any output
             output = stdout_capture.getvalue()
