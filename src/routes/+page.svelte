@@ -45,7 +45,7 @@
 	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName } from '$lib/schema/fileOps';
 	import { confirmationStore } from '$lib/stores/confirmation';
 	import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
-	import { triggerFitView, triggerZoomIn, triggerZoomOut, triggerPan, getViewportCenter, screenToFlow, triggerClearSelection, triggerNudge, hasAnySelection, setFitViewPadding } from '$lib/stores/viewActions';
+	import { triggerFitView, triggerZoomIn, triggerZoomOut, triggerPan, getViewportCenter, screenToFlow, triggerClearSelection, triggerNudge, hasAnySelection, setFitViewPadding, triggerFlyInAnimation } from '$lib/stores/viewActions';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 	import { pinnedPreviewsStore } from '$lib/stores/pinnedPreviews';
 	import { clipboardStore } from '$lib/stores/clipboard';
@@ -933,7 +933,12 @@
 
 		// addNode uses current navigation context automatically
 		// Subsystem creation auto-creates Interface block inside
-		historyStore.mutate(() => graphStore.addNode(type, position));
+		const newNode = historyStore.mutate(() => graphStore.addNode(type, position));
+
+		// Trigger fly-in animation for the new node
+		if (newNode) {
+			triggerFlyInAnimation(newNode.id, position);
+		}
 	}
 </script>
 
