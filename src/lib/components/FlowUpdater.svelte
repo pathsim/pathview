@@ -316,7 +316,9 @@
 						width: canvas?.clientWidth ?? window.innerWidth,
 						height: canvas?.clientHeight ?? window.innerHeight
 					};
-				}
+				},
+				value.cursorScreen,
+				screenToFlowPosition
 			);
 		}
 	});

@@ -935,9 +935,9 @@
 		// Subsystem creation auto-creates Interface block inside
 		const newNode = historyStore.mutate(() => graphStore.addNode(type, position));
 
-		// Trigger fly-in animation for the new node
+		// Trigger fly-in animation for the new node (from cursor position)
 		if (newNode) {
-			triggerFlyInAnimation(newNode.id, position);
+			triggerFlyInAnimation(newNode.id, position, mousePosition);
 		}
 	}
 </script>

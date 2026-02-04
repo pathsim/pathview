@@ -94,12 +94,27 @@ export function triggerEditAnnotation(annotationId: string): void {
 }
 
 // Fly-in animation trigger - triggers fly-in animation for a newly placed node
-export const flyInAnimationTrigger = writable<{ nodeId: string; position: { x: number; y: number }; id: number }>({
+export const flyInAnimationTrigger = writable<{
+	nodeId: string;
+	position: { x: number; y: number };
+	cursorScreen: { x: number; y: number } | null;
+	id: number
+}>({
 	nodeId: '',
 	position: { x: 0, y: 0 },
+	cursorScreen: null,
 	id: 0
 });
 
-export function triggerFlyInAnimation(nodeId: string, position: { x: number; y: number }): void {
-	flyInAnimationTrigger.update((current) => ({ nodeId, position, id: current.id + 1 }));
+export function triggerFlyInAnimation(
+	nodeId: string,
+	position: { x: number; y: number },
+	cursorScreen?: { x: number; y: number }
+): void {
+	flyInAnimationTrigger.update((current) => ({
+		nodeId,
+		position,
+		cursorScreen: cursorScreen ?? null,
+		id: current.id + 1
+	}));
 }
