@@ -13,6 +13,7 @@
 	import { runFlyInAnimation } from '$lib/animation/flyInAnimation';
 	import { importFile } from '$lib/schema/fileOps';
 	import { ALL_COMPONENT_EXTENSIONS } from '$lib/types/component';
+	import { GRID_SIZE } from '$lib/constants/grid';
 
 	interface Props {
 		pendingUpdates: string[];
@@ -132,12 +133,14 @@
 			// Check for node drop
 			const nodeType = event.dataTransfer?.getData('application/pathview-node');
 			if (nodeType) {
+				// Snap cursor position to grid - node center will be at cursor
+				// (nodes use center origin [0.5, 0.5])
+				const snappedX = Math.round(position.x / GRID_SIZE) * GRID_SIZE;
+				const snappedY = Math.round(position.y / GRID_SIZE) * GRID_SIZE;
+
 				// addNode uses current navigation context automatically
 				historyStore.mutate(() => {
-					graphStore.addNode(nodeType, {
-						x: position.x - 80,
-						y: position.y - 30
-					});
+					graphStore.addNode(nodeType, { x: snappedX, y: snappedY });
 				});
 				return;
 			}
