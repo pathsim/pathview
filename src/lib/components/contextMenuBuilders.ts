@@ -93,14 +93,14 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 			DIVIDER,
 			{
 				label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-				icon: 'tag',
+				icon: 'type',
 				action: () => historyStore.mutate(() =>
 					graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
 				)
 			},
 			{
 				label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-				icon: 'tag',
+				icon: 'type',
 				action: () => historyStore.mutate(() =>
 					graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
 				)
@@ -135,14 +135,14 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 			DIVIDER,
 			{
 				label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-				icon: 'tag',
+				icon: 'type',
 				action: () => historyStore.mutate(() =>
 					graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
 				)
 			},
 			{
 				label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-				icon: 'tag',
+				icon: 'type',
 				action: () => historyStore.mutate(() =>
 					graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
 				)
@@ -207,14 +207,14 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 		DIVIDER,
 		{
 			label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-			icon: 'tag',
+			icon: 'type',
 			action: () => historyStore.mutate(() =>
 				graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
 			)
 		},
 		{
 			label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-			icon: 'tag',
+			icon: 'type',
 			action: () => historyStore.mutate(() =>
 				graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
 			)
