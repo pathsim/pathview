@@ -207,14 +207,14 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 		DIVIDER,
 		{
 			label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-			icon: 'type',
+			icon: 'tag',
 			action: () => historyStore.mutate(() =>
 				graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
 			)
 		},
 		{
 			label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-			icon: 'type',
+			icon: 'tag',
 			action: () => historyStore.mutate(() =>
 				graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
 			)
