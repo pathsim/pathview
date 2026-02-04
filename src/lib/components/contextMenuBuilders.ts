@@ -77,8 +77,10 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 		const globalLabels = get(portLabelsStore);
 		const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
 		const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
+		const hasInputs = node.inputs && node.inputs.length > 0;
+		const hasOutputs = node.outputs && node.outputs.length > 0;
 
-		return [
+		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
 				icon: 'settings',
@@ -89,29 +91,41 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				label: 'Exit Subsystem',
 				icon: 'exit',
 				action: () => graphStore.drillUp()
-			},
-			DIVIDER,
-			{
-				label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-				icon: 'type',
-				action: () => historyStore.mutate(() =>
-					graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
-				)
-			},
-			{
-				label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-				icon: 'type',
-				action: () => historyStore.mutate(() =>
-					graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
-				)
-			},
+			}
+		];
+
+		if (hasInputs || hasOutputs) {
+			items.push(DIVIDER);
+			if (hasInputs) {
+				items.push({
+					label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+					)
+				});
+			}
+			if (hasOutputs) {
+				items.push({
+					label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+					)
+				});
+			}
+		}
+
+		items.push(
 			DIVIDER,
 			{
 				label: 'View Code',
 				icon: 'braces',
 				action: () => showBlockCode(nodeId)
 			}
-		];
+		);
+
+		return items;
 	}
 
 	// Subsystem blocks get "Enter" option
@@ -119,8 +133,10 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 		const globalLabels = get(portLabelsStore);
 		const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
 		const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
+		const hasInputs = node.inputs && node.inputs.length > 0;
+		const hasOutputs = node.outputs && node.outputs.length > 0;
 
-		return [
+		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
 				icon: 'settings',
@@ -131,22 +147,32 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				icon: 'enter',
 				shortcut: 'Dbl-click',
 				action: () => graphStore.drillDown(nodeId)
-			},
-			DIVIDER,
-			{
-				label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-				icon: 'type',
-				action: () => historyStore.mutate(() =>
-					graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
-				)
-			},
-			{
-				label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-				icon: 'type',
-				action: () => historyStore.mutate(() =>
-					graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
-				)
-			},
+			}
+		];
+
+		if (hasInputs || hasOutputs) {
+			items.push(DIVIDER);
+			if (hasInputs) {
+				items.push({
+					label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+					)
+				});
+			}
+			if (hasOutputs) {
+				items.push({
+					label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+					)
+				});
+			}
+		}
+
+		items.push(
 			DIVIDER,
 			{
 				label: 'View Code',
@@ -184,7 +210,9 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				shortcut: 'Del',
 				action: () => historyStore.mutate(() => graphStore.removeNode(nodeId))
 			}
-		];
+		);
+
+		return items;
 	}
 
 	// Check if this is a recording node (Scope or Spectrum)
@@ -195,6 +223,8 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 	const globalLabels = get(portLabelsStore);
 	const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
 	const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
+	const hasInputs = node.inputs && node.inputs.length > 0;
+	const hasOutputs = node.outputs && node.outputs.length > 0;
 
 	// Regular blocks
 	const items: MenuItemType[] = [
@@ -203,29 +233,39 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 			icon: 'settings',
 			shortcut: 'Dbl-click',
 			action: () => openNodeDialog(nodeId)
-		},
-		DIVIDER,
-		{
-			label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-			icon: 'tag',
-			action: () => historyStore.mutate(() =>
-				graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
-			)
-		},
-		{
-			label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-			icon: 'tag',
-			action: () => historyStore.mutate(() =>
-				graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
-			)
-		},
+		}
+	];
+
+	if (hasInputs || hasOutputs) {
+		items.push(DIVIDER);
+		if (hasInputs) {
+			items.push({
+				label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+				icon: 'tag',
+				action: () => historyStore.mutate(() =>
+					graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+				)
+			});
+		}
+		if (hasOutputs) {
+			items.push({
+				label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+				icon: 'tag',
+				action: () => historyStore.mutate(() =>
+					graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+				)
+			});
+		}
+	}
+
+	items.push(
 		DIVIDER,
 		{
 			label: 'View Code',
 			icon: 'braces',
 			action: () => showBlockCode(nodeId)
 		}
-	];
+	);
 
 	// Add CSV export for recording nodes
 	if (isRecordingNode) {
