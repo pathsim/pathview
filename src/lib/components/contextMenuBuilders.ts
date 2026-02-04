@@ -25,6 +25,7 @@ import { hasExportableData, exportRecordingData } from '$lib/utils/csvExport';
 import { exportToSVG } from '$lib/export/svg';
 import { downloadSvg } from '$lib/utils/download';
 import { plotSettingsStore, DEFAULT_BLOCK_SETTINGS } from '$lib/stores/plotSettings';
+import { portLabelsStore } from '$lib/stores/portLabels';
 
 /** Divider menu item */
 const DIVIDER: MenuItemType = { label: '', action: () => {}, divider: true };
@@ -73,7 +74,13 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 
 	// Interface blocks have limited options
 	if (isInterface) {
-		return [
+		const globalLabels = get(portLabelsStore);
+		const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
+		const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
+		const hasInputs = node.inputs && node.inputs.length > 0;
+		const hasOutputs = node.outputs && node.outputs.length > 0;
+
+		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
 				icon: 'settings',
@@ -84,19 +91,52 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				label: 'Exit Subsystem',
 				icon: 'exit',
 				action: () => graphStore.drillUp()
-			},
+			}
+		];
+
+		if (hasInputs || hasOutputs) {
+			items.push(DIVIDER);
+			if (hasInputs) {
+				items.push({
+					label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+					)
+				});
+			}
+			if (hasOutputs) {
+				items.push({
+					label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+					)
+				});
+			}
+		}
+
+		items.push(
 			DIVIDER,
 			{
 				label: 'View Code',
 				icon: 'braces',
 				action: () => showBlockCode(nodeId)
 			}
-		];
+		);
+
+		return items;
 	}
 
 	// Subsystem blocks get "Enter" option
 	if (isSubsystem) {
-		return [
+		const globalLabels = get(portLabelsStore);
+		const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
+		const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
+		const hasInputs = node.inputs && node.inputs.length > 0;
+		const hasOutputs = node.outputs && node.outputs.length > 0;
+
+		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
 				icon: 'settings',
@@ -107,7 +147,32 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				icon: 'enter',
 				shortcut: 'Dbl-click',
 				action: () => graphStore.drillDown(nodeId)
-			},
+			}
+		];
+
+		if (hasInputs || hasOutputs) {
+			items.push(DIVIDER);
+			if (hasInputs) {
+				items.push({
+					label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+					)
+				});
+			}
+			if (hasOutputs) {
+				items.push({
+					label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+					icon: 'tag',
+					action: () => historyStore.mutate(() =>
+						graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+					)
+				});
+			}
+		}
+
+		items.push(
 			DIVIDER,
 			{
 				label: 'View Code',
@@ -145,12 +210,21 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				shortcut: 'Del',
 				action: () => historyStore.mutate(() => graphStore.removeNode(nodeId))
 			}
-		];
+		);
+
+		return items;
 	}
 
 	// Check if this is a recording node (Scope or Spectrum)
 	const isRecordingNode = node.type === 'Scope' || node.type === 'Spectrum';
 	const dataSource = node.type === 'Scope' ? 'scope' : 'spectrum';
+
+	// Per-node port label visibility (undefined = follow global)
+	const globalLabels = get(portLabelsStore);
+	const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
+	const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
+	const hasInputs = node.inputs && node.inputs.length > 0;
+	const hasOutputs = node.outputs && node.outputs.length > 0;
 
 	// Regular blocks
 	const items: MenuItemType[] = [
@@ -159,14 +233,39 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 			icon: 'settings',
 			shortcut: 'Dbl-click',
 			action: () => openNodeDialog(nodeId)
-		},
+		}
+	];
+
+	if (hasInputs || hasOutputs) {
+		items.push(DIVIDER);
+		if (hasInputs) {
+			items.push({
+				label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+				icon: 'tag',
+				action: () => historyStore.mutate(() =>
+					graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+				)
+			});
+		}
+		if (hasOutputs) {
+			items.push({
+				label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+				icon: 'tag',
+				action: () => historyStore.mutate(() =>
+					graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+				)
+			});
+		}
+	}
+
+	items.push(
 		DIVIDER,
 		{
 			label: 'View Code',
 			icon: 'braces',
 			action: () => showBlockCode(nodeId)
 		}
-	];
+	);
 
 	// Add CSV export for recording nodes
 	if (isRecordingNode) {

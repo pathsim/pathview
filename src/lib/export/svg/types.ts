@@ -19,6 +19,8 @@ export interface ExportOptions {
 	showTypeLabels?: boolean;
 	/** Whether to render handle shapes (default: true) */
 	showHandles?: boolean;
+	/** Whether to render port labels: true, false, or 'auto' to match canvas state (default: 'auto') */
+	showPortLabels?: boolean | 'auto';
 }
 
 /** Render context passed to all renderers */
@@ -44,5 +46,6 @@ export const DEFAULT_OPTIONS: Required<ExportOptions> = {
 	padding: EXPORT_PADDING,
 	showLabels: true,
 	showTypeLabels: true,
-	showHandles: true
+	showHandles: true,
+	showPortLabels: 'auto'
 };
