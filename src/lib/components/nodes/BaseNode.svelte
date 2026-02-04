@@ -8,11 +8,12 @@
 	import { graphStore } from '$lib/stores/graph';
 	import { historyStore } from '$lib/stores/history';
 	import { pinnedPreviewsStore } from '$lib/stores/pinnedPreviews';
+	import { portLabelsStore } from '$lib/stores/portLabels';
 	import { hoveredHandle, selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
-	import { NODE, getPortPositionCalc, calculateNodeDimensions, snapTo2G } from '$lib/constants/dimensions';
+	import { NODE, PORT_LABEL, getPortPositionCalc, calculateNodeDimensions, snapTo2G } from '$lib/constants/dimensions';
 	import { containsMath, renderInlineMath, renderInlineMathSync, measureRenderedMath, getBaselineTextHeight } from '$lib/utils/inlineMathRenderer';
 	import { getKatexCssUrl } from '$lib/utils/katexLoader';
 	import PlotPreview from './PlotPreview.svelte';
@@ -58,9 +59,24 @@
 		hasPlotData = state.plots.has(id);
 	});
 
+	// Port labels visibility
+	let showPortLabels = $state(false);
+	const unsubscribePortLabels = portLabelsStore.subscribe((value) => {
+		showPortLabels = value;
+	});
+
+	// Re-measure node when port labels toggle changes
+	$effect(() => {
+		// Dependency on showPortLabels
+		if (showPortLabels !== undefined) {
+			updateNodeInternals(id);
+		}
+	});
+
 	onDestroy(() => {
 		unsubscribePinned();
 		unsubscribePlotData();
+		unsubscribePortLabels();
 		if (hoverTimeout) clearTimeout(hoverTimeout);
 	});
 
@@ -186,7 +202,8 @@
 		data.outputs.length,
 		pinnedCount,
 		rotation,
-		typeDef?.name
+		typeDef?.name,
+		showPortLabels
 	));
 	// Use measured width if math is rendered and measured, otherwise use calculated
 	const nodeWidth = $derived(() => {
@@ -200,12 +217,18 @@
 			const pinnedParamsWidth = pinnedCount > 0 ? 160 : 0;
 
 			// Minimum width for layout (without name string-length estimate)
-			const minLayoutWidth = snapTo2G(Math.max(
+			let minLayoutWidth = snapTo2G(Math.max(
 				NODE.baseWidth,
 				typeWidth,
 				pinnedParamsWidth,
 				isVertical ? minPortDimension : 0
 			));
+
+			// Add port label columns if enabled (horizontal ports only)
+			if (showPortLabels && !isVertical) {
+				if (data.inputs.length > 0) minLayoutWidth += PORT_LABEL.columnWidth;
+				if (data.outputs.length > 0) minLayoutWidth += PORT_LABEL.columnWidth;
+			}
 
 			// Add horizontal padding from .node-content (12px each side = 24px)
 			const measuredMathWidth = snapTo2G(measuredNameWidth + 24);
@@ -229,7 +252,13 @@
 				const pinnedParamsHeight = pinnedCount > 0 ? 7 + 24 * pinnedCount : 0;
 
 				// Content height: math height + type label (12px) + padding (12px)
-				const contentHeight = measuredNameHeight + 24 + pinnedParamsHeight;
+				let contentHeight = measuredNameHeight + 24 + pinnedParamsHeight;
+
+				// Add port label rows if enabled (vertical ports only)
+				if (showPortLabels && isVertical) {
+					if (data.inputs.length > 0) contentHeight += PORT_LABEL.rowHeight;
+					if (data.outputs.length > 0) contentHeight += PORT_LABEL.rowHeight;
+				}
 
 				return isVertical
 					? snapTo2G(contentHeight)
@@ -303,6 +332,11 @@
 		if (value === null || value === undefined) return '';
 		if (typeof value === 'object') return JSON.stringify(value);
 		return String(value);
+	}
+
+	// Truncate port label for display
+	function truncateLabel(name: string, maxChars: number = 5): string {
+		return name.length > maxChars ? name.slice(0, maxChars) : name;
 	}
 
 	// Format default value for placeholder (Python style)
@@ -379,6 +413,9 @@
 	class:vertical={isVertical}
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
+	class:show-labels={showPortLabels}
+	class:has-inputs={data.inputs.length > 0}
+	class:has-outputs={data.outputs.length > 0}
 	data-rotation={rotation}
 	style="width: {nodeWidth()}px; height: {nodeHeight()}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
@@ -398,6 +435,26 @@
 	<!-- Glow effect for selected state -->
 	{#if selected}
 		<div class="selection-glow"></div>
+	{/if}
+
+	<!-- Input port labels (horizontal: left side for rotation 0, right for rotation 2) -->
+	{#if showPortLabels && data.inputs.length > 0 && !isVertical}
+		<div class="port-labels port-labels-input" class:port-labels-right={rotation === 2}>
+			{#each data.inputs as port, i}
+				<span class="port-label" style="top: {getPortPositionCalc(i, data.inputs.length)};">
+					{truncateLabel(port.name)}
+				</span>
+			{/each}
+		</div>
+	{/if}
+
+	<!-- Input port labels (vertical: top row for rotation 1, bottom row for rotation 3) -->
+	{#if showPortLabels && data.inputs.length > 0 && isVertical}
+		<div class="port-labels port-labels-row" class:port-labels-bottom={rotation === 3}>
+			{#each data.inputs as port}
+				<span class="port-label">{truncateLabel(port.name)}</span>
+			{/each}
+		</div>
 	{/if}
 
 	<!-- Inner wrapper for content clipping -->
@@ -439,6 +496,26 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- Output port labels (horizontal: right side for rotation 0, left for rotation 2) -->
+	{#if showPortLabels && data.outputs.length > 0 && !isVertical}
+		<div class="port-labels port-labels-output" class:port-labels-left={rotation === 2}>
+			{#each data.outputs as port, i}
+				<span class="port-label" style="top: {getPortPositionCalc(i, data.outputs.length)};">
+					{truncateLabel(port.name)}
+				</span>
+			{/each}
+		</div>
+	{/if}
+
+	<!-- Output port labels (vertical: bottom row for rotation 1, top row for rotation 3) -->
+	{#if showPortLabels && data.outputs.length > 0 && isVertical}
+		<div class="port-labels port-labels-row" class:port-labels-top={rotation === 3}>
+			{#each data.outputs as port}
+				<span class="port-label">{truncateLabel(port.name)}</span>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Port controls for dynamic inputs (only show when selected) -->
 	{#if allowsDynamicInputs && selected}
@@ -869,5 +946,89 @@
 		to {
 			opacity: 1;
 		}
+	}
+
+	/* Port labels - 3-column grid layout when labels are shown (horizontal) */
+	.node.show-labels:not(.vertical) {
+		display: grid;
+		grid-template-columns: var(--input-col, 0px) 1fr var(--output-col, 0px);
+	}
+	.node.show-labels.has-inputs:not(.vertical) {
+		--input-col: 40px;
+	}
+	.node.show-labels.has-outputs:not(.vertical) {
+		--output-col: 40px;
+	}
+
+	/* Port labels - 3-row grid layout when labels are shown (vertical) */
+	.node.show-labels.vertical {
+		display: grid;
+		grid-template-rows: var(--input-row, 0px) 1fr var(--output-row, 0px);
+	}
+	.node.show-labels.vertical.has-inputs {
+		--input-row: 20px;
+	}
+	.node.show-labels.vertical.has-outputs {
+		--output-row: 20px;
+	}
+
+	/* Label containers */
+	.port-labels {
+		position: relative;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	/* Horizontal layout: left/right columns */
+	.port-labels-input:not(.port-labels-right) {
+		text-align: right;
+		padding-right: 4px;
+	}
+	.port-labels-output:not(.port-labels-left) {
+		text-align: left;
+		padding-left: 4px;
+	}
+
+	/* Flipped for rotation 2 */
+	.port-labels-input.port-labels-right {
+		text-align: left;
+		padding-left: 4px;
+	}
+	.port-labels-output.port-labels-left {
+		text-align: right;
+		padding-right: 4px;
+	}
+
+	/* Individual port labels (absolute positioning for horizontal) */
+	.port-label {
+		position: absolute;
+		font-size: 8px;
+		color: var(--text-muted);
+		white-space: nowrap;
+		transform: translateY(-50%);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 36px;
+		left: 0;
+		right: 0;
+	}
+
+	/* Vertical rotation - horizontal row of labels */
+	.port-labels-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 20px;
+		height: 100%;
+	}
+
+	.port-labels-row .port-label {
+		position: relative;
+		transform: none;
+		top: auto;
+		left: auto;
+		right: auto;
+		text-align: center;
 	}
 </style>
