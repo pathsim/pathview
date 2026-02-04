@@ -6,12 +6,14 @@
 	import { historyStore } from '$lib/stores/history';
 	import { eventRegistry } from '$lib/events/registry';
 	import type { EventInstance } from '$lib/events/types';
-	import { fitViewTrigger, fitViewPadding, type FitViewPadding, zoomInTrigger, zoomOutTrigger, panTrigger, focusNodeTrigger, registerScreenToFlowConverter } from '$lib/stores/viewActions';
+	import { fitViewTrigger, fitViewPadding, type FitViewPadding, zoomInTrigger, zoomOutTrigger, panTrigger, focusNodeTrigger, registerScreenToFlowConverter, flyInAnimationTrigger } from '$lib/stores/viewActions';
 	import { get } from 'svelte/store';
 	import { dropTargetBridge } from '$lib/stores/dropTargetBridge';
 	import { assemblyAnimationTrigger, runAssemblyAnimation } from '$lib/animation/assemblyAnimation';
+	import { runFlyInAnimation } from '$lib/animation/flyInAnimation';
 	import { importFile } from '$lib/schema/fileOps';
 	import { ALL_COMPONENT_EXTENSIONS } from '$lib/types/component';
+	import { GRID_SIZE } from '$lib/constants/grid';
 
 	interface Props {
 		pendingUpdates: string[];
@@ -131,12 +133,14 @@
 			// Check for node drop
 			const nodeType = event.dataTransfer?.getData('application/pathview-node');
 			if (nodeType) {
+				// Snap cursor position to grid - node center will be at cursor
+				// (nodes use center origin [0.5, 0.5])
+				const snappedX = Math.round(position.x / GRID_SIZE) * GRID_SIZE;
+				const snappedY = Math.round(position.y / GRID_SIZE) * GRID_SIZE;
+
 				// addNode uses current navigation context automatically
 				historyStore.mutate(() => {
-					graphStore.addNode(nodeType, {
-						x: position.x - 80,
-						y: position.y - 30
-					});
+					graphStore.addNode(nodeType, { x: snappedX, y: snappedY });
 				});
 				return;
 			}
@@ -290,6 +294,31 @@
 						height: canvas?.clientHeight ?? window.innerHeight
 					};
 				}
+			);
+		}
+	});
+
+	// Listen for fly-in animation trigger (when node is added via click)
+	let lastFlyInTrigger = 0;
+	flyInAnimationTrigger.subscribe((value) => {
+		if (value.id > lastFlyInTrigger && value.nodeId) {
+			lastFlyInTrigger = value.id;
+			runFlyInAnimation(
+				value.nodeId,
+				value.position,
+				() => {
+					const vp = getViewport();
+					const canvas = document.querySelector('.svelte-flow') as HTMLElement;
+					return {
+						zoom: vp.zoom,
+						x: vp.x,
+						y: vp.y,
+						width: canvas?.clientWidth ?? window.innerWidth,
+						height: canvas?.clientHeight ?? window.innerHeight
+					};
+				},
+				value.cursorScreen,
+				screenToFlowPosition
 			);
 		}
 	});
