@@ -228,23 +228,27 @@
 			const typeWidth = typeDef ? typeDef.name.length * 5 + 20 : 0;
 			const pinnedParamsWidth = pinnedCount > 0 ? 160 : 0;
 
-			// Minimum width for layout (without name string-length estimate)
-			let minLayoutWidth = snapTo2G(Math.max(
+			// Minimum content width for layout (without name string-length estimate)
+			const minContentWidth = snapTo2G(Math.max(
 				NODE.baseWidth,
 				typeWidth,
 				pinnedParamsWidth,
 				isVertical ? minPortDimension : 0
 			));
 
-			// Add port label columns if enabled (horizontal ports only)
-			if (!isVertical) {
-				if (showInputLabels && data.inputs.length > 0) minLayoutWidth += PORT_LABEL.columnWidth;
-				if (showOutputLabels && data.outputs.length > 0) minLayoutWidth += PORT_LABEL.columnWidth;
-			}
-
 			// Add horizontal padding from .node-content (12px each side = 24px)
 			const measuredMathWidth = snapTo2G(measuredNameWidth + 24);
-			return Math.max(minLayoutWidth, measuredMathWidth);
+
+			// Content width is max of minimum and measured
+			let totalWidth = Math.max(minContentWidth, measuredMathWidth);
+
+			// Add port label columns on top of content width (horizontal ports only)
+			if (!isVertical) {
+				if (showInputLabels && data.inputs.length > 0) totalWidth += PORT_LABEL.columnWidth;
+				if (showOutputLabels && data.outputs.length > 0) totalWidth += PORT_LABEL.columnWidth;
+			}
+
+			return totalWidth;
 		}
 		return nodeDimensions.width;
 	});
@@ -264,17 +268,19 @@
 				const pinnedParamsHeight = pinnedCount > 0 ? 7 + 24 * pinnedCount : 0;
 
 				// Content height: math height + type label (12px) + padding (12px)
-				let contentHeight = measuredNameHeight + 24 + pinnedParamsHeight;
+				const contentHeight = measuredNameHeight + 24 + pinnedParamsHeight;
 
-				// Add port label rows if enabled (vertical ports only)
-				if (isVertical) {
-					if (showInputLabels && data.inputs.length > 0) contentHeight += PORT_LABEL.rowHeight;
-					if (showOutputLabels && data.outputs.length > 0) contentHeight += PORT_LABEL.rowHeight;
-				}
-
-				return isVertical
+				let totalHeight = isVertical
 					? snapTo2G(contentHeight)
 					: snapTo2G(Math.max(contentHeight, minPortDimension));
+
+				// Add port label rows on top of content height (vertical ports only)
+				if (isVertical) {
+					if (showInputLabels && data.inputs.length > 0) totalHeight += PORT_LABEL.rowHeight;
+					if (showOutputLabels && data.outputs.length > 0) totalHeight += PORT_LABEL.rowHeight;
+				}
+
+				return totalHeight;
 			}
 		}
 		return nodeDimensions.height;
@@ -981,46 +987,47 @@
 		}
 	}
 
-	/* Port labels - 3-column grid layout when labels are shown (horizontal) */
+	/* Port labels - grid layout when labels are shown (horizontal) */
+	/* Base: enable grid on .node-clip */
 	.node.show-labels:not(.vertical) .node-clip {
 		display: grid;
-		grid-template-columns: var(--left-col, 0px) 1fr var(--right-col, 0px);
 		grid-template-rows: 1fr;
 	}
-	/* Rotation 0: inputs left, outputs right */
-	.node.show-labels:not(.vertical)[data-rotation="0"].has-inputs {
-		--left-col: 40px;
+
+	/* Rotation 0/2: Both inputs and outputs - 3 columns */
+	.node.show-labels:not(.vertical).has-inputs.has-outputs .node-clip {
+		grid-template-columns: 40px 1fr 40px;
 	}
-	.node.show-labels:not(.vertical)[data-rotation="0"].has-outputs {
-		--right-col: 40px;
+	/* Rotation 0: inputs only - 2 columns (labels left, content right) */
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-inputs:not(.has-outputs) .node-clip,
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-outputs:not(.has-inputs) .node-clip {
+		grid-template-columns: 40px 1fr;
 	}
-	/* Rotation 2: inputs right, outputs left */
-	.node.show-labels:not(.vertical)[data-rotation="2"].has-outputs {
-		--left-col: 40px;
-	}
-	.node.show-labels:not(.vertical)[data-rotation="2"].has-inputs {
-		--right-col: 40px;
+	/* Rotation 0: outputs only - 2 columns (content left, labels right) */
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-outputs:not(.has-inputs) .node-clip,
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-inputs:not(.has-outputs) .node-clip {
+		grid-template-columns: 1fr 40px;
 	}
 
-	/* Port labels - 3-row grid layout when labels are shown (vertical) */
+	/* Port labels - grid layout when labels are shown (vertical) */
 	.node.show-labels.vertical .node-clip {
 		display: grid;
 		grid-template-columns: 1fr;
-		grid-template-rows: var(--top-row, 0px) 1fr var(--bottom-row, 0px);
 	}
-	/* Rotation 1: inputs top, outputs bottom */
-	.node.show-labels.vertical[data-rotation="1"].has-inputs {
-		--top-row: 40px;
+
+	/* Rotation 1/3: Both inputs and outputs - 3 rows */
+	.node.show-labels.vertical.has-inputs.has-outputs .node-clip {
+		grid-template-rows: 40px 1fr 40px;
 	}
-	.node.show-labels.vertical[data-rotation="1"].has-outputs {
-		--bottom-row: 40px;
+	/* Rotation 1: inputs only - 2 rows (labels top, content bottom) */
+	.node.show-labels.vertical[data-rotation="1"].has-inputs:not(.has-outputs) .node-clip,
+	.node.show-labels.vertical[data-rotation="3"].has-outputs:not(.has-inputs) .node-clip {
+		grid-template-rows: 40px 1fr;
 	}
-	/* Rotation 3: inputs bottom, outputs top */
-	.node.show-labels.vertical[data-rotation="3"].has-outputs {
-		--top-row: 40px;
-	}
-	.node.show-labels.vertical[data-rotation="3"].has-inputs {
-		--bottom-row: 40px;
+	/* Rotation 1: outputs only - 2 rows (content top, labels bottom) */
+	.node.show-labels.vertical[data-rotation="1"].has-outputs:not(.has-inputs) .node-clip,
+	.node.show-labels.vertical[data-rotation="3"].has-inputs:not(.has-outputs) .node-clip {
+		grid-template-rows: 1fr 40px;
 	}
 
 	/* Label containers */
@@ -1031,61 +1038,69 @@
 		overflow: visible;
 	}
 
-	/* Horizontal layout: explicit grid column placement */
-	.node.show-labels:not(.vertical) .node-clip > .port-labels-input {
-		grid-column: 1;
-		grid-row: 1;
-		border-right: 1px solid var(--border);
-	}
-	.node.show-labels:not(.vertical) .node-clip > .node-inner {
-		grid-column: 2;
-		grid-row: 1;
-	}
-	.node.show-labels:not(.vertical) .node-clip > .port-labels-output {
-		grid-column: 3;
-		grid-row: 1;
-		border-left: 1px solid var(--border);
-	}
+	/* Horizontal layout: grid column placement - rotation 0 (inputs left, outputs right) */
+	/* Both labels: input=1, content=2, output=3 */
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-inputs.has-outputs .node-clip > .port-labels-input { grid-column: 1; }
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-inputs.has-outputs .node-clip > .node-inner { grid-column: 2; }
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-inputs.has-outputs .node-clip > .port-labels-output { grid-column: 3; }
+	/* Input labels only: input=1, content=2 */
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-inputs:not(.has-outputs) .node-clip > .port-labels-input { grid-column: 1; }
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-inputs:not(.has-outputs) .node-clip > .node-inner { grid-column: 2; }
+	/* Output labels only: content=1, output=2 */
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-outputs:not(.has-inputs) .node-clip > .node-inner { grid-column: 1; }
+	.node.show-labels:not(.vertical)[data-rotation="0"].has-outputs:not(.has-inputs) .node-clip > .port-labels-output { grid-column: 2; }
 
-	/* Rotation 2: swap input/output column positions */
-	.node.show-labels:not(.vertical)[data-rotation="2"] .node-clip > .port-labels-input {
-		grid-column: 3;
-		border-right: none;
-		border-left: 1px solid var(--border);
-	}
-	.node.show-labels:not(.vertical)[data-rotation="2"] .node-clip > .port-labels-output {
-		grid-column: 1;
-		border-left: none;
-		border-right: 1px solid var(--border);
-	}
+	/* Horizontal layout: grid column placement - rotation 2 (inputs right, outputs left) */
+	/* Both labels: output=1, content=2, input=3 */
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-inputs.has-outputs .node-clip > .port-labels-output { grid-column: 1; }
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-inputs.has-outputs .node-clip > .node-inner { grid-column: 2; }
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-inputs.has-outputs .node-clip > .port-labels-input { grid-column: 3; }
+	/* Output labels only (left side): output=1, content=2 */
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-outputs:not(.has-inputs) .node-clip > .port-labels-output { grid-column: 1; }
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-outputs:not(.has-inputs) .node-clip > .node-inner { grid-column: 2; }
+	/* Input labels only (right side): content=1, input=2 */
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-inputs:not(.has-outputs) .node-clip > .node-inner { grid-column: 1; }
+	.node.show-labels:not(.vertical)[data-rotation="2"].has-inputs:not(.has-outputs) .node-clip > .port-labels-input { grid-column: 2; }
 
-	/* Vertical layout: explicit grid row placement */
-	.node.show-labels.vertical .node-clip > .port-labels-input {
-		grid-column: 1;
-		grid-row: 1;
-		border-bottom: 1px solid var(--border);
-	}
-	.node.show-labels.vertical .node-clip > .node-inner {
-		grid-column: 1;
-		grid-row: 2;
-	}
-	.node.show-labels.vertical .node-clip > .port-labels-output {
-		grid-column: 1;
-		grid-row: 3;
-		border-top: 1px solid var(--border);
-	}
+	/* Horizontal borders */
+	.node.show-labels:not(.vertical) .node-clip > .port-labels-input { grid-row: 1; border-right: 1px solid var(--border); }
+	.node.show-labels:not(.vertical) .node-clip > .node-inner { grid-row: 1; }
+	.node.show-labels:not(.vertical) .node-clip > .port-labels-output { grid-row: 1; border-left: 1px solid var(--border); }
+	/* Rotation 2: swap borders */
+	.node.show-labels:not(.vertical)[data-rotation="2"] .node-clip > .port-labels-input { border-right: none; border-left: 1px solid var(--border); }
+	.node.show-labels:not(.vertical)[data-rotation="2"] .node-clip > .port-labels-output { border-left: none; border-right: 1px solid var(--border); }
 
-	/* Rotation 3: swap input/output row positions */
-	.node.show-labels.vertical[data-rotation="3"] .node-clip > .port-labels-input {
-		grid-row: 3;
-		border-bottom: none;
-		border-top: 1px solid var(--border);
-	}
-	.node.show-labels.vertical[data-rotation="3"] .node-clip > .port-labels-output {
-		grid-row: 1;
-		border-top: none;
-		border-bottom: 1px solid var(--border);
-	}
+	/* Vertical layout: grid row placement - rotation 1 (inputs top, outputs bottom) */
+	/* Both labels: input=1, content=2, output=3 */
+	.node.show-labels.vertical[data-rotation="1"].has-inputs.has-outputs .node-clip > .port-labels-input { grid-row: 1; }
+	.node.show-labels.vertical[data-rotation="1"].has-inputs.has-outputs .node-clip > .node-inner { grid-row: 2; }
+	.node.show-labels.vertical[data-rotation="1"].has-inputs.has-outputs .node-clip > .port-labels-output { grid-row: 3; }
+	/* Input labels only: input=1, content=2 */
+	.node.show-labels.vertical[data-rotation="1"].has-inputs:not(.has-outputs) .node-clip > .port-labels-input { grid-row: 1; }
+	.node.show-labels.vertical[data-rotation="1"].has-inputs:not(.has-outputs) .node-clip > .node-inner { grid-row: 2; }
+	/* Output labels only: content=1, output=2 */
+	.node.show-labels.vertical[data-rotation="1"].has-outputs:not(.has-inputs) .node-clip > .node-inner { grid-row: 1; }
+	.node.show-labels.vertical[data-rotation="1"].has-outputs:not(.has-inputs) .node-clip > .port-labels-output { grid-row: 2; }
+
+	/* Vertical layout: grid row placement - rotation 3 (inputs bottom, outputs top) */
+	/* Both labels: output=1, content=2, input=3 */
+	.node.show-labels.vertical[data-rotation="3"].has-inputs.has-outputs .node-clip > .port-labels-output { grid-row: 1; }
+	.node.show-labels.vertical[data-rotation="3"].has-inputs.has-outputs .node-clip > .node-inner { grid-row: 2; }
+	.node.show-labels.vertical[data-rotation="3"].has-inputs.has-outputs .node-clip > .port-labels-input { grid-row: 3; }
+	/* Output labels only (top): output=1, content=2 */
+	.node.show-labels.vertical[data-rotation="3"].has-outputs:not(.has-inputs) .node-clip > .port-labels-output { grid-row: 1; }
+	.node.show-labels.vertical[data-rotation="3"].has-outputs:not(.has-inputs) .node-clip > .node-inner { grid-row: 2; }
+	/* Input labels only (bottom): content=1, input=2 */
+	.node.show-labels.vertical[data-rotation="3"].has-inputs:not(.has-outputs) .node-clip > .node-inner { grid-row: 1; }
+	.node.show-labels.vertical[data-rotation="3"].has-inputs:not(.has-outputs) .node-clip > .port-labels-input { grid-row: 2; }
+
+	/* Vertical borders */
+	.node.show-labels.vertical .node-clip > .port-labels-input { grid-column: 1; border-bottom: 1px solid var(--border); }
+	.node.show-labels.vertical .node-clip > .node-inner { grid-column: 1; }
+	.node.show-labels.vertical .node-clip > .port-labels-output { grid-column: 1; border-top: 1px solid var(--border); }
+	/* Rotation 3: swap borders */
+	.node.show-labels.vertical[data-rotation="3"] .node-clip > .port-labels-input { border-bottom: none; border-top: 1px solid var(--border); }
+	.node.show-labels.vertical[data-rotation="3"] .node-clip > .port-labels-output { border-top: none; border-bottom: 1px solid var(--border); }
 
 	/* Individual port labels (absolute positioning for horizontal) */
 	.port-label {
