@@ -26,9 +26,42 @@ import { exportToSVG } from '$lib/export/svg';
 import { downloadSvg } from '$lib/utils/download';
 import { plotSettingsStore, DEFAULT_BLOCK_SETTINGS } from '$lib/stores/plotSettings';
 import { portLabelsStore } from '$lib/stores/portLabels';
+import { getEffectivePortLabelVisibility } from '$lib/utils/portLabels';
+import type { NodeInstance } from '$lib/types/nodes';
 
 /** Divider menu item */
 const DIVIDER: MenuItemType = { label: '', action: () => {}, divider: true };
+
+/** Build port label toggle menu items for a node */
+function buildPortLabelItems(nodeId: string, node: NodeInstance): MenuItemType[] {
+	const globalLabels = get(portLabelsStore);
+	const { inputs: showInputLabels, outputs: showOutputLabels } = getEffectivePortLabelVisibility(node, globalLabels);
+	const hasInputs = node.inputs && node.inputs.length > 0;
+	const hasOutputs = node.outputs && node.outputs.length > 0;
+
+	if (!hasInputs && !hasOutputs) return [];
+
+	const items: MenuItemType[] = [DIVIDER];
+	if (hasInputs) {
+		items.push({
+			label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+			icon: 'tag',
+			action: () => historyStore.mutate(() =>
+				graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+			)
+		});
+	}
+	if (hasOutputs) {
+		items.push({
+			label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+			icon: 'tag',
+			action: () => historyStore.mutate(() =>
+				graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+			)
+		});
+	}
+	return items;
+}
 
 /** Show block code in preview dialog */
 function showBlockCode(nodeId: string): void {
@@ -74,12 +107,6 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 
 	// Interface blocks have limited options
 	if (isInterface) {
-		const globalLabels = get(portLabelsStore);
-		const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
-		const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
-		const hasInputs = node.inputs && node.inputs.length > 0;
-		const hasOutputs = node.outputs && node.outputs.length > 0;
-
 		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
@@ -94,27 +121,7 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 			}
 		];
 
-		if (hasInputs || hasOutputs) {
-			items.push(DIVIDER);
-			if (hasInputs) {
-				items.push({
-					label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-					icon: 'tag',
-					action: () => historyStore.mutate(() =>
-						graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
-					)
-				});
-			}
-			if (hasOutputs) {
-				items.push({
-					label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-					icon: 'tag',
-					action: () => historyStore.mutate(() =>
-						graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
-					)
-				});
-			}
-		}
+		items.push(...buildPortLabelItems(nodeId, node));
 
 		items.push(
 			DIVIDER,
@@ -130,12 +137,6 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 
 	// Subsystem blocks get "Enter" option
 	if (isSubsystem) {
-		const globalLabels = get(portLabelsStore);
-		const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
-		const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
-		const hasInputs = node.inputs && node.inputs.length > 0;
-		const hasOutputs = node.outputs && node.outputs.length > 0;
-
 		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
@@ -150,27 +151,7 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 			}
 		];
 
-		if (hasInputs || hasOutputs) {
-			items.push(DIVIDER);
-			if (hasInputs) {
-				items.push({
-					label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-					icon: 'tag',
-					action: () => historyStore.mutate(() =>
-						graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
-					)
-				});
-			}
-			if (hasOutputs) {
-				items.push({
-					label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-					icon: 'tag',
-					action: () => historyStore.mutate(() =>
-						graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
-					)
-				});
-			}
-		}
+		items.push(...buildPortLabelItems(nodeId, node));
 
 		items.push(
 			DIVIDER,
@@ -219,13 +200,6 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 	const isRecordingNode = node.type === 'Scope' || node.type === 'Spectrum';
 	const dataSource = node.type === 'Scope' ? 'scope' : 'spectrum';
 
-	// Per-node port label visibility (undefined = follow global)
-	const globalLabels = get(portLabelsStore);
-	const showInputLabels = (node.params?.['_showInputLabels'] as boolean | undefined) ?? globalLabels;
-	const showOutputLabels = (node.params?.['_showOutputLabels'] as boolean | undefined) ?? globalLabels;
-	const hasInputs = node.inputs && node.inputs.length > 0;
-	const hasOutputs = node.outputs && node.outputs.length > 0;
-
 	// Regular blocks
 	const items: MenuItemType[] = [
 		{
@@ -236,27 +210,7 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 		}
 	];
 
-	if (hasInputs || hasOutputs) {
-		items.push(DIVIDER);
-		if (hasInputs) {
-			items.push({
-				label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
-				icon: 'tag',
-				action: () => historyStore.mutate(() =>
-					graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
-				)
-			});
-		}
-		if (hasOutputs) {
-			items.push({
-				label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
-				icon: 'tag',
-				action: () => historyStore.mutate(() =>
-					graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
-				)
-			});
-		}
-	}
+	items.push(...buildPortLabelItems(nodeId, node));
 
 	items.push(
 		DIVIDER,
