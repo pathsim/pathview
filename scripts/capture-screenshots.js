@@ -17,8 +17,8 @@ const SCREENSHOTS_DIR = join(STATIC_DIR, 'screenshots');
 const MANIFEST_PATH = join(STATIC_DIR, 'manifest.json');
 
 const BASE_URL = 'https://view.pathsim.org';
-const VIEWPORT = { width: 800, height: 500 };
-const DEVICE_SCALE_FACTOR = 2;
+const VIEWPORT = { width: 1000, height: 600 };
+const DEVICE_SCALE_FACTOR = 1;
 const SETTLE_DELAY = 1500;
 const THEMES = ['dark', 'light'];
 
