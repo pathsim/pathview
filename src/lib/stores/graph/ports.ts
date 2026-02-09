@@ -278,13 +278,14 @@ function parsePythonList(value: unknown): string[] | null {
 export function syncPortNamesFromLabels(
 	nodeId: string,
 	labelsValue: unknown,
-	direction: 'input' | 'output'
+	direction: 'input' | 'output',
+	parser?: (value: unknown) => string[] | null
 ): void {
 	const currentGraph = getCurrentGraph();
 	const node = currentGraph.nodes.get(nodeId);
 	if (!node) return;
 
-	const labels = parsePythonList(labelsValue);
+	const labels = parser ? parser(labelsValue) : parsePythonList(labelsValue);
 	const config = getPortConfig(direction);
 	const currentPorts = node[config.portsKey] as PortInstance[];
 

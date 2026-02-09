@@ -211,7 +211,7 @@ export function updateNodeParams(id: string, params: Record<string, unknown>): v
 	if (node) {
 		for (const config of getPortLabelConfigs(node.type)) {
 			if (config.param in params) {
-				syncPortNamesFromLabels(id, params[config.param], config.direction);
+				syncPortNamesFromLabels(id, params[config.param], config.direction, config.parser);
 			}
 		}
 	}

@@ -25,9 +25,43 @@ import { hasExportableData, exportRecordingData } from '$lib/utils/csvExport';
 import { exportToSVG } from '$lib/export/svg';
 import { downloadSvg } from '$lib/utils/download';
 import { plotSettingsStore, DEFAULT_BLOCK_SETTINGS } from '$lib/stores/plotSettings';
+import { portLabelsStore } from '$lib/stores/portLabels';
+import { getEffectivePortLabelVisibility } from '$lib/utils/portLabels';
+import type { NodeInstance } from '$lib/types/nodes';
 
 /** Divider menu item */
 const DIVIDER: MenuItemType = { label: '', action: () => {}, divider: true };
+
+/** Build port label toggle menu items for a node */
+function buildPortLabelItems(nodeId: string, node: NodeInstance): MenuItemType[] {
+	const globalLabels = get(portLabelsStore);
+	const { inputs: showInputLabels, outputs: showOutputLabels } = getEffectivePortLabelVisibility(node, globalLabels);
+	const hasInputs = node.inputs && node.inputs.length > 0;
+	const hasOutputs = node.outputs && node.outputs.length > 0;
+
+	if (!hasInputs && !hasOutputs) return [];
+
+	const items: MenuItemType[] = [DIVIDER];
+	if (hasInputs) {
+		items.push({
+			label: showInputLabels ? 'Hide Input Labels' : 'Show Input Labels',
+			icon: 'tag',
+			action: () => historyStore.mutate(() =>
+				graphStore.updateNodeParams(nodeId, { _showInputLabels: !showInputLabels })
+			)
+		});
+	}
+	if (hasOutputs) {
+		items.push({
+			label: showOutputLabels ? 'Hide Output Labels' : 'Show Output Labels',
+			icon: 'tag',
+			action: () => historyStore.mutate(() =>
+				graphStore.updateNodeParams(nodeId, { _showOutputLabels: !showOutputLabels })
+			)
+		});
+	}
+	return items;
+}
 
 /** Show block code in preview dialog */
 function showBlockCode(nodeId: string): void {
@@ -73,7 +107,7 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 
 	// Interface blocks have limited options
 	if (isInterface) {
-		return [
+		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
 				icon: 'settings',
@@ -84,19 +118,26 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				label: 'Exit Subsystem',
 				icon: 'exit',
 				action: () => graphStore.drillUp()
-			},
+			}
+		];
+
+		items.push(...buildPortLabelItems(nodeId, node));
+
+		items.push(
 			DIVIDER,
 			{
 				label: 'View Code',
 				icon: 'braces',
 				action: () => showBlockCode(nodeId)
 			}
-		];
+		);
+
+		return items;
 	}
 
 	// Subsystem blocks get "Enter" option
 	if (isSubsystem) {
-		return [
+		const items: MenuItemType[] = [
 			{
 				label: 'Properties',
 				icon: 'settings',
@@ -107,7 +148,12 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				icon: 'enter',
 				shortcut: 'Dbl-click',
 				action: () => graphStore.drillDown(nodeId)
-			},
+			}
+		];
+
+		items.push(...buildPortLabelItems(nodeId, node));
+
+		items.push(
 			DIVIDER,
 			{
 				label: 'View Code',
@@ -145,7 +191,9 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 				shortcut: 'Del',
 				action: () => historyStore.mutate(() => graphStore.removeNode(nodeId))
 			}
-		];
+		);
+
+		return items;
 	}
 
 	// Check if this is a recording node (Scope or Spectrum)
@@ -159,14 +207,19 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 			icon: 'settings',
 			shortcut: 'Dbl-click',
 			action: () => openNodeDialog(nodeId)
-		},
+		}
+	];
+
+	items.push(...buildPortLabelItems(nodeId, node));
+
+	items.push(
 		DIVIDER,
 		{
 			label: 'View Code',
 			icon: 'braces',
 			action: () => showBlockCode(nodeId)
 		}
-	];
+	);
 
 	// Add CSV export for recording nodes
 	if (isRecordingNode) {

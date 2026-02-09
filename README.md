@@ -504,6 +504,7 @@ Press `?` to see all shortcuts in the app. Key shortcuts:
 | | `X` / `Y` | Flip H/V |
 | | `Arrows` | Nudge selection |
 | **Wires** | `\` | Add waypoint to selected edge |
+| **Labels** | `L` | Toggle port labels |
 | **View** | `F` | Fit view |
 | | `H` | Go to root |
 | | `T` | Toggle theme |
@@ -622,6 +623,15 @@ Shapes are defined in `src/lib/nodes/shapes/registry.ts` and applied via CSS cla
 - **Port colors**: `PORT_COLORS.default` (#969696 gray), customizable per-port
 
 Colors are CSS-driven - see `src/app.css` for variables and `src/lib/utils/colors.ts` for palettes.
+
+### Port Labels
+
+Port labels show the name of each input/output port alongside the node. Toggle globally with `L` key, or per-node via right-click menu.
+
+- **Global toggle**: Press `L` to show/hide port labels for all nodes
+- **Per-node override**: Right-click node → "Show Input Labels" / "Show Output Labels"
+- **Truncation**: Labels are truncated to 5 characters for compact display
+- **SVG export**: Port labels are included when exporting the graph as SVG
 
 ### Adding Custom Shapes
 
