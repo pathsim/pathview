@@ -845,21 +845,16 @@
 			if (!confirmed) return;
 		}
 		newGraph();
+		// Clear ?model= URL param so the URL reflects a blank canvas
+		if (window.location.search) {
+			window.history.replaceState({}, '', window.location.pathname);
+		}
 	}
 
 	async function handleOpen() {
 		// Uses unified import system with built-in confirmation
 		const result = await openImportDialog();
 		if (result.success && result.type === 'model') {
-			// Trigger fit view after a brief delay to let nodes render
-			setTimeout(() => triggerFitView(), 100);
-		}
-	}
-
-	// Load example file
-	async function handleLoadExample(url: string) {
-		const result = await importFromUrl(url);
-		if (result.success) {
 			// Trigger fit view after a brief delay to let nodes render
 			setTimeout(() => triggerFitView(), 100);
 		}
@@ -1362,7 +1357,6 @@
 	{#if showWelcomeModal}
 		<WelcomeModal
 			onNew={handleNew}
-			onLoadExample={handleLoadExample}
 			onClose={() => showWelcomeModal = false}
 		/>
 	{/if}
