@@ -38,3 +38,6 @@ tmpclaude-*
 
 
 __pycache__/
+
+# Generated screenshots
+static/examples/screenshots/
