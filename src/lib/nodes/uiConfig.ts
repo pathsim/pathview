@@ -9,6 +9,22 @@
 export interface PortLabelConfig {
 	param: string;
 	direction: 'input' | 'output';
+	/** Optional custom parser to convert param value to label strings.
+	 *  Default uses parsePythonList (for ["a", "b"] format). */
+	parser?: (value: unknown) => string[] | null;
+}
+
+/**
+ * Parse an operations string into individual character labels.
+ * E.g. '+-' → ['+', '-'], None/null → null
+ */
+function parseOperationsString(value: unknown): string[] | null {
+	if (value === null || value === undefined || value === 'None' || value === '') {
+		return null;
+	}
+	const str = String(value).trim();
+	if (str.length === 0) return null;
+	return [...str];
 }
 
 /**
@@ -18,7 +34,8 @@ export interface PortLabelConfig {
  */
 export const portLabelParams: Record<string, PortLabelConfig | PortLabelConfig[]> = {
 	Scope: { param: 'labels', direction: 'input' },
-	Spectrum: { param: 'labels', direction: 'input' }
+	Spectrum: { param: 'labels', direction: 'input' },
+	Adder: { param: 'operations', direction: 'input', parser: parseOperationsString }
 };
 
 /**
