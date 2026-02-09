@@ -8,25 +8,33 @@
 
 	interface Example {
 		name: string;
-		description?: string;
-		file: string;
-		previewBase: string;
+		description: string;
+		filename: string;
+		basename: string;
 	}
 
 	interface Props {
 		onNew: () => void;
-		onLoadExample: (file: string) => void;
 		onClose: () => void;
 	}
 
-	let { onNew, onLoadExample, onClose }: Props = $props();
+	let { onNew, onClose }: Props = $props();
 
-	let examples = $state<Example[]>([]);
-	let loading = $state(true);
+	const examples: Example[] = [
+		{ filename: 'feedback-system.json', basename: 'feedback-system', name: 'Feedback System', description: 'Linear feedback system with delayed step excitation' },
+		{ filename: 'harmonic-oscillator.json', basename: 'harmonic-oscillator', name: 'Harmonic Oscillator', description: 'Linear spring-mass-damper system' },
+		{ filename: 'squarewave-lpf.json', basename: 'squarewave-lpf', name: 'Squarewave LPF', description: 'Low pass filtering of a square wave' },
+		{ filename: 'pid-subsystem.json', basename: 'pid-subsystem', name: 'PID Loop', description: 'Classic PID control loop as subsystem' },
+		{ filename: 'thermostat.json', basename: 'thermostat', name: 'Thermostat', description: 'Relay based thermostat heating system' },
+		{ filename: 'cascade-subsystem.json', basename: 'cascade-subsystem', name: 'Cascade PI', description: 'Cascade PI controller with subsystems' },
+		{ filename: 'bouncing-ball.json', basename: 'bouncing-ball', name: 'Bouncing Ball', description: 'Bouncing ball with event-based collision' },
+		{ filename: 'fmcw-radar.json', basename: 'fmcw-radar', name: 'FMCW Radar', description: 'Frequency-modulated continuous wave radar' },
+		{ filename: 'vanderpol.json', basename: 'vanderpol', name: 'Van der Pol', description: 'Van der Pol oscillator system' }
+	];
+
 	let isDark = $state(true);
 
 	onMount(() => {
-		// Detect theme and watch for changes
 		const updateTheme = () => {
 			isDark = document.documentElement.getAttribute('data-theme') !== 'light';
 		};
@@ -35,51 +43,11 @@
 		const observer = new MutationObserver(updateTheme);
 		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-		// Load examples
-		(async () => {
-			try {
-				const manifestRes = await fetch(`${base}/examples/manifest.json`);
-				if (!manifestRes.ok) throw new Error('No manifest');
-				const manifest = await manifestRes.json();
-				const files: string[] = manifest.files || [];
-
-				const loadedExamples = await Promise.all(
-					files.map(async (filename): Promise<Example | null> => {
-						try {
-							const fileRes = await fetch(`${base}/examples/${filename}`);
-							if (fileRes.ok) {
-								const data = await fileRes.json();
-								const baseName = filename.replace('.json', '');
-								return {
-									name: data.metadata?.name || baseName,
-									description: data.metadata?.description,
-									file: `${base}/examples/${filename}`,
-									previewBase: `${base}/examples/${baseName}`
-								};
-							}
-						} catch (e) {
-							console.warn(`Could not load example: ${filename}`);
-						}
-						return null;
-					})
-				);
-				examples = loadedExamples.filter((e): e is Example => e !== null);
-			} catch (e) {
-				console.warn('Could not load examples');
-			}
-			loading = false;
-		})();
-
 		return () => observer.disconnect();
 	});
 
 	function handleNew() {
 		onNew();
-		onClose();
-	}
-
-	function handleExample(file: string) {
-		onLoadExample(file);
 		onClose();
 	}
 
@@ -137,29 +105,25 @@
 
 		<div class="separator"></div>
 
-		{#if loading}
-			<div class="examples-section">
-				<div class="loading-text">Loading examples...</div>
+		<div class="examples-section">
+			<div class="examples-grid">
+				{#each examples as example}
+					<a class="example-card" href="?model={base}/examples/{example.filename}">
+						<div class="example-info">
+							<div class="example-name">{example.name}</div>
+							<div class="example-description">{example.description}</div>
+						</div>
+						<div class="example-preview">
+							<img
+								src="{base}/examples/screenshots/{example.basename}-{isDark ? 'dark' : 'light'}.png"
+								alt="{example.name} preview"
+								onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+							/>
+						</div>
+					</a>
+				{/each}
 			</div>
-		{:else if examples.length > 0}
-			<div class="examples-section">
-				<div class="examples-grid">
-					{#each examples as example}
-						<button class="example-card" onclick={() => handleExample(example.file)}>
-							<div class="example-info">
-								<div class="example-name">{example.name}</div>
-								{#if example.description}
-									<div class="example-description">{example.description}</div>
-								{/if}
-							</div>
-							<div class="example-preview">
-								<img src="{example.previewBase}-{isDark ? 'dark' : 'light'}.svg" alt="{example.name} preview" />
-							</div>
-						</button>
-					{/each}
-				</div>
-			</div>
-		{/if}
+		</div>
 	</div>
 </div>
 
@@ -244,13 +208,6 @@
 		margin: -16px -24px -24px -24px;
 	}
 
-	.loading-text {
-		color: var(--text-disabled);
-		font-size: 11px;
-		text-align: center;
-		padding: 16px;
-	}
-
 	.examples-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
@@ -276,6 +233,8 @@
 		text-align: left;
 		overflow: hidden;
 		font-family: inherit;
+		text-decoration: none;
+		color: inherit;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 		transition: border-color 0.15s ease, box-shadow 0.15s ease;
 	}
@@ -284,7 +243,6 @@
 		border-color: var(--accent);
 		box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
-
 
 	.example-info {
 		position: absolute;
@@ -299,7 +257,6 @@
 		border-radius: var(--radius-md) var(--radius-md) 0 0;
 		transition: padding 0.15s ease;
 	}
-
 
 	.example-name {
 		font-size: 11px;
@@ -351,5 +308,4 @@
 			grid-template-columns: 1fr;
 		}
 	}
-
 </style>
