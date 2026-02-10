@@ -7,7 +7,9 @@ Build script for the PathView PyPI package.
 3. Builds the Python wheel
 """
 
+import json
 import os
+import re
 import sys
 import shutil
 import subprocess
@@ -28,7 +30,30 @@ def run(cmd, **kwargs):
         sys.exit(result.returncode)
 
 
+def _sync_version():
+    """Read version from pyproject.toml and sync to package.json."""
+    pyproject = REPO_ROOT / "pyproject.toml"
+    text = pyproject.read_text()
+    match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    if not match:
+        print("ERROR: could not find version in pyproject.toml")
+        sys.exit(1)
+    version = match.group(1)
+
+    pkg_json_path = REPO_ROOT / "package.json"
+    pkg = json.loads(pkg_json_path.read_text())
+    if pkg.get("version") != version:
+        print(f"  Syncing version {pkg.get('version')} → {version} in package.json")
+        pkg["version"] = version
+        pkg_json_path.write_text(json.dumps(pkg, indent=2) + "\n")
+    return version
+
+
 def main():
+    print("[0/4] Syncing version...")
+    version = _sync_version()
+    print(f"  Version: {version}")
+
     print("[1/4] Cleaning previous builds...")
     for d in [BUILD_DIR, STATIC_DIR, REPO_ROOT / "dist"]:
         if d.exists():
