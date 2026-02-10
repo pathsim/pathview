@@ -20,11 +20,19 @@ BUILD_DIR = REPO_ROOT / "build"
 STATIC_DIR = REPO_ROOT / "pathview_server" / "static"
 
 
+def _find_npx():
+    """Find the npx binary. On Windows, use npx.cmd."""
+    name = "npx.cmd" if sys.platform == "win32" else "npx"
+    path = shutil.which(name)
+    if not path:
+        print(f"ERROR: {name} not found on PATH")
+        sys.exit(1)
+    return path
+
+
 def run(cmd, **kwargs):
     print(f"  > {' '.join(cmd)}")
-    # shell=True needed on Windows for npx/npm resolution
-    result = subprocess.run(cmd, cwd=kwargs.pop("cwd", REPO_ROOT),
-                            shell=(sys.platform == "win32"), **kwargs)
+    result = subprocess.run(cmd, cwd=kwargs.pop("cwd", REPO_ROOT), **kwargs)
     if result.returncode != 0:
         print(f"ERROR: command failed (exit {result.returncode})")
         sys.exit(result.returncode)
@@ -66,7 +74,8 @@ def main():
     print("[2/4] Building SvelteKit frontend...")
     env = os.environ.copy()
     env["BASE_PATH"] = ""
-    run(["npx", "vite", "build"], env=env)
+    npx = _find_npx()
+    run([npx, "vite", "build"], env=env)
 
     if not (BUILD_DIR / "index.html").exists():
         print("ERROR: build/index.html not found")
