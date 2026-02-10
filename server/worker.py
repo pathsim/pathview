@@ -7,8 +7,9 @@ executes Python code, and writes JSON responses to stdout.
 Same message protocol (REPLRequest/REPLResponse as JSON lines over stdin/stdout).
 
 Threading model:
-- Reader thread: reads JSON from stdin, dispatches to main thread or queues for streaming
-- Main thread: processes init/exec/eval synchronously; for streaming, runs the loop
+- Main thread: reads stdin, processes init/exec/eval synchronously
+- During streaming: a reader thread handles stream-stop and stream-exec
+  while the main thread runs the streaming loop
 - Stdout lock: thread-safe writing to stdout (protocol messages only)
 """
 
@@ -30,9 +31,6 @@ _initialized = False
 # Streaming state
 _streaming_active = False
 _streaming_code_queue = queue.Queue()
-
-# Queue for messages from reader thread -> main thread
-_message_queue = queue.Queue()
 
 
 def send(response: dict) -> None:
@@ -62,6 +60,17 @@ def _capture_output(func):
         if err:
             send({"type": "stderr", "value": err})
     return result
+
+
+def read_message():
+    """Read one JSON message from stdin. Returns None on EOF."""
+    line = sys.stdin.readline()
+    if not line:
+        return None
+    line = line.strip()
+    if not line:
+        return read_message()  # skip blank lines
+    return json.loads(line)
 
 
 def initialize() -> None:
@@ -123,6 +132,34 @@ def eval_expr(msg_id: str, expr: str) -> None:
         send({"type": "error", "id": msg_id, "error": str(e), "traceback": tb})
 
 
+def _streaming_reader_thread(stop_event: threading.Event) -> None:
+    """Read stdin during streaming, handling stream-stop and stream-exec."""
+    global _streaming_active
+    while not stop_event.is_set():
+        line = sys.stdin.readline()
+        if not line:
+            # EOF — stop streaming and signal main loop to exit
+            _streaming_active = False
+            break
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            msg = json.loads(line)
+        except json.JSONDecodeError:
+            send({"type": "error", "error": f"Invalid JSON: {line}"})
+            continue
+
+        msg_type = msg.get("type")
+        if msg_type == "stream-stop":
+            _streaming_active = False
+        elif msg_type == "stream-exec":
+            code = msg.get("code")
+            if code and _streaming_active:
+                _streaming_code_queue.put(code)
+        # Other messages during streaming are ignored (shouldn't happen)
+
+
 def run_streaming_loop(msg_id: str, expr: str) -> None:
     """Run streaming loop - steps generator continuously and posts results."""
     global _streaming_active
@@ -138,6 +175,11 @@ def run_streaming_loop(msg_id: str, expr: str) -> None:
             _streaming_code_queue.get_nowait()
         except queue.Empty:
             break
+
+    # Start reader thread to handle stream-stop and stream-exec
+    stop_event = threading.Event()
+    reader = threading.Thread(target=_streaming_reader_thread, args=(stop_event,), daemon=True)
+    reader.start()
 
     try:
         while _streaming_active:
@@ -184,6 +226,7 @@ def run_streaming_loop(msg_id: str, expr: str) -> None:
         send({"type": "error", "id": msg_id, "error": str(e), "traceback": tb})
     finally:
         _streaming_active = False
+        stop_event.set()
         # Always send done when loop ends
         send({"type": "stream-done", "id": msg_id})
 
@@ -194,43 +237,10 @@ def stop_streaming() -> None:
     _streaming_active = False
 
 
-def reader_thread() -> None:
-    """Read JSON messages from stdin and dispatch to the main thread."""
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            msg = json.loads(line)
-        except json.JSONDecodeError:
-            send({"type": "error", "error": f"Invalid JSON: {line}"})
-            continue
-
-        msg_type = msg.get("type")
-
-        # stream-stop and stream-exec are handled directly (thread-safe)
-        if msg_type == "stream-stop":
-            stop_streaming()
-        elif msg_type == "stream-exec":
-            code = msg.get("code")
-            if code and _streaming_active:
-                _streaming_code_queue.put(code)
-        else:
-            # All other messages go to main thread
-            _message_queue.put(msg)
-
-    # stdin closed — signal main thread to exit
-    _message_queue.put(None)
-
-
 def main() -> None:
-    """Main loop: process messages from the reader thread."""
-    # Start the reader thread
-    t = threading.Thread(target=reader_thread, daemon=True)
-    t.start()
-
+    """Main loop: read messages from stdin and process them."""
     while True:
-        msg = _message_queue.get()
+        msg = read_message()
         if msg is None:
             # stdin closed, exit
             break
@@ -257,8 +267,16 @@ def main() -> None:
             elif msg_type == "stream-start":
                 if not msg_id or not isinstance(expr, str):
                     raise ValueError("Invalid stream-start request: missing id or expr")
-                # Run in the main thread (blocking until done/stopped)
+                # Blocking: runs streaming loop, reader thread handles
+                # stream-stop and stream-exec during this time
                 run_streaming_loop(msg_id, expr)
+
+            elif msg_type == "stream-stop":
+                stop_streaming()
+
+            elif msg_type == "stream-exec":
+                if isinstance(code, str) and _streaming_active:
+                    _streaming_code_queue.put(code)
 
             else:
                 raise ValueError(f"Unknown message type: {msg_type}")
