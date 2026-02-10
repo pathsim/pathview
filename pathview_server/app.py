@@ -173,14 +173,9 @@ class Session:
         self.flush_worker_reader()
 
         self._stream_reader = None
-
-        # Drain stale stream messages (stream-data, stream-done) from the
-        # queue so they don't leak into subsequent poll responses.
-        while not self._stream_queue.empty():
-            try:
-                self._stream_queue.get_nowait()
-            except queue.Empty:
-                break
+        # Don't drain the stream queue here — the frontend's poll chain
+        # still needs the final stream-data/stream-done messages.
+        # start_stream_reader() clears stale messages when a new stream begins.
 
     def flush_worker_reader(self) -> None:
         """Send a noop message to unblock the worker's stdin reader thread.
