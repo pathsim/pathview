@@ -27,6 +27,7 @@ from flask_cors import CORS
 
 SESSION_TTL = 3600  # 1 hour of inactivity before cleanup
 CLEANUP_INTERVAL = 60  # Check for stale sessions every 60 seconds
+EXEC_TIMEOUT = 35  # Server-side timeout for exec/eval (slightly > worker's 30s)
 WORKER_SCRIPT = str(Path(__file__).parent / "worker.py")
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,32 @@ class Session:
         if not line:
             return None
         return json.loads(line.strip())
+
+    def read_line_timeout(self, timeout: float = EXEC_TIMEOUT) -> dict | None:
+        """Read one JSON line with a timeout. Returns None on EOF or timeout.
+
+        Raises TimeoutError if no response within the timeout period.
+        """
+        result = [None]
+        error = [None]
+
+        def reader():
+            try:
+                result[0] = self.read_line()
+            except Exception as e:
+                error[0] = e
+
+        t = threading.Thread(target=reader, daemon=True)
+        t.start()
+        t.join(timeout)
+
+        if t.is_alive():
+            raise TimeoutError(f"Worker unresponsive after {timeout}s")
+
+        if error[0]:
+            raise error[0]
+
+        return result[0]
 
     def ensure_initialized(self, packages: list[dict] | None = None) -> list[dict]:
         """Initialize the worker if not already done. Returns any messages received."""
@@ -277,9 +304,10 @@ def create_app(serve_static: bool = False) -> Flask:
                 stdout_lines = []
                 stderr_lines = []
                 while True:
-                    resp = session.read_line()
+                    resp = session.read_line_timeout()
                     if resp is None:
-                        return jsonify({"type": "error", "id": msg_id, "error": "Worker process died"}), 500
+                        remove_session(session_id)
+                        return jsonify({"type": "error", "errorType": "worker-crashed", "id": msg_id, "error": "Worker process died"}), 500
                     resp_type = resp.get("type")
                     if resp_type == "stdout":
                         stdout_lines.append(resp.get("value", ""))
@@ -300,6 +328,9 @@ def create_app(serve_static: bool = False) -> Flask:
                             result["stderr"] = "".join(stderr_lines)
                         return jsonify(result), 400
 
+            except TimeoutError:
+                remove_session(session_id)
+                return jsonify({"type": "error", "errorType": "timeout", "id": msg_id, "error": "Execution timed out"}), 504
             except Exception as e:
                 return jsonify({"type": "error", "id": msg_id, "error": str(e)}), 500
 
@@ -322,9 +353,10 @@ def create_app(serve_static: bool = False) -> Flask:
                 stdout_lines = []
                 stderr_lines = []
                 while True:
-                    resp = session.read_line()
+                    resp = session.read_line_timeout()
                     if resp is None:
-                        return jsonify({"type": "error", "id": msg_id, "error": "Worker process died"}), 500
+                        remove_session(session_id)
+                        return jsonify({"type": "error", "errorType": "worker-crashed", "id": msg_id, "error": "Worker process died"}), 500
                     resp_type = resp.get("type")
                     if resp_type == "stdout":
                         stdout_lines.append(resp.get("value", ""))
@@ -345,6 +377,9 @@ def create_app(serve_static: bool = False) -> Flask:
                             result["stderr"] = "".join(stderr_lines)
                         return jsonify(result), 400
 
+            except TimeoutError:
+                remove_session(session_id)
+                return jsonify({"type": "error", "errorType": "timeout", "id": msg_id, "error": "Execution timed out"}), 504
             except Exception as e:
                 return jsonify({"type": "error", "id": msg_id, "error": str(e)}), 500
 

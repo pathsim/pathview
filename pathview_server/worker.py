@@ -20,6 +20,7 @@ import subprocess
 import threading
 import traceback
 import queue
+import ctypes
 
 # Lock for thread-safe stdout writing (protocol messages only)
 _stdout_lock = threading.Lock()
@@ -30,6 +31,9 @@ _real_stdout = sys.stdout
 # Worker state
 _namespace = {}
 _initialized = False
+
+# Default timeout for exec/eval (seconds)
+EXEC_TIMEOUT = 30
 
 # Streaming state
 _streaming_active = False
@@ -160,6 +164,51 @@ def initialize(packages: list[dict] | None = None) -> None:
     send({"type": "ready"})
 
 
+def _raise_in_thread(thread_id: int, exc_type: type) -> None:
+    """Raise an exception in the given thread (best-effort interrupt)."""
+    ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        ctypes.c_ulong(thread_id), ctypes.py_object(exc_type)
+    )
+
+
+def _run_with_timeout(func, timeout: float = EXEC_TIMEOUT):
+    """Run func() in a daemon thread with a timeout.
+
+    Returns (result, error_string, traceback_string).
+    If timeout fires, raises TimeoutError.
+    """
+    result_holder = [None, None, None]  # result, error, traceback
+
+    def target():
+        try:
+            result_holder[0] = func()
+        except Exception as e:
+            result_holder[1] = str(e)
+            result_holder[2] = traceback.format_exc()
+
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(timeout)
+
+    if t.is_alive():
+        # Try to interrupt the stuck thread
+        _raise_in_thread(t.ident, KeyboardInterrupt)
+        t.join(2)  # Give it 2s to handle the interrupt
+        raise TimeoutError(f"Execution timed out after {timeout}s")
+
+    if result_holder[1] is not None:
+        raise _ExecError(result_holder[1], result_holder[2])
+
+    return result_holder[0]
+
+
+class _ExecError(Exception):
+    """Wraps an error from user code execution with its traceback."""
+    def __init__(self, message: str, tb: str | None = None):
+        super().__init__(message)
+        self.tb = tb
+
+
 def exec_code(msg_id: str, code: str) -> None:
     """Execute Python code (no return value)."""
     if not _initialized:
@@ -167,11 +216,12 @@ def exec_code(msg_id: str, code: str) -> None:
         return
 
     try:
-        exec(code, _namespace)
+        _run_with_timeout(lambda: exec(code, _namespace))
         send({"type": "ok", "id": msg_id})
-    except Exception as e:
-        tb = traceback.format_exc()
-        send({"type": "error", "id": msg_id, "error": str(e), "traceback": tb})
+    except TimeoutError as e:
+        send({"type": "error", "id": msg_id, "error": str(e)})
+    except _ExecError as e:
+        send({"type": "error", "id": msg_id, "error": str(e), "traceback": e.tb})
 
 
 def eval_expr(msg_id: str, expr: str) -> None:
@@ -181,14 +231,18 @@ def eval_expr(msg_id: str, expr: str) -> None:
         return
 
     try:
-        exec_code_str = f"_eval_result = {expr}"
-        exec(exec_code_str, _namespace)
+        def do_eval():
+            exec_code_str = f"_eval_result = {expr}"
+            exec(exec_code_str, _namespace)
+
+        _run_with_timeout(do_eval)
         to_json = _namespace.get("_to_json", str)
         result = json.dumps(_namespace["_eval_result"], default=to_json)
         send({"type": "value", "id": msg_id, "value": result})
-    except Exception as e:
-        tb = traceback.format_exc()
-        send({"type": "error", "id": msg_id, "error": str(e), "traceback": tb})
+    except TimeoutError as e:
+        send({"type": "error", "id": msg_id, "error": str(e)})
+    except _ExecError as e:
+        send({"type": "error", "id": msg_id, "error": str(e), "traceback": e.tb})
 
 
 def _streaming_reader_thread(stop_event: threading.Event) -> None:
