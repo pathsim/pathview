@@ -20,7 +20,9 @@ STATIC_DIR = REPO_ROOT / "pathview_server" / "static"
 
 def run(cmd, **kwargs):
     print(f"  > {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=kwargs.pop("cwd", REPO_ROOT), **kwargs)
+    # shell=True needed on Windows for npx/npm resolution
+    result = subprocess.run(cmd, cwd=kwargs.pop("cwd", REPO_ROOT),
+                            shell=(sys.platform == "win32"), **kwargs)
     if result.returncode != 0:
         print(f"ERROR: command failed (exit {result.returncode})")
         sys.exit(result.returncode)

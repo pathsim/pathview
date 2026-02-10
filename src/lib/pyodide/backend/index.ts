@@ -33,7 +33,7 @@ export { FlaskBackend } from './flask/backend';
 // These delegate to the current backend and maintain API compatibility
 // ============================================================================
 
-import { getBackend, switchBackend, setFlaskHost } from './registry';
+import { getBackend, switchBackend, setFlaskHost, getBackendType } from './registry';
 import { backendState } from './state';
 import { consoleStore } from '$lib/stores/console';
 
@@ -42,7 +42,7 @@ import { consoleStore } from '$lib/stores/console';
  * Reads `?backend=flask` and `?host=...` from the current URL.
  * Call this early in page mount, before any backend usage.
  */
-export function initBackendFromUrl(): void {
+export async function initBackendFromUrl(): Promise<void> {
 	if (typeof window === 'undefined') return;
 	const params = new URLSearchParams(window.location.search);
 	const backendParam = params.get('backend');
@@ -53,6 +53,7 @@ export function initBackendFromUrl(): void {
 			setFlaskHost(hostParam);
 		}
 		switchBackend('flask');
+		await init();
 	}
 }
 
@@ -78,6 +79,8 @@ export async function autoDetectBackend(): Promise<void> {
 			if (data.status === 'ok') {
 				setFlaskHost(window.location.origin);
 				switchBackend('flask');
+				// Run full init — sets up callbacks, logs progress, initializes worker
+				await init();
 			}
 		}
 	} catch {

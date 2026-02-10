@@ -10,6 +10,7 @@ Each session gets its own worker subprocess with an isolated Python namespace.
 import os
 import sys
 import json
+import queue
 import subprocess
 import threading
 import time
@@ -17,7 +18,7 @@ import uuid
 import atexit
 from pathlib import Path
 
-from flask import Flask, Response, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 # ---------------------------------------------------------------------------
@@ -26,7 +27,6 @@ from flask_cors import CORS
 
 SESSION_TTL = 3600  # 1 hour of inactivity before cleanup
 CLEANUP_INTERVAL = 60  # Check for stale sessions every 60 seconds
-REQUEST_TIMEOUT = 300  # 5 minutes default timeout for exec/eval
 WORKER_SCRIPT = str(Path(__file__).parent / "worker.py")
 
 # ---------------------------------------------------------------------------
@@ -49,6 +49,10 @@ class Session:
             bufsize=1,  # line buffered
         )
         self._initialized = False
+        # Streaming state: background thread reads worker stdout into a queue
+        self._stream_queue: queue.Queue[dict] = queue.Queue()
+        self._stream_reader: threading.Thread | None = None
+        self._streaming = False
 
     def send_message(self, msg: dict) -> None:
         """Write a JSON message to the subprocess stdin."""
@@ -85,11 +89,63 @@ class Session:
                 raise RuntimeError(resp.get("error", "Unknown init error"))
         return messages
 
+    def start_stream_reader(self) -> None:
+        """Start a background thread that reads worker stdout into the stream queue."""
+        self._streaming = True
+        # Clear any stale messages
+        while not self._stream_queue.empty():
+            try:
+                self._stream_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        def reader():
+            while self._streaming:
+                resp = self.read_line()
+                if resp is None:
+                    self._stream_queue.put({"type": "error", "error": "Worker process died"})
+                    self._streaming = False
+                    break
+                self._stream_queue.put(resp)
+                if resp.get("type") in ("stream-done", "error"):
+                    self._streaming = False
+                    break
+
+        self._stream_reader = threading.Thread(target=reader, daemon=True)
+        self._stream_reader.start()
+
+    def stop_stream_reader(self) -> None:
+        """Signal the stream reader to stop."""
+        self._streaming = False
+
+    def flush_worker_reader(self) -> None:
+        """Send a noop message to unblock the worker's stdin reader thread.
+
+        After streaming ends, the worker's reader thread is blocked on stdin.readline().
+        This sends a harmless message so the reader thread wakes up, checks stop_event,
+        and exits — allowing the main thread to resume reading stdin safely.
+        """
+        try:
+            self.send_message({"type": "noop"})
+        except Exception:
+            pass
+
+    def drain_stream_queue(self) -> list[dict]:
+        """Drain all messages currently in the stream queue."""
+        messages = []
+        while True:
+            try:
+                messages.append(self._stream_queue.get_nowait())
+            except queue.Empty:
+                break
+        return messages
+
     def is_alive(self) -> bool:
         return self.process.poll() is None
 
     def kill(self) -> None:
         """Kill the subprocess."""
+        self._streaming = False
         try:
             self.process.stdin.close()
         except Exception:
@@ -142,14 +198,22 @@ def cleanup_stale_sessions() -> None:
             remove_session(sid)
 
 
-# Start cleanup thread
-_cleanup_thread = threading.Thread(target=cleanup_stale_sessions, daemon=True)
-_cleanup_thread.start()
+_cleanup_started = False
 
 
-def _get_session_id() -> str:
-    """Extract session ID from request headers or generate one."""
-    return request.headers.get("X-Session-ID") or str(uuid.uuid4())
+def _start_cleanup_thread() -> None:
+    """Start the cleanup thread once (idempotent)."""
+    global _cleanup_started
+    if _cleanup_started:
+        return
+    _cleanup_started = True
+    t = threading.Thread(target=cleanup_stale_sessions, daemon=True)
+    t.start()
+
+
+def _get_session_id() -> str | None:
+    """Extract session ID from request headers. Returns None if missing."""
+    return request.headers.get("X-Session-ID")
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +228,7 @@ def create_app(serve_static: bool = False) -> Flask:
                       If False, API-only mode with CORS (for dev with Vite).
     """
     app = Flask(__name__)
+    _start_cleanup_thread()
 
     if not serve_static:
         CORS(app)
@@ -180,6 +245,8 @@ def create_app(serve_static: bool = False) -> Flask:
     def api_init():
         """Initialize a session's worker with packages from the frontend config."""
         session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
         data = request.get_json(force=True)
         packages = data.get("packages", [])
 
@@ -195,6 +262,8 @@ def create_app(serve_static: bool = False) -> Flask:
     def api_exec():
         """Execute Python code in the session's worker."""
         session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
         data = request.get_json(force=True)
         code = data.get("code", "")
         msg_id = data.get("id", str(uuid.uuid4()))
@@ -238,6 +307,8 @@ def create_app(serve_static: bool = False) -> Flask:
     def api_eval():
         """Evaluate a Python expression in the session's worker."""
         session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
         data = request.get_json(force=True)
         expr = data.get("expr", "")
         msg_id = data.get("id", str(uuid.uuid4()))
@@ -277,62 +348,62 @@ def create_app(serve_static: bool = False) -> Flask:
             except Exception as e:
                 return jsonify({"type": "error", "id": msg_id, "error": str(e)}), 500
 
-    @app.route("/api/stream", methods=["POST"])
-    def api_stream():
-        """Start a streaming simulation, returning results as SSE."""
+    @app.route("/api/stream/start", methods=["POST"])
+    def api_stream_start():
+        """Start streaming — sends stream-start to worker and returns immediately.
+
+        A background thread reads worker stdout into a queue.  The frontend
+        polls /api/stream/poll to drain that queue, mirroring how the Pyodide
+        worker sends stream-data / stream-done messages via postMessage.
+        """
         session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
         data = request.get_json(force=True)
         expr = data.get("expr", "")
         msg_id = data.get("id", str(uuid.uuid4()))
 
         session = get_or_create_session(session_id)
+        with session.lock:
+            try:
+                session.ensure_initialized()
+                session.send_message({"type": "stream-start", "id": msg_id, "expr": expr})
+                session.start_stream_reader()
+                return jsonify({"status": "started", "id": msg_id})
+            except Exception as e:
+                return jsonify({"type": "error", "error": str(e)}), 500
 
-        def generate():
-            with session.lock:
-                try:
-                    session.ensure_initialized()
-                    session.send_message({"type": "stream-start", "id": msg_id, "expr": expr})
-
-                    while True:
-                        resp = session.read_line()
-                        if resp is None:
-                            yield f"event: error\ndata: {json.dumps({'error': 'Worker process died'})}\n\n"
-                            break
-                        resp_type = resp.get("type")
-
-                        if resp_type == "stream-data":
-                            yield f"event: data\ndata: {json.dumps({'done': False, 'result': json.loads(resp.get('value', '{}'))})}\n\n"
-                        elif resp_type == "stream-done":
-                            yield f"event: done\ndata: {{}}\n\n"
-                            break
-                        elif resp_type == "stdout":
-                            yield f"event: stdout\ndata: {json.dumps(resp.get('value', ''))}\n\n"
-                        elif resp_type == "stderr":
-                            yield f"event: stderr\ndata: {json.dumps(resp.get('value', ''))}\n\n"
-                        elif resp_type == "error":
-                            yield f"event: error\ndata: {json.dumps({'error': resp.get('error', ''), 'traceback': resp.get('traceback', '')})}\n\n"
-                            break
-
-                except Exception as e:
-                    yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
-
-        return Response(
-            generate(),
-            mimetype="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",
-            },
-        )
+    @app.route("/api/stream/poll", methods=["POST"])
+    def api_stream_poll():
+        """Poll for stream messages — returns all queued messages since last poll."""
+        session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
+        with _sessions_lock:
+            session = _sessions.get(session_id)
+        if not session:
+            return jsonify({"messages": [], "done": True})
+        messages = session.drain_stream_queue()
+        done = any(m.get("type") in ("stream-done", "error") for m in messages)
+        if done:
+            # Send noop to unblock the worker's stdin reader thread
+            # so the main thread can resume processing exec/eval
+            session.flush_worker_reader()
+        return jsonify({"messages": messages, "done": done})
 
     @app.route("/api/stream/exec", methods=["POST"])
     def api_stream_exec():
         """Queue code to execute during an active stream."""
         session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"error": "Missing X-Session-ID header"}), 400
         data = request.get_json(force=True)
         code = data.get("code", "")
 
-        session = get_or_create_session(session_id)
+        with _sessions_lock:
+            session = _sessions.get(session_id)
+        if not session:
+            return jsonify({"error": "No active session"}), 404
         try:
             session.send_message({"type": "stream-exec", "code": code})
             return jsonify({"status": "queued"})
@@ -343,8 +414,13 @@ def create_app(serve_static: bool = False) -> Flask:
     def api_stream_stop():
         """Stop an active streaming session."""
         session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"error": "Missing X-Session-ID header"}), 400
 
-        session = get_or_create_session(session_id)
+        with _sessions_lock:
+            session = _sessions.get(session_id)
+        if not session:
+            return jsonify({"status": "stopped"})
         try:
             session.send_message({"type": "stream-stop"})
             return jsonify({"status": "stopped"})
@@ -355,6 +431,8 @@ def create_app(serve_static: bool = False) -> Flask:
     def api_session_delete():
         """Kill a session's worker subprocess."""
         session_id = _get_session_id()
+        if not session_id:
+            return jsonify({"error": "Missing X-Session-ID header"}), 400
         remove_session(session_id)
         return jsonify({"status": "terminated"})
 

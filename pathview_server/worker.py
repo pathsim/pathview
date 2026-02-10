@@ -8,13 +8,13 @@ Same message protocol (REPLRequest/REPLResponse as JSON lines over stdin/stdout)
 
 Threading model:
 - Main thread: reads stdin, processes init/exec/eval synchronously
-- During streaming: a reader thread handles stream-stop and stream-exec
-  while the main thread runs the streaming loop
+- During streaming: a reader thread handles stream-stop and stream-exec,
+  puts non-streaming messages into a leftover queue
+- After streaming: main thread drains leftovers before resuming stdin reads
 - Stdout lock: thread-safe writing to stdout (protocol messages only)
 """
 
 import sys
-import io
 import json
 import subprocess
 import threading
@@ -24,6 +24,9 @@ import queue
 # Lock for thread-safe stdout writing (protocol messages only)
 _stdout_lock = threading.Lock()
 
+# Keep a reference to the real stdout pipe — protocol messages go here.
+_real_stdout = sys.stdout
+
 # Worker state
 _namespace = {}
 _initialized = False
@@ -31,46 +34,56 @@ _initialized = False
 # Streaming state
 _streaming_active = False
 _streaming_code_queue = queue.Queue()
+_leftover_queue: queue.Queue[dict | None] = queue.Queue()
 
 
 def send(response: dict) -> None:
     """Send a JSON response to the parent process via stdout."""
     with _stdout_lock:
-        sys.stdout.write(json.dumps(response) + "\n")
-        sys.stdout.flush()
+        _real_stdout.write(json.dumps(response) + "\n")
+        _real_stdout.flush()
 
 
-def _capture_output(func):
-    """Run func with stdout/stderr captured, sending output as messages."""
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
-    captured_out = io.StringIO()
-    captured_err = io.StringIO()
-    sys.stdout = captured_out
-    sys.stderr = captured_err
-    try:
-        result = func()
-    finally:
-        sys.stdout = old_stdout
-        sys.stderr = old_stderr
-        out = captured_out.getvalue()
-        err = captured_err.getvalue()
-        if out:
-            send({"type": "stdout", "value": out})
-        if err:
-            send({"type": "stderr", "value": err})
-    return result
+class _ProtocolWriter:
+    """File-like object that routes writes through the worker protocol.
+
+    Installed as sys.stdout/sys.stderr permanently so that ALL output
+    (print, logging handlers, third-party libraries) is captured and
+    forwarded to the frontend console. This avoids the stale-reference
+    bug where StreamHandler(sys.stdout) captures a temporary StringIO.
+    """
+
+    def __init__(self, msg_type: str):
+        self.msg_type = msg_type
+        self._in_write = False
+
+    def write(self, text: str) -> int:
+        if text and not self._in_write:
+            self._in_write = True
+            try:
+                send({"type": self.msg_type, "value": text})
+            except Exception:
+                pass
+            finally:
+                self._in_write = False
+        return len(text) if text else 0
+
+    def flush(self) -> None:
+        pass
+
+    def isatty(self) -> bool:
+        return False
 
 
 def read_message():
     """Read one JSON message from stdin. Returns None on EOF."""
-    line = sys.stdin.readline()
-    if not line:
-        return None
-    line = line.strip()
-    if not line:
-        return read_message()  # skip blank lines
-    return json.loads(line)
+    while True:
+        line = sys.stdin.readline()
+        if not line:
+            return None
+        line = line.strip()
+        if line:
+            return json.loads(line)
 
 
 def _install_package(pip_spec: str, pre: bool = False) -> None:
@@ -118,6 +131,12 @@ def initialize(packages: list[dict] | None = None) -> None:
 
     send({"type": "progress", "value": "Initializing Python worker..."})
 
+    # Replace sys.stdout/stderr with protocol writers BEFORE importing packages.
+    # Any StreamHandler created later (e.g. by pathsim's LoggerManager singleton)
+    # will capture these persistent objects, so logging always routes through send().
+    sys.stdout = _ProtocolWriter("stdout")
+    sys.stderr = _ProtocolWriter("stderr")
+
     # Set up the namespace with common imports
     _namespace = {"__builtins__": __builtins__}
     exec("import numpy as np", _namespace)
@@ -148,9 +167,7 @@ def exec_code(msg_id: str, code: str) -> None:
         return
 
     try:
-        def run():
-            exec(code, _namespace)
-        _capture_output(run)
+        exec(code, _namespace)
         send({"type": "ok", "id": msg_id})
     except Exception as e:
         tb = traceback.format_exc()
@@ -164,13 +181,10 @@ def eval_expr(msg_id: str, expr: str) -> None:
         return
 
     try:
-        def run():
-            # Mirror worker.ts: store result, then JSON-serialize
-            exec_code_str = f"_eval_result = {expr}"
-            exec(exec_code_str, _namespace)
-            to_json = _namespace.get("_to_json", str)
-            return json.dumps(_namespace["_eval_result"], default=to_json)
-        result = _capture_output(run)
+        exec_code_str = f"_eval_result = {expr}"
+        exec(exec_code_str, _namespace)
+        to_json = _namespace.get("_to_json", str)
+        result = json.dumps(_namespace["_eval_result"], default=to_json)
         send({"type": "value", "id": msg_id, "value": result})
     except Exception as e:
         tb = traceback.format_exc()
@@ -178,13 +192,19 @@ def eval_expr(msg_id: str, expr: str) -> None:
 
 
 def _streaming_reader_thread(stop_event: threading.Event) -> None:
-    """Read stdin during streaming, handling stream-stop and stream-exec."""
+    """Read stdin during streaming, handling stream-stop and stream-exec.
+
+    Non-streaming messages are saved to _leftover_queue for the main loop.
+    After stop_event is set, the thread will exit once it reads one more line
+    (the flush message sent by the server).
+    """
     global _streaming_active
-    while not stop_event.is_set():
+    while True:
         line = sys.stdin.readline()
         if not line:
-            # EOF — stop streaming and signal main loop to exit
+            # EOF — stop streaming
             _streaming_active = False
+            _leftover_queue.put(None)
             break
         line = line.strip()
         if not line:
@@ -195,6 +215,11 @@ def _streaming_reader_thread(stop_event: threading.Event) -> None:
             send({"type": "error", "error": f"Invalid JSON: {line}"})
             continue
 
+        # If stop_event is set, we're just flushing — put message in leftovers
+        if stop_event.is_set():
+            _leftover_queue.put(msg)
+            break
+
         msg_type = msg.get("type")
         if msg_type == "stream-stop":
             _streaming_active = False
@@ -202,7 +227,9 @@ def _streaming_reader_thread(stop_event: threading.Event) -> None:
             code = msg.get("code")
             if code and _streaming_active:
                 _streaming_code_queue.put(code)
-        # Other messages during streaming are ignored (shouldn't happen)
+        else:
+            # Non-streaming message arrived — save for main loop
+            _leftover_queue.put(msg)
 
 
 def run_streaming_loop(msg_id: str, expr: str) -> None:
@@ -236,35 +263,30 @@ def run_streaming_loop(msg_id: str, expr: str) -> None:
                 except queue.Empty:
                     break
                 try:
-                    def run_queued(c=code):
-                        exec(c, _namespace)
-                    _capture_output(run_queued)
+                    exec(code, _namespace)
                 except Exception as e:
                     send({"type": "stderr", "value": f"Stream exec error: {e}"})
 
             # Step the generator
-            def run_step():
-                exec_code_str = f"_eval_result = {expr}"
-                exec(exec_code_str, _namespace)
-                to_json = _namespace.get("_to_json", str)
-                return json.dumps(_namespace["_eval_result"], default=to_json)
-            result = _capture_output(run_step)
-
-            # Parse result
-            parsed = json.loads(result)
+            exec_code_str = f"_eval_result = {expr}"
+            exec(exec_code_str, _namespace)
+            raw_result = _namespace["_eval_result"]
+            done = raw_result.get("done", False) if isinstance(raw_result, dict) else False
 
             # Check if stopped during Python execution - still send final data
             if not _streaming_active:
-                if not parsed.get("done") and parsed.get("result"):
-                    send({"type": "stream-data", "id": msg_id, "value": result})
+                if not done and (isinstance(raw_result, dict) and raw_result.get("result")):
+                    to_json = _namespace.get("_to_json", str)
+                    send({"type": "stream-data", "id": msg_id, "value": json.dumps(raw_result, default=to_json)})
                 break
 
             # Check if simulation completed
-            if parsed.get("done"):
+            if done:
                 break
 
             # Send result and continue
-            send({"type": "stream-data", "id": msg_id, "value": result})
+            to_json = _namespace.get("_to_json", str)
+            send({"type": "stream-data", "id": msg_id, "value": json.dumps(raw_result, default=to_json)})
 
     except Exception as e:
         tb = traceback.format_exc()
@@ -274,18 +296,25 @@ def run_streaming_loop(msg_id: str, expr: str) -> None:
         stop_event.set()
         # Always send done when loop ends
         send({"type": "stream-done", "id": msg_id})
-
-
-def stop_streaming() -> None:
-    """Stop the streaming loop."""
-    global _streaming_active
-    _streaming_active = False
+        # Reader thread will exit on the next stdin read (flush message from server)
 
 
 def main() -> None:
     """Main loop: read messages from stdin and process them."""
     while True:
-        msg = read_message()
+        # First drain any leftover messages from the streaming reader thread
+        msg = None
+        while not _leftover_queue.empty():
+            try:
+                msg = _leftover_queue.get_nowait()
+                if msg is not None:
+                    break
+            except queue.Empty:
+                break
+
+        # If no leftover, read from stdin directly
+        if msg is None:
+            msg = read_message()
         if msg is None:
             # stdin closed, exit
             break
@@ -317,11 +346,16 @@ def main() -> None:
                 run_streaming_loop(msg_id, expr)
 
             elif msg_type == "stream-stop":
-                stop_streaming()
+                # Only during streaming (handled by reader thread)
+                pass
 
             elif msg_type == "stream-exec":
-                if isinstance(code, str) and _streaming_active:
-                    _streaming_code_queue.put(code)
+                # Only during streaming (handled by reader thread)
+                pass
+
+            elif msg_type == "noop":
+                # Flush message from server — ignore
+                pass
 
             else:
                 raise ValueError(f"Unknown message type: {msg_type}")
