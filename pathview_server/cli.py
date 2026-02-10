@@ -45,7 +45,11 @@ def main():
     print("Press Ctrl+C to stop\n")
 
     try:
-        app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
+        if args.debug:
+            app.run(host=args.host, port=args.port, debug=True, threaded=True)
+        else:
+            from waitress import serve
+            serve(app, host=args.host, port=args.port, threads=4)
     except KeyboardInterrupt:
         print("\nStopping PathView server...")
         sys.exit(0)
