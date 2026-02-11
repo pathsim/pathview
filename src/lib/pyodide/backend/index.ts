@@ -20,20 +20,73 @@ export {
 	getBackendType,
 	hasBackend,
 	terminateBackend,
+	setFlaskHost,
 	type BackendType
 } from './registry';
 
-// Re-export PyodideBackend for direct use if needed
+// Re-export backend implementations
 export { PyodideBackend } from './pyodide/backend';
+export { FlaskBackend } from './flask/backend';
 
 // ============================================================================
 // Backward-Compatible Convenience Functions
 // These delegate to the current backend and maintain API compatibility
 // ============================================================================
 
-import { getBackend } from './registry';
+import { getBackend, switchBackend, setFlaskHost, getBackendType } from './registry';
 import { backendState } from './state';
 import { consoleStore } from '$lib/stores/console';
+
+/**
+ * Initialize backend from URL parameters.
+ * Reads `?backend=flask` and `?host=...` from the current URL.
+ * Call this early in page mount, before any backend usage.
+ */
+export async function initBackendFromUrl(): Promise<void> {
+	if (typeof window === 'undefined') return;
+	const params = new URLSearchParams(window.location.search);
+	const backendParam = params.get('backend');
+	const hostParam = params.get('host');
+
+	if (backendParam === 'flask') {
+		if (hostParam) {
+			setFlaskHost(hostParam);
+		}
+		switchBackend('flask');
+		await init();
+	}
+}
+
+/**
+ * Auto-detect if a Flask backend is available at the same origin.
+ * Used when the frontend is served by the Flask server (pip package mode).
+ * URL parameters take precedence — if `?backend=` is set, auto-detection is skipped.
+ */
+export async function autoDetectBackend(): Promise<void> {
+	if (typeof window === 'undefined') return;
+
+	// URL params override auto-detection
+	const params = new URLSearchParams(window.location.search);
+	if (params.has('backend')) return;
+
+	try {
+		const response = await fetch('/api/health', {
+			method: 'GET',
+			signal: AbortSignal.timeout(2000)
+		});
+		if (response.ok) {
+			const data = await response.json();
+			if (data.status === 'ok') {
+				setFlaskHost(window.location.origin);
+				switchBackend('flask');
+				// Run full init — sets up callbacks, logs progress, initializes worker
+				await init();
+			}
+		}
+	} catch {
+		// No Flask backend at same origin — will use Pyodide
+	}
+}
 
 // Alias for backward compatibility
 export const replState = {
