@@ -337,15 +337,16 @@ def create_app(serve_static: bool = False) -> Flask:
             except Exception as e:
                 return jsonify({"type": "error", "error": str(e)}), 500
 
-    @app.route("/api/exec", methods=["POST"])
-    def api_exec():
-        """Execute Python code in the session's worker."""
+    def _handle_worker_request(msg: dict, success_type: str) -> tuple:
+        """Send a message to the worker and collect the response.
+
+        Shared by api_exec (success_type="ok") and api_eval (success_type="value").
+        Returns a Flask response tuple.
+        """
         session_id = _get_session_id()
         if not session_id:
             return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
-        data = request.get_json(force=True)
-        code = data.get("code", "")
-        msg_id = data.get("id", str(uuid.uuid4()))
+        msg_id = msg.get("id", str(uuid.uuid4()))
 
         session = get_or_create_session(session_id)
         with session.lock:
@@ -354,7 +355,7 @@ def create_app(serve_static: bool = False) -> Flask:
                 # reading stdout — prevents concurrent pipe reads / JSONDecodeError
                 session.wait_for_stream_reader()
                 session.ensure_initialized()
-                session.send_message({"type": "exec", "id": msg_id, "code": code})
+                session.send_message(msg)
 
                 stdout_lines = []
                 stderr_lines = []
@@ -368,8 +369,8 @@ def create_app(serve_static: bool = False) -> Flask:
                         stdout_lines.append(resp.get("value", ""))
                     elif resp_type == "stderr":
                         stderr_lines.append(resp.get("value", ""))
-                    elif resp_type == "ok" and resp.get("id") == msg_id:
-                        result = {"type": "ok", "id": msg_id}
+                    elif resp_type == success_type and resp.get("id") == msg_id:
+                        result = resp
                         if stdout_lines:
                             result["stdout"] = "".join(stdout_lines)
                         if stderr_lines:
@@ -388,58 +389,26 @@ def create_app(serve_static: bool = False) -> Flask:
                 return jsonify({"type": "error", "errorType": "timeout", "id": msg_id, "error": "Execution timed out"}), 504
             except Exception as e:
                 return jsonify({"type": "error", "id": msg_id, "error": str(e)}), 500
+
+    @app.route("/api/exec", methods=["POST"])
+    def api_exec():
+        """Execute Python code in the session's worker."""
+        data = request.get_json(force=True)
+        msg_id = data.get("id", str(uuid.uuid4()))
+        return _handle_worker_request(
+            {"type": "exec", "id": msg_id, "code": data.get("code", "")},
+            success_type="ok",
+        )
 
     @app.route("/api/eval", methods=["POST"])
     def api_eval():
         """Evaluate a Python expression in the session's worker."""
-        session_id = _get_session_id()
-        if not session_id:
-            return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
         data = request.get_json(force=True)
-        expr = data.get("expr", "")
         msg_id = data.get("id", str(uuid.uuid4()))
-
-        session = get_or_create_session(session_id)
-        with session.lock:
-            try:
-                # Wait for any lingering stream reader thread to exit before
-                # reading stdout — prevents concurrent pipe reads / JSONDecodeError
-                session.wait_for_stream_reader()
-                session.ensure_initialized()
-                session.send_message({"type": "eval", "id": msg_id, "expr": expr})
-
-                stdout_lines = []
-                stderr_lines = []
-                while True:
-                    resp = session.read_line_timeout()
-                    if resp is None:
-                        remove_session(session_id)
-                        return jsonify({"type": "error", "errorType": "worker-crashed", "id": msg_id, "error": "Worker process died"}), 500
-                    resp_type = resp.get("type")
-                    if resp_type == "stdout":
-                        stdout_lines.append(resp.get("value", ""))
-                    elif resp_type == "stderr":
-                        stderr_lines.append(resp.get("value", ""))
-                    elif resp_type == "value" and resp.get("id") == msg_id:
-                        result = resp
-                        if stdout_lines:
-                            result["stdout"] = "".join(stdout_lines)
-                        if stderr_lines:
-                            result["stderr"] = "".join(stderr_lines)
-                        return jsonify(result)
-                    elif resp_type == "error" and resp.get("id") == msg_id:
-                        result = resp
-                        if stdout_lines:
-                            result["stdout"] = "".join(stdout_lines)
-                        if stderr_lines:
-                            result["stderr"] = "".join(stderr_lines)
-                        return jsonify(result), 400
-
-            except TimeoutError:
-                remove_session(session_id)
-                return jsonify({"type": "error", "errorType": "timeout", "id": msg_id, "error": "Execution timed out"}), 504
-            except Exception as e:
-                return jsonify({"type": "error", "id": msg_id, "error": str(e)}), 500
+        return _handle_worker_request(
+            {"type": "eval", "id": msg_id, "expr": data.get("expr", "")},
+            success_type="value",
+        )
 
     @app.route("/api/stream/start", methods=["POST"])
     def api_stream_start():

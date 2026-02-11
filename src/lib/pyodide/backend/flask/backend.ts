@@ -13,8 +13,10 @@ import { TIMEOUTS } from '$lib/constants/python';
 import { STATUS_MESSAGES } from '$lib/constants/messages';
 import { PYTHON_PACKAGES } from '$lib/constants/dependencies';
 
-/** Polling interval for stream results (ms) */
-const STREAM_POLL_INTERVAL = 30;
+/** Delay between polls (ms).  The server uses long-polling (blocks up
+ *  to 100 ms until data arrives), so data delivery is near-instant.
+ *  This interval is just a safety gap between consecutive requests. */
+const STREAM_POLL_INTERVAL = 5;
 
 /** BroadcastChannel name for cross-tab session coordination */
 const SESSION_CHANNEL = 'flask-session';
@@ -86,28 +88,7 @@ export class FlaskBackend implements Backend {
 
 			backendState.update((s) => ({ ...s, progress: 'Initializing Python worker...' }));
 
-			const initResp = await fetch(`${this.host}/api/init`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-Session-ID': this.sessionId
-				},
-				body: JSON.stringify({ packages: PYTHON_PACKAGES }),
-				signal: AbortSignal.timeout(TIMEOUTS.INIT)
-			});
-			const initData = await initResp.json();
-
-			if (initData.type === 'error') throw new Error(initData.error);
-
-			if (initData.messages) {
-				for (const msg of initData.messages) {
-					if (msg.type === 'stdout' && this.stdoutCallback) this.stdoutCallback(msg.value);
-					if (msg.type === 'stderr' && this.stderrCallback) this.stderrCallback(msg.value);
-					if (msg.type === 'progress') {
-						backendState.update((s) => ({ ...s, progress: msg.value }));
-					}
-				}
-			}
+			await this.postInit({ updateProgress: true });
 
 			this.serverInitPromise = Promise.resolve();
 
@@ -126,6 +107,10 @@ export class FlaskBackend implements Backend {
 
 	terminate(): void {
 		this.stopStreaming();
+		if (this.streamPollTimer) {
+			clearTimeout(this.streamPollTimer);
+			this.streamPollTimer = null;
+		}
 		this._isStreaming = false;
 		this.streamState = { onData: null, onDone: null, onError: null };
 
@@ -172,25 +157,7 @@ export class FlaskBackend implements Backend {
 	private ensureServerInit(): Promise<void> {
 		if (this.serverInitPromise) return this.serverInitPromise;
 
-		this.serverInitPromise = (async () => {
-			const resp = await fetch(`${this.host}/api/init`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-Session-ID': this.sessionId
-				},
-				body: JSON.stringify({ packages: PYTHON_PACKAGES }),
-				signal: AbortSignal.timeout(TIMEOUTS.INIT)
-			});
-			const data = await resp.json();
-			if (data.type === 'error') throw new Error(data.error);
-			if (data.messages) {
-				for (const msg of data.messages) {
-					if (msg.type === 'stdout' && this.stdoutCallback) this.stdoutCallback(msg.value);
-					if (msg.type === 'stderr' && this.stderrCallback) this.stderrCallback(msg.value);
-				}
-			}
-		})();
+		this.serverInitPromise = this.postInit({ updateProgress: false });
 
 		// Clear on failure so subsequent calls retry instead of returning the rejected promise
 		this.serverInitPromise.catch(() => {
@@ -271,6 +238,13 @@ export class FlaskBackend implements Backend {
 			this.stopStreaming();
 		}
 
+		// Clear any lingering poll timer from a previous stream so it
+		// doesn't pick up a stale stream-done and fire the NEW onDone.
+		if (this.streamPollTimer) {
+			clearTimeout(this.streamPollTimer);
+			this.streamPollTimer = null;
+		}
+
 		const id = this.generateId();
 		this._isStreaming = true;
 		this.streamState = {
@@ -296,7 +270,6 @@ export class FlaskBackend implements Backend {
 				if (data.type === 'error') {
 					throw new Error(data.error);
 				}
-				// Start polling loop — same as Pyodide worker's onmessage dispatching
 				this.pollStreamResults();
 			})
 			.catch((error) => {
@@ -309,29 +282,19 @@ export class FlaskBackend implements Backend {
 	stopStreaming(): void {
 		if (!this._isStreaming) return;
 
-		// Stop polling timer — the server will send stream-done which triggers onDone
-		if (this.streamPollTimer) {
-			clearTimeout(this.streamPollTimer);
-			this.streamPollTimer = null;
-		}
-
-		// Tell server to stop, then do one final poll to get the stream-done message
+		// Just send the stop signal — don't disrupt the polling loop.
+		// The poll loop will naturally pick up stream-done and clean up,
+		// matching how Pyodide's stopStreaming just sends stream-stop and
+		// lets worker.onmessage handle the rest.
 		fetch(`${this.host}/api/stream/stop`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				'X-Session-ID': this.sessionId
 			}
-		})
-			.then(() => this.pollStreamResults())
-			.catch(() => {
-				// If final poll fails, clean up locally
-				this._isStreaming = false;
-				if (this.streamState.onDone) {
-					this.streamState.onDone();
-				}
-				this.streamState = { onData: null, onDone: null, onError: null };
-			});
+		}).catch(() => {
+			// Network failure — poll loop will also fail and clean up
+		});
 	}
 
 	isStreaming(): boolean {
@@ -372,6 +335,33 @@ export class FlaskBackend implements Backend {
 
 	private generateId(): string {
 		return `repl_${++this.messageId}`;
+	}
+
+	/**
+	 * POST /api/init with packages and forward worker messages to callbacks.
+	 * Shared by init() (first load with progress UI) and ensureServerInit() (lazy re-init).
+	 */
+	private async postInit(opts: { updateProgress: boolean }): Promise<void> {
+		const resp = await fetch(`${this.host}/api/init`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Session-ID': this.sessionId
+			},
+			body: JSON.stringify({ packages: PYTHON_PACKAGES }),
+			signal: AbortSignal.timeout(TIMEOUTS.INIT)
+		});
+		const data = await resp.json();
+		if (data.type === 'error') throw new Error(data.error);
+		if (data.messages) {
+			for (const msg of data.messages) {
+				if (msg.type === 'stdout' && this.stdoutCallback) this.stdoutCallback(msg.value);
+				if (msg.type === 'stderr' && this.stderrCallback) this.stderrCallback(msg.value);
+				if (msg.type === 'progress' && opts.updateProgress) {
+					backendState.update((s) => ({ ...s, progress: msg.value }));
+				}
+			}
+		}
 	}
 
 	/**
