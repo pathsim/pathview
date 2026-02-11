@@ -159,8 +159,12 @@ def initialize(packages: list[dict] | None = None) -> None:
                     )
                 send({"type": "stderr", "value": f"Optional package {pkg.get('import', '?')} failed: {e}\n"})
 
-    # Import numpy AFTER packages are installed (numpy comes with pathsim)
-    exec("import numpy as np", _namespace)
+    # Import numpy AFTER packages are installed (numpy comes with pathsim).
+    # In a fresh venv without simulation packages, numpy won't be available.
+    try:
+        exec("import numpy as np", _namespace)
+    except Exception:
+        pass
 
     _initialized = True
     send({"type": "ready"})
