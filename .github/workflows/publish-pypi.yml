@@ -15,7 +15,8 @@ on:
           - pypi
 
 permissions:
-  contents: read
+  contents: write
+  id-token: write
 
 jobs:
   build-and-publish:
@@ -24,6 +25,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Update version from release tag
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "Updating pyproject.toml version to $VERSION"
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -58,17 +67,13 @@ jobs:
 
       - name: Publish to Test PyPI
         if: github.event_name == 'workflow_dispatch' && inputs.publish_to == 'testpypi'
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_TOKEN }}
-        run: twine upload --repository testpypi dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
 
       - name: Publish to PyPI
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish_to == 'pypi')
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
