@@ -1,687 +1,195 @@
 /**
  * SVG Renderer
  *
- * Renders the current graph view as SVG using a hybrid approach:
- * - Edges: cloned directly from SvelteFlow's SVG (already vector graphics)
- * - Nodes/Events: pure SVG with dimensions and styles read from DOM
+ * Renders the current graph view as SVG using dom2svg.
+ * Resets the SvelteFlow viewport to zoom=1 before capture so that
+ * CSS values (font-size, border-radius, etc.) and getBoundingClientRect
+ * sizes are consistent — no zoom-induced mismatch.
  *
- * This approach ensures pixel-perfect accuracy while producing clean SVG output.
+ * KaTeX math is converted to SVG paths using opentype.js so the SVG
+ * is self-contained and renders correctly in any viewer without fonts.
  */
 
-import { get } from 'svelte/store';
-import { graphStore } from '$lib/stores/graph';
-import { eventStore } from '$lib/stores/events';
-import { getThemeColors } from '$lib/constants/theme';
-import { NODE, EVENT, PORT_LABEL, getPortOffset } from '$lib/constants/dimensions';
-import { getHandlePath } from '$lib/constants/handlePaths';
-import { portLabelsStore } from '$lib/stores/portLabels';
-import { getEffectivePortLabelVisibility, truncatePortLabel } from '$lib/utils/portLabels';
-import { latexToSvg, getSvgDimensions, preloadMathJax } from '$lib/utils/mathjaxSvg';
-
-// Preload MathJax when module loads
-if (typeof window !== 'undefined') {
-	preloadMathJax();
-}
-import type { ExportOptions, RenderContext, Bounds } from './types';
+import { domToSvg } from '../dom2svg/index.js';
+import type { FontMapping } from '../dom2svg/index.js';
+import type { ExportOptions } from './types';
 import { DEFAULT_OPTIONS } from './types';
-import type { NodeInstance } from '$lib/types/nodes';
-import type { EventInstance } from '$lib/types/events';
 
-// ============================================================================
-// DOM UTILITIES
-// ============================================================================
+/** SvelteFlow UI elements to exclude from export */
+const EXCLUDE_SELECTORS = [
+	'.svelte-flow__background',
+	'.svelte-flow__controls',
+	'.svelte-flow__minimap',
+	'.svelte-flow__panel',
+	'.svelte-flow__edge-interaction',
+	'.svelte-flow__attribution',
+	'.drop-zone-overlay'
+].join(', ');
 
-function getZoom(): number {
-	const viewport = document.querySelector('.svelte-flow__viewport') as HTMLElement;
-	if (!viewport) return 1;
-	const match = viewport.style.transform.match(/scale\(([^)]+)\)/);
-	return match ? parseFloat(match[1]) : 1;
+/** KaTeX font CDN base URL */
+const KATEX_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts';
+
+/** KaTeX font mapping for dom2svg textToPath conversion */
+const KATEX_FONTS: FontMapping = {
+	KaTeX_Main: [
+		{ url: `${KATEX_CDN}/KaTeX_Main-Regular.woff2`, weight: 'normal', style: 'normal' },
+		{ url: `${KATEX_CDN}/KaTeX_Main-Bold.woff2`, weight: 'bold', style: 'normal' },
+		{ url: `${KATEX_CDN}/KaTeX_Main-Italic.woff2`, weight: 'normal', style: 'italic' },
+		{ url: `${KATEX_CDN}/KaTeX_Main-BoldItalic.woff2`, weight: 'bold', style: 'italic' }
+	],
+	KaTeX_Math: [
+		{ url: `${KATEX_CDN}/KaTeX_Math-Italic.woff2`, weight: 'normal', style: 'italic' },
+		{ url: `${KATEX_CDN}/KaTeX_Math-BoldItalic.woff2`, weight: 'bold', style: 'italic' }
+	],
+	KaTeX_Size1: [{ url: `${KATEX_CDN}/KaTeX_Size1-Regular.woff2`, weight: 'normal', style: 'normal' }],
+	KaTeX_Size2: [{ url: `${KATEX_CDN}/KaTeX_Size2-Regular.woff2`, weight: 'normal', style: 'normal' }],
+	KaTeX_Size3: [{ url: `${KATEX_CDN}/KaTeX_Size3-Regular.woff2`, weight: 'normal', style: 'normal' }],
+	KaTeX_Size4: [{ url: `${KATEX_CDN}/KaTeX_Size4-Regular.woff2`, weight: 'normal', style: 'normal' }],
+	KaTeX_AMS: [{ url: `${KATEX_CDN}/KaTeX_AMS-Regular.woff2`, weight: 'normal', style: 'normal' }],
+	KaTeX_Caligraphic: [
+		{ url: `${KATEX_CDN}/KaTeX_Caligraphic-Regular.woff2`, weight: 'normal', style: 'normal' },
+		{ url: `${KATEX_CDN}/KaTeX_Caligraphic-Bold.woff2`, weight: 'bold', style: 'normal' }
+	],
+	KaTeX_Fraktur: [
+		{ url: `${KATEX_CDN}/KaTeX_Fraktur-Regular.woff2`, weight: 'normal', style: 'normal' },
+		{ url: `${KATEX_CDN}/KaTeX_Fraktur-Bold.woff2`, weight: 'bold', style: 'normal' }
+	],
+	KaTeX_SansSerif: [
+		{ url: `${KATEX_CDN}/KaTeX_SansSerif-Regular.woff2`, weight: 'normal', style: 'normal' },
+		{ url: `${KATEX_CDN}/KaTeX_SansSerif-Bold.woff2`, weight: 'bold', style: 'normal' },
+		{ url: `${KATEX_CDN}/KaTeX_SansSerif-Italic.woff2`, weight: 'normal', style: 'italic' }
+	],
+	KaTeX_Script: [{ url: `${KATEX_CDN}/KaTeX_Script-Regular.woff2`, weight: 'normal', style: 'normal' }],
+	KaTeX_Typewriter: [{ url: `${KATEX_CDN}/KaTeX_Typewriter-Regular.woff2`, weight: 'normal', style: 'normal' }]
+};
+
+interface Bounds {
+	minX: number;
+	minY: number;
+	maxX: number;
+	maxY: number;
 }
 
-function escapeXml(str: string): string {
-	return str
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&apos;');
-}
-
-/**
- * Extract LaTeX from a string with $...$ delimiters
- */
-function extractLatex(text: string): { before: string; latex: string; after: string } | null {
-	const match = text.match(/^(.*?)\$([^$]+)\$(.*)$/);
-	if (!match) return null;
-	return { before: match[1], latex: match[2], after: match[3] };
-}
-
-/**
- * Render a plain text label as SVG
- */
-function renderPlainTextLabel(
-	text: string,
-	centerX: number,
-	centerY: number,
-	color: string,
-	fontSize: number,
-	fontWeight: string
-): string {
-	return `<text x="${centerX}" y="${centerY}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="${fontSize}" font-weight="${fontWeight}" font-family="system-ui, -apple-system, sans-serif">${escapeXml(text)}</text>`;
-}
-
-/**
- * Render a label that may contain math as native SVG using MathJax
- * @param originalText - The original text with $...$ LaTeX delimiters (NOT the rendered DOM content)
- */
-async function renderMathLabel(
-	originalText: string,
-	centerX: number,
-	centerY: number,
-	color: string,
-	fontSize: number,
-	fontWeight: string,
-	ctx: RenderContext
-): Promise<string> {
-	const mathParts = extractLatex(originalText);
-
-	if (!mathParts) {
-		// Plain text - use regular SVG text
-		return renderPlainTextLabel(originalText, centerX, centerY, color, fontSize, fontWeight);
-	}
-
-	try {
-		// Render the LaTeX to SVG using MathJax
-		// Wrap in \boldsymbol to match the bold font-weight (600) used on canvas
-		const boldLatex = `\\boldsymbol{${mathParts.latex}}`;
-		let svg = await latexToSvg(boldLatex, false);
-		const dims = getSvgDimensions(svg);
-
-		// Apply color to the SVG
-		svg = svg.replace(/currentColor/g, color);
-
-		// Add stroke to math paths to match system font weight (600)
-		// MathJax math fonts are lighter than system-ui bold
-		svg = svg.replace(/<path /g, `<path stroke="${color}" stroke-width="1" `);
-
-		// Scale factor: MathJax renders at a larger default size
-		// Empirically tuned to match KaTeX rendering at 10px font-size
-		const scale = fontSize / 18;
-
-		// Calculate position (center the SVG)
-		const x = centerX - (dims.width * scale) / 2;
-		const y = centerY - (dims.height * scale) / 2;
-
-		// Wrap in a group with transform for positioning and scaling
-		return `<g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)}) scale(${scale.toFixed(3)})">${svg}</g>`;
-	} catch (e) {
-		console.error('MathJax SVG rendering error:', e);
-		// Fall back to plain text showing the raw LaTeX
-		return renderPlainTextLabel(originalText, centerX, centerY, color, fontSize, fontWeight);
-	}
-}
-
-// ============================================================================
-// EDGE RENDERING - Clone from DOM
-// ============================================================================
-
-function renderEdges(ctx: RenderContext): string {
-	const container = document.querySelector('.svelte-flow__edges');
-	if (!container) return '';
-
-	const parts: string[] = [];
-
-	container.querySelectorAll('.svelte-flow__edge').forEach((edge) => {
-		const edgeParts: string[] = [];
-
-		// Get all paths and groups within this edge
-		edge.querySelectorAll('path').forEach((pathEl) => {
-			const d = pathEl.getAttribute('d');
-			if (!d) return;
-
-			// Check if it's the main edge path or arrow
-			if (pathEl.classList.contains('svelte-flow__edge-path')) {
-				edgeParts.push(
-					`<path d="${d}" fill="none" stroke="${ctx.theme.edge}" stroke-width="1.5"/>`
-				);
-			}
-		});
-
-		// Find arrow groups (have transform with rotate)
-		edge.querySelectorAll('g').forEach((g) => {
-			const transform = g.getAttribute('transform');
-			if (transform && transform.includes('rotate')) {
-				const arrowPath = g.querySelector('path');
-				if (arrowPath) {
-					const d = arrowPath.getAttribute('d');
-					if (d) {
-						edgeParts.push(`<g transform="${transform}"><path d="${d}" fill="${ctx.theme.edge}"/></g>`);
-					}
-				}
-			}
-		});
-
-		if (edgeParts.length > 0) {
-			parts.push(`<g class="edge">${edgeParts.join('')}</g>`);
-		}
-	});
-
-	return parts.length > 0 ? `<g class="edges">\n${parts.join('\n')}\n</g>` : '';
-}
-
-// ============================================================================
-// HANDLE RENDERING
-// ============================================================================
-
-function renderHandles(nodeId: string, nodeX: number, nodeY: number, ctx: RenderContext): string {
-	const wrapper = document.querySelector(`[data-id="${nodeId}"]`);
-	if (!wrapper) return '';
-
-	const nodeEl = wrapper.querySelector('[data-rotation]') || wrapper;
-	const rotation = parseInt(nodeEl.getAttribute('data-rotation') || '0');
-	const paths = getHandlePath(rotation);
-	const zoom = getZoom();
-	const nodeRect = wrapper.getBoundingClientRect();
-
-	const handles: string[] = [];
-
-	nodeEl.querySelectorAll('.svelte-flow__handle').forEach((handle) => {
-		const rect = handle.getBoundingClientRect();
-		const cx = (rect.left + rect.width / 2 - nodeRect.left) / zoom;
-		const cy = (rect.top + rect.height / 2 - nodeRect.top) / zoom;
-		const x = nodeX + cx - paths.width / 2;
-		const y = nodeY + cy - paths.height / 2;
-
-		handles.push(`<g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)})">
-	<path d="${paths.outer}" fill="${ctx.theme.edge}"/>
-	<path d="${paths.inner}" fill="${ctx.theme.surfaceRaised}" transform="translate(1, 1)"/>
-</g>`);
-	});
-
-	return handles.join('\n');
-}
-
-// ============================================================================
-// PORT LABEL RENDERING
-// ============================================================================
-
-/**
- * Resolve showPortLabels option: 'auto' reads from store, otherwise use boolean value
- */
-function resolveShowPortLabels(option: boolean | 'auto'): boolean {
-	if (option === 'auto') {
-		return portLabelsStore.get();
-	}
-	return option;
+/** Parse the viewport's inline transform to extract pan and zoom */
+function parseViewport(viewport: HTMLElement): { panX: number; panY: number; zoom: number } {
+	const transform = viewport.style.transform;
+	const translateMatch = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+	const scaleMatch = transform.match(/scale\(([^)]+)\)/);
+	return {
+		panX: translateMatch ? parseFloat(translateMatch[1]) : 0,
+		panY: translateMatch ? parseFloat(translateMatch[2]) : 0,
+		zoom: scaleMatch ? parseFloat(scaleMatch[1]) : 1
+	};
 }
 
 /**
- * Render port labels for a node as SVG text + separator lines.
- * Returns SVG string and the pixel offsets consumed by label columns/rows
- * (used to shift content center).
+ * Calculate content bounds in flow space by converting screen-space
+ * getBoundingClientRect positions back to flow coordinates.
  */
-function renderPortLabels(
-	node: NodeInstance,
-	x: number,
-	y: number,
-	width: number,
-	height: number,
-	globalShowLabels: boolean,
-	ctx: RenderContext
-): { svg: string; inputOffset: number; outputOffset: number } {
-	const { inputs: hasInputLabels, outputs: hasOutputLabels } = getEffectivePortLabelVisibility(node, globalShowLabels);
-	if (!hasInputLabels && !hasOutputLabels) {
-		return { svg: '', inputOffset: 0, outputOffset: 0 };
-	}
-
-	const parts: string[] = [];
-	const rotation = (node.params?.['_rotation'] as number) || 0;
-	const isVertical = rotation === 1 || rotation === 3;
-	const labelColumnWidth = PORT_LABEL.columnWidth;
-
-	if (isVertical) {
-		// Vertical: label rows at top/bottom
-		// rotation 1: inputs top, outputs bottom
-		// rotation 3: inputs bottom, outputs top
-		const inputRowY = rotation === 1
-			? y  // top
-			: y + height - labelColumnWidth; // bottom
-		const outputRowY = rotation === 1
-			? y + height - labelColumnWidth  // bottom
-			: y; // top
-
-		if (hasInputLabels) {
-			// Separator line
-			const sepY = rotation === 1 ? inputRowY + labelColumnWidth : inputRowY;
-			parts.push(`<line x1="${x}" y1="${sepY}" x2="${x + width}" y2="${sepY}" stroke="${ctx.theme.border}" stroke-width="1"/>`);
-
-			// Port label text (rotated -90deg)
-			const centerY = inputRowY + labelColumnWidth / 2;
-			for (let i = 0; i < node.inputs.length; i++) {
-				const offset = getPortOffset(i, node.inputs.length);
-				const labelX = x + width / 2 + offset;
-				const label = truncatePortLabel(node.inputs[i].name);
-				parts.push(`<text x="${labelX}" y="${centerY}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif" transform="rotate(-90 ${labelX} ${centerY})">${escapeXml(label)}</text>`);
-			}
-		}
-
-		if (hasOutputLabels) {
-			// Separator line
-			const sepY = rotation === 1 ? outputRowY : outputRowY + labelColumnWidth;
-			parts.push(`<line x1="${x}" y1="${sepY}" x2="${x + width}" y2="${sepY}" stroke="${ctx.theme.border}" stroke-width="1"/>`);
-
-			// Port label text (rotated -90deg)
-			const centerY = outputRowY + labelColumnWidth / 2;
-			for (let i = 0; i < node.outputs.length; i++) {
-				const offset = getPortOffset(i, node.outputs.length);
-				const labelX = x + width / 2 + offset;
-				const label = truncatePortLabel(node.outputs[i].name);
-				parts.push(`<text x="${labelX}" y="${centerY}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif" transform="rotate(-90 ${labelX} ${centerY})">${escapeXml(label)}</text>`);
-			}
-		}
-
-		return {
-			svg: parts.join('\n'),
-			inputOffset: hasInputLabels ? labelColumnWidth : 0,
-			outputOffset: hasOutputLabels ? labelColumnWidth : 0
-		};
-	} else {
-		// Horizontal: label columns at left/right
-		// rotation 0: inputs left, outputs right
-		// rotation 2: inputs right, outputs left
-		const inputColX = rotation === 0
-			? x  // left
-			: x + width - labelColumnWidth; // right
-		const outputColX = rotation === 0
-			? x + width - labelColumnWidth  // right
-			: x; // left
-
-		if (hasInputLabels) {
-			// Separator line
-			const sepX = rotation === 0 ? inputColX + labelColumnWidth : inputColX;
-			parts.push(`<line x1="${sepX}" y1="${y}" x2="${sepX}" y2="${y + height}" stroke="${ctx.theme.border}" stroke-width="1"/>`);
-
-			// Port label text
-			// rotation 0: align right (near separator), rotation 2: align left
-			const textAnchor = rotation === 0 ? 'end' : 'start';
-			const textX = rotation === 0 ? inputColX + labelColumnWidth - 6 : inputColX + 6;
-			for (let i = 0; i < node.inputs.length; i++) {
-				const offset = getPortOffset(i, node.inputs.length);
-				const labelY = y + height / 2 + offset;
-				const label = truncatePortLabel(node.inputs[i].name);
-				parts.push(`<text x="${textX}" y="${labelY}" text-anchor="${textAnchor}" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(label)}</text>`);
-			}
-		}
-
-		if (hasOutputLabels) {
-			// Separator line
-			const sepX = rotation === 0 ? outputColX : outputColX + labelColumnWidth;
-			parts.push(`<line x1="${sepX}" y1="${y}" x2="${sepX}" y2="${y + height}" stroke="${ctx.theme.border}" stroke-width="1"/>`);
-
-			// Port label text
-			// rotation 0: align left (near separator), rotation 2: align right
-			const textAnchor = rotation === 0 ? 'start' : 'end';
-			const textX = rotation === 0 ? outputColX + 6 : outputColX + labelColumnWidth - 6;
-			for (let i = 0; i < node.outputs.length; i++) {
-				const offset = getPortOffset(i, node.outputs.length);
-				const labelY = y + height / 2 + offset;
-				const label = truncatePortLabel(node.outputs[i].name);
-				parts.push(`<text x="${textX}" y="${labelY}" text-anchor="${textAnchor}" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(label)}</text>`);
-			}
-		}
-
-		return {
-			svg: parts.join('\n'),
-			inputOffset: hasInputLabels ? labelColumnWidth : 0,
-			outputOffset: hasOutputLabels ? labelColumnWidth : 0
-		};
-	}
-}
-
-// ============================================================================
-// NODE RENDERING - Pure SVG with DOM-read styles
-// ============================================================================
-
-async function renderNode(node: NodeInstance, ctx: RenderContext): Promise<string> {
-	const wrapper = document.querySelector(`[data-id="${node.id}"]`) as HTMLElement;
-	if (!wrapper) return '';
-
-	const nodeEl = wrapper.querySelector('.node') as HTMLElement;
-	if (!nodeEl) return '';
-
-	// Get dimensions from the actual .node element (not SvelteFlow wrapper)
-	// This ensures we use our dynamic width calculation for math names
-	const zoom = getZoom();
-	const nodeRect = nodeEl.getBoundingClientRect();
-	const width = nodeRect.width / zoom;
-	const height = nodeRect.height / zoom;
-
-	// Position is center-origin, convert to top-left for SVG
-	const x = node.position.x - width / 2;
-	const y = node.position.y - height / 2;
-
-	// Read styles from DOM
-	const computed = getComputedStyle(nodeEl);
-	const borderRadius = parseFloat(computed.borderRadius) || 8;
-	const isSubsystem = node.type === 'Subsystem' || node.type === 'Interface';
-	const color = node.color || ctx.theme.accent;
-
-	// Get text content
-	const nameEl = nodeEl.querySelector('.node-name');
-	const typeEl = nodeEl.querySelector('.node-type');
-	const nodeName = nameEl?.textContent || node.name;
-	const nodeType = typeEl?.textContent || '';
-
-	const parts: string[] = [];
-
-	// Background fill
-	parts.push(
-		`<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${borderRadius}" fill="${ctx.theme.surfaceRaised}"/>`
-	);
-
-	// Border
-	const strokeDasharray = isSubsystem ? ' stroke-dasharray="4 2"' : '';
-	parts.push(
-		`<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${borderRadius}" fill="none" stroke="${ctx.theme.edge}" stroke-width="1"${strokeDasharray}/>`
-	);
-
-	// Port labels
-	const showPortLabels = resolveShowPortLabels(ctx.options.showPortLabels);
-	const portLabelResult = showPortLabels
-		? renderPortLabels(node, x, y, width, height, showPortLabels, ctx)
-		: { svg: '', inputOffset: 0, outputOffset: 0 };
-	if (portLabelResult.svg) {
-		parts.push(portLabelResult.svg);
-	}
-
-	// Check for pinned params section in DOM
-	const pinnedParamsEl = nodeEl.querySelector('.pinned-params') as HTMLElement;
-
-	// Calculate content center, accounting for port label columns/rows and pinned params
-	const rotation = (node.params?.['_rotation'] as number) || 0;
-	const isVerticalNode = rotation === 1 || rotation === 3;
-
-	let contentCenterX = x + width / 2;
-	let contentCenterY = y + height / 2;
-
-	// Shift content center for port label columns/rows
-	if (isVerticalNode) {
-		// Vertical: label rows shift Y center
-		const topOffset = (rotation === 1 ? portLabelResult.inputOffset : portLabelResult.outputOffset);
-		const bottomOffset = (rotation === 1 ? portLabelResult.outputOffset : portLabelResult.inputOffset);
-		const contentTop = y + topOffset;
-		const contentBottom = y + height - bottomOffset;
-		contentCenterY = (contentTop + contentBottom) / 2;
-	} else {
-		// Horizontal: label columns shift X center
-		const leftOffset = (rotation === 0 ? portLabelResult.inputOffset : portLabelResult.outputOffset);
-		const rightOffset = (rotation === 0 ? portLabelResult.outputOffset : portLabelResult.inputOffset);
-		const contentLeft = x + leftOffset;
-		const contentRight = x + width - rightOffset;
-		contentCenterX = (contentLeft + contentRight) / 2;
-	}
-
-	if (pinnedParamsEl) {
-		// pinnedTop is from DOM, already accounts for grid layout including port label rows
-		const pinnedRect = pinnedParamsEl.getBoundingClientRect();
-		const pinnedTopFromNode = (pinnedRect.top - nodeRect.top) / zoom;
-		// Content area is from content start to pinned params top
-		const contentAreaTop = isVerticalNode
-			? y + (rotation === 1 ? portLabelResult.inputOffset : portLabelResult.outputOffset)
-			: y;
-		contentCenterY = (contentAreaTop + y + pinnedTopFromNode) / 2;
-	}
-
-	// Labels
-	if (ctx.options.showLabels) {
-		const centerX = contentCenterX;
-
-		if (ctx.options.showTypeLabels && nodeType) {
-			// Name above center (may contain math) - use original node.name for LaTeX source
-			// Spacing: name at -6 and type at +10 gives 16px gap for better separation
-			parts.push(await renderMathLabel(node.name, centerX, contentCenterY - 6, color, 10, '600', ctx));
-			// Type below center
-			parts.push(
-				`<text x="${centerX}" y="${contentCenterY + 10}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(nodeType)}</text>`
-			);
-		} else {
-			// Just name, centered (may contain math) - use original node.name for LaTeX source
-			parts.push(await renderMathLabel(node.name, centerX, contentCenterY, color, 10, '600', ctx));
-		}
-	}
-
-	// Pinned parameters - read positions from DOM
-	if (pinnedParamsEl) {
-		const pinnedRect = pinnedParamsEl.getBoundingClientRect();
-		const pinnedTop = y + (pinnedRect.top - nodeRect.top) / zoom;
-		const pinnedHeight = pinnedRect.height / zoom;
-
-		// Separator line
-		parts.push(
-			`<line x1="${x}" y1="${pinnedTop}" x2="${x + width}" y2="${pinnedTop}" stroke="${ctx.theme.border}" stroke-width="1"/>`
-		);
-
-		// Background for pinned params area (square top, rounded bottom to match node)
-		const px = x + 1;
-		const py = pinnedTop + 1;
-		const pw = width - 2;
-		const ph = pinnedHeight - 1;
-		const br = Math.max(0, borderRadius - 1);
-		// Path: start top-left, go right, down, rounded bottom-right, left, rounded bottom-left, up
-		parts.push(
-			`<path d="M${px},${py} h${pw} v${ph - br} a${br},${br} 0 0 1 -${br},${br} h-${pw - 2 * br} a${br},${br} 0 0 1 -${br},-${br} v-${ph - br} z" fill="${ctx.theme.surface}"/>`
-		);
-
-		// Each pinned param row - read from DOM
-		pinnedParamsEl.querySelectorAll('.pinned-param').forEach((paramEl) => {
-			const labelEl = paramEl.querySelector('label') as HTMLElement;
-			const inputEl = paramEl.querySelector('input') as HTMLInputElement;
-			if (!labelEl || !inputEl) return;
-
-			const labelRect = labelEl.getBoundingClientRect();
-			const inputRect = inputEl.getBoundingClientRect();
-
-			// Label position
-			const labelX = x + (labelRect.left - nodeRect.left) / zoom;
-			const labelY = y + (labelRect.top + labelRect.height / 2 - nodeRect.top) / zoom;
-			const labelText = labelEl.textContent || '';
-
-			parts.push(
-				`<text x="${labelX}" y="${labelY}" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(labelText)}</text>`
-			);
-
-			// Input box position
-			const inputX = x + (inputRect.left - nodeRect.left) / zoom;
-			const inputY = y + (inputRect.top - nodeRect.top) / zoom;
-			const inputW = inputRect.width / zoom;
-			const inputH = inputRect.height / zoom;
-			const inputValue = inputEl.value || inputEl.placeholder || '';
-			const inputBorderRadius = parseFloat(getComputedStyle(inputEl).borderRadius) || inputH / 2;
-
-			// Input background (pill shape)
-			parts.push(
-				`<rect x="${inputX}" y="${inputY}" width="${inputW}" height="${inputH}" rx="${inputBorderRadius}" fill="${ctx.theme.surfaceRaised}" stroke="${ctx.theme.border}" stroke-width="1"/>`
-			);
-
-			// Input value
-			parts.push(
-				`<text x="${inputX + 8}" y="${inputY + inputH / 2}" dominant-baseline="middle" fill="${ctx.theme.text}" font-size="9" font-family="ui-monospace, monospace">${escapeXml(inputValue)}</text>`
-			);
-		});
-	}
-
-	// Handles
-	if (ctx.options.showHandles) {
-		const handles = renderHandles(node.id, x, y, ctx);
-		if (handles) parts.push(handles);
-	}
-
-	return `<g class="node" data-id="${node.id}">\n${parts.join('\n')}\n</g>`;
-}
-
-// ============================================================================
-// EVENT RENDERING - Pure SVG
-// ============================================================================
-
-function renderEvent(event: EventInstance, ctx: RenderContext): string {
-	const wrapper = document.querySelector(`[data-id="${event.id}"]`) as HTMLElement;
-	if (!wrapper) return '';
-
-	const zoom = getZoom();
-
-	// Get text from DOM
-	const nameEl = wrapper.querySelector('.event-name');
-	const typeEl = wrapper.querySelector('.event-type');
-	const eventName = nameEl?.textContent || event.name;
-	const eventType = typeEl?.textContent || '';
-
-	// Position is center-origin, so position IS the center
-	const cx = event.position.x;
-	const cy = event.position.y;
-	const color = event.color || ctx.theme.accent;
-
-	const parts: string[] = [];
-
-	// Get diamond element and its dimensions from DOM
-	const diamondEl = wrapper.querySelector('.diamond') as HTMLElement;
-	if (diamondEl) {
-		const diamondRect = diamondEl.getBoundingClientRect();
-		const diamondSize = diamondRect.width / zoom; // Diamond is square
-		const diamondOffset = diamondSize / 2;
-		const borderRadius = parseFloat(getComputedStyle(diamondEl).borderRadius) || 4;
-
-		// Diamond background
-		parts.push(
-			`<rect x="${cx - diamondOffset}" y="${cy - diamondOffset}" width="${diamondSize}" height="${diamondSize}" rx="${borderRadius}" fill="${ctx.theme.surfaceRaised}" transform="rotate(45 ${cx} ${cy})"/>`
-		);
-
-		// Diamond border
-		parts.push(
-			`<rect x="${cx - diamondOffset}" y="${cy - diamondOffset}" width="${diamondSize}" height="${diamondSize}" rx="${borderRadius}" fill="none" stroke="${ctx.theme.edge}" stroke-width="1" transform="rotate(45 ${cx} ${cy})"/>`
-		);
-	}
-
-	// Labels
-	if (ctx.options.showLabels) {
-		if (ctx.options.showTypeLabels && eventType) {
-			parts.push(
-				`<text x="${cx}" y="${cy - 4}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="10" font-weight="600" font-family="system-ui, -apple-system, sans-serif">${escapeXml(eventName)}</text>`
-			);
-			parts.push(
-				`<text x="${cx}" y="${cy + 8}" text-anchor="middle" dominant-baseline="middle" fill="${ctx.theme.textMuted}" font-size="8" font-family="system-ui, -apple-system, sans-serif">${escapeXml(eventType)}</text>`
-			);
-		} else {
-			parts.push(
-				`<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="10" font-weight="600" font-family="system-ui, -apple-system, sans-serif">${escapeXml(eventName)}</text>`
-			);
-		}
-	}
-
-	return `<g class="event" data-id="${event.id}">\n${parts.join('\n')}\n</g>`;
-}
-
-// ============================================================================
-// BOUNDS & MAIN EXPORT
-// ============================================================================
-
-function calculateBounds(nodes: NodeInstance[], events: EventInstance[]): Bounds {
+function calculateBounds(container: HTMLElement, viewport: HTMLElement): Bounds {
+	const { panX, panY, zoom } = parseViewport(viewport);
+	const containerRect = container.getBoundingClientRect();
 	const bounds: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-	const zoom = getZoom();
 
-	for (const node of nodes) {
-		// Get dimensions from the actual .node element (not SvelteFlow wrapper)
-		const wrapper = document.querySelector(`[data-id="${node.id}"]`) as HTMLElement;
-		const nodeEl = wrapper?.querySelector('.node') as HTMLElement;
-		let width = NODE.baseWidth;
-		let height = NODE.baseHeight;
-		if (nodeEl) {
-			const rect = nodeEl.getBoundingClientRect();
-			width = rect.width / zoom;
-			height = rect.height / zoom;
-		}
-		// Position is center-origin, calculate corners
-		const left = node.position.x - width / 2;
-		const top = node.position.y - height / 2;
-		bounds.minX = Math.min(bounds.minX, left);
-		bounds.minY = Math.min(bounds.minY, top);
-		bounds.maxX = Math.max(bounds.maxX, left + width);
-		bounds.maxY = Math.max(bounds.maxY, top + height);
+	function includeRect(rect: DOMRect) {
+		if (rect.width === 0 && rect.height === 0) return;
+		const flowX = (rect.left - containerRect.left - panX) / zoom;
+		const flowY = (rect.top - containerRect.top - panY) / zoom;
+		const flowW = rect.width / zoom;
+		const flowH = rect.height / zoom;
+		bounds.minX = Math.min(bounds.minX, flowX);
+		bounds.minY = Math.min(bounds.minY, flowY);
+		bounds.maxX = Math.max(bounds.maxX, flowX + flowW);
+		bounds.maxY = Math.max(bounds.maxY, flowY + flowH);
 	}
 
-	for (const event of events) {
-		// Events use center-origin, get actual bounding box from DOM
-		const wrapper = document.querySelector(`[data-id="${event.id}"]`) as HTMLElement;
-		let boundingSize = EVENT.size; // Fallback
-
-		if (wrapper) {
-			const diamondEl = wrapper.querySelector('.diamond') as HTMLElement;
-			if (diamondEl) {
-				const zoom = getZoom();
-				const diamondSize = diamondEl.getBoundingClientRect().width / zoom;
-				// Rotated 45° square has bounding box of size * sqrt(2)
-				boundingSize = diamondSize * Math.SQRT2;
-			}
-		}
-
-		const left = event.position.x - boundingSize / 2;
-		const top = event.position.y - boundingSize / 2;
-		bounds.minX = Math.min(bounds.minX, left);
-		bounds.minY = Math.min(bounds.minY, top);
-		bounds.maxX = Math.max(bounds.maxX, left + boundingSize);
-		bounds.maxY = Math.max(bounds.maxY, top + boundingSize);
+	// All SvelteFlow nodes (pathview nodes, events, annotations)
+	for (const el of container.querySelectorAll('.svelte-flow__node')) {
+		includeRect(el.getBoundingClientRect());
 	}
 
-	return isFinite(bounds.minX) ? bounds : { minX: 0, minY: 0, maxX: 200, maxY: 200 };
+	// Edge connection paths (may extend beyond node bounds)
+	for (const el of container.querySelectorAll('.svelte-flow__edge')) {
+		includeRect(el.getBoundingClientRect());
+	}
+
+	if (!isFinite(bounds.minX)) {
+		return { minX: 0, minY: 0, maxX: 200, maxY: 200 };
+	}
+
+	return bounds;
 }
 
 export async function exportToSVG(options: ExportOptions = {}): Promise<string> {
 	const opts: Required<ExportOptions> = { ...DEFAULT_OPTIONS, ...options };
-	const themeColors = getThemeColors(opts.theme);
-	const ctx: RenderContext = { theme: themeColors, options: opts };
+	const padding = opts.padding;
 
-	const nodes = get(graphStore.nodesArray);
-	const events = get(eventStore.eventsArray);
-	const bounds = calculateBounds(nodes, events);
+	const element = document.querySelector('.svelte-flow') as HTMLElement;
+	if (!element) throw new Error('SvelteFlow element not found');
 
-	const width = bounds.maxX - bounds.minX + opts.padding * 2;
-	const height = bounds.maxY - bounds.minY + opts.padding * 2;
-	const viewBox = `${bounds.minX - opts.padding} ${bounds.minY - opts.padding} ${width} ${height}`;
+	const viewport = element.querySelector('.svelte-flow__viewport') as HTMLElement;
+	if (!viewport) throw new Error('SvelteFlow viewport not found');
 
-	const parts: string[] = [
-		`<?xml version="1.0" encoding="UTF-8"?>`,
-		`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewBox}">`
-	];
+	// Read surface color before changes
+	const surfaceColor = getComputedStyle(element).getPropertyValue('--surface').trim();
 
-	// Background
-	if (opts.background === 'solid') {
-		parts.push(
-			`<rect x="${bounds.minX - opts.padding}" y="${bounds.minY - opts.padding}" width="${width}" height="${height}" fill="${ctx.theme.surface}"/>`
-		);
+	// Calculate content bounds in flow space (works at any zoom level)
+	const bounds = calculateBounds(element, viewport);
+	const contentWidth = bounds.maxX - bounds.minX;
+	const contentHeight = bounds.maxY - bounds.minY;
+	const svgWidth = contentWidth + 2 * padding;
+	const svgHeight = contentHeight + 2 * padding;
+
+	// Save original inline styles
+	const origBg = element.style.backgroundColor;
+	const origWidth = element.style.width;
+	const origHeight = element.style.height;
+	const origMinWidth = element.style.minWidth;
+	const origMinHeight = element.style.minHeight;
+	const origOverflow = element.style.overflow;
+
+	// Use a <style> element with !important to override Svelte's reactive
+	// binding on the viewport transform — inline style alone would be
+	// overwritten on the next Svelte tick.
+	const styleOverride = document.createElement('style');
+	styleOverride.textContent = `.svelte-flow__viewport { transform: translate(${-bounds.minX + padding}px, ${-bounds.minY + padding}px) scale(1) !important; }`;
+	document.head.appendChild(styleOverride);
+
+	// Make background transparent and resize container to fit all content
+	element.style.backgroundColor = 'transparent';
+	element.style.width = `${svgWidth}px`;
+	element.style.height = `${svgHeight}px`;
+	element.style.minWidth = `${svgWidth}px`;
+	element.style.minHeight = `${svgHeight}px`;
+	element.style.overflow = 'visible';
+
+	// Wait two frames for layout to settle with new transforms/sizes
+	await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+	try {
+		const result = await domToSvg(element, {
+			background: opts.background === 'solid' ? surfaceColor : undefined,
+			padding: 0,
+			exclude: EXCLUDE_SELECTORS,
+			flattenTransforms: true,
+			textToPath: true,
+			fonts: KATEX_FONTS
+		});
+
+		// Crop SVG to the content area
+		result.svg.setAttribute('width', String(svgWidth));
+		result.svg.setAttribute('height', String(svgHeight));
+		result.svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+
+		return result.toString();
+	} finally {
+		// Restore everything
+		styleOverride.remove();
+		element.style.backgroundColor = origBg;
+		element.style.width = origWidth;
+		element.style.height = origHeight;
+		element.style.minWidth = origMinWidth;
+		element.style.minHeight = origMinHeight;
+		element.style.overflow = origOverflow;
 	}
-
-	// Edges
-	const edges = renderEdges(ctx);
-	if (edges) parts.push(edges);
-
-	// Events
-	if (events.length > 0) {
-		parts.push('<g class="events">');
-		for (const event of events) {
-			parts.push(renderEvent(event, ctx));
-		}
-		parts.push('</g>');
-	}
-
-	// Nodes (render in parallel for performance)
-	if (nodes.length > 0) {
-		parts.push('<g class="nodes">');
-		const renderedNodes = await Promise.all(nodes.map((node) => renderNode(node, ctx)));
-		for (const rendered of renderedNodes) {
-			if (rendered) parts.push(rendered);
-		}
-		parts.push('</g>');
-	}
-
-	parts.push('</svg>');
-	return parts.join('\n');
 }
