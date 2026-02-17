@@ -34,15 +34,22 @@ This starts the PathView server with a local Python backend and opens your brows
 - `--no-browser` — don't auto-open the browser
 - `--debug` — debug mode with auto-reload
 
-### Python API
+### Convert `.pvm` to Python
 
-Convert `.pvm` model files to standalone PathSim Python scripts:
+Convert PathView model files to standalone PathSim scripts:
+
+```bash
+pathview convert model.pvm                # outputs model.py
+pathview convert model.pvm -o output.py   # custom output path
+pathview convert model.pvm --stdout       # print to stdout
+```
+
+Or use the Python API directly:
 
 ```python
 from pathview import convert
 
 python_code = convert("model.pvm")
-print(python_code)
 ```
 
 ### Development setup

@@ -5,30 +5,13 @@ import sys
 import threading
 import time
 import webbrowser
+from pathlib import Path
 
 from pathview import __version__
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        prog="pathview",
-        description="PathView — visual node editor for dynamic systems",
-    )
-    parser.add_argument("command", nargs="?", default="serve", choices=["serve"],
-                        help="Command to run (default: serve)")
-    parser.add_argument("--port", type=int, default=5000,
-                        help="Port to run the server on (default: 5000)")
-    parser.add_argument("--host", type=str, default="127.0.0.1",
-                        help="Host to bind to (default: 127.0.0.1)")
-    parser.add_argument("--no-browser", action="store_true",
-                        help="Don't automatically open the browser")
-    parser.add_argument("--debug", action="store_true",
-                        help="Run in debug mode")
-    parser.add_argument("--version", action="version",
-                        version=f"pathview {__version__}")
-
-    args = parser.parse_args()
-
+def _cmd_serve(args):
+    """Run the PathView server."""
     from pathview.app import create_app
 
     app = create_app(serve_static=not args.debug)
@@ -68,6 +51,71 @@ def main():
     except KeyboardInterrupt:
         print("\nStopping PathView server...")
         sys.exit(0)
+
+
+def _cmd_convert(args):
+    """Convert a .pvm file to a Python script."""
+    from pathview.converter import convert
+
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
+        sys.exit(1)
+
+    registry_path = Path(args.registry) if args.registry else None
+    python_code = convert(input_path, registry_path=registry_path)
+
+    if args.stdout:
+        sys.stdout.buffer.write(python_code.encode("utf-8"))
+    else:
+        output_path = Path(args.output) if args.output else input_path.with_suffix(".py")
+        output_path.write_text(python_code, encoding="utf-8")
+        print(f"Converted: {input_path} -> {output_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="pathview",
+        description="PathView — visual node editor for dynamic systems",
+    )
+    parser.add_argument("--version", action="version",
+                        version=f"pathview {__version__}")
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    # --- serve ---
+    serve_parser = subparsers.add_parser("serve", help="Start the PathView server")
+    serve_parser.add_argument("--port", type=int, default=5000,
+                              help="Port to run the server on (default: 5000)")
+    serve_parser.add_argument("--host", type=str, default="127.0.0.1",
+                              help="Host to bind to (default: 127.0.0.1)")
+    serve_parser.add_argument("--no-browser", action="store_true",
+                              help="Don't automatically open the browser")
+    serve_parser.add_argument("--debug", action="store_true",
+                              help="Run in debug mode")
+
+    # --- convert ---
+    convert_parser = subparsers.add_parser(
+        "convert",
+        help="Convert a .pvm file to a Python script",
+    )
+    convert_parser.add_argument("input", help="Input .pvm or .json file")
+    convert_parser.add_argument("-o", "--output",
+                                help="Output .py file (default: <input>.py)")
+    convert_parser.add_argument("--stdout", action="store_true",
+                                help="Print to stdout instead of file")
+    convert_parser.add_argument("--registry",
+                                help="Path to custom registry.json")
+
+    args = parser.parse_args()
+
+    if args.command is None or args.command == "serve":
+        if args.command is None:
+            # Re-parse with serve defaults when no subcommand given
+            args = serve_parser.parse_args([])
+        _cmd_serve(args)
+    elif args.command == "convert":
+        _cmd_convert(args)
 
 
 if __name__ == "__main__":
