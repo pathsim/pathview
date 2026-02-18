@@ -129,6 +129,43 @@ function calculateBounds(container: HTMLElement, viewport: HTMLElement): Bounds 
 	return bounds;
 }
 
+/**
+ * Fix SVG z-order: move edge groups before node groups.
+ * SvelteFlow layers nodes above edges via CSS z-index, but SVG uses
+ * DOM order for paint order. Find the deepest group containing all
+ * content and reorder so edges come first.
+ */
+function fixEdgeNodeOrder(svg: SVGSVGElement): void {
+	// Find the viewport group (deepest group with multiple children)
+	let group: Element = svg;
+	while (true) {
+		const gChildren = Array.from(group.children).filter(c => c.tagName === 'g');
+		if (gChildren.length === 1) { group = gChildren[0]; continue; }
+		break;
+	}
+
+	// Partition children into edge groups and non-edge groups
+	const children = Array.from(group.children);
+	const edgeGroups: Element[] = [];
+	const otherGroups: Element[] = [];
+
+	for (const child of children) {
+		const hasEdge = child.querySelector('[aria-label^="Edge from"]');
+		if (hasEdge) {
+			edgeGroups.push(child);
+		} else {
+			otherGroups.push(child);
+		}
+	}
+
+	if (edgeGroups.length === 0) return;
+
+	// Reorder: edges first (painted below), then everything else (painted on top)
+	for (const el of [...edgeGroups, ...otherGroups]) {
+		group.appendChild(el);
+	}
+}
+
 export async function exportToSVG(options: ExportOptions = {}): Promise<string> {
 	const opts: Required<ExportOptions> = { ...DEFAULT_OPTIONS, ...options };
 	const padding = opts.padding;
@@ -190,6 +227,11 @@ export async function exportToSVG(options: ExportOptions = {}): Promise<string> 
 		result.svg.setAttribute('width', String(svgWidth));
 		result.svg.setAttribute('height', String(svgHeight));
 		result.svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+
+		// Fix z-order: SvelteFlow uses CSS z-index to layer nodes above edges,
+		// but SVG has no z-index — paint order is DOM order. Move edge groups
+		// before node groups so nodes render on top.
+		fixEdgeNodeOrder(result.svg);
 
 		return result.toString();
 	} finally {
