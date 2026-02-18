@@ -10,6 +10,8 @@
  * is self-contained and renders correctly in any viewer without fonts.
  */
 
+import { jsPDF } from 'jspdf';
+import 'svg2pdf.js';
 import { domToSvg } from '../dom2svg/index.js';
 import type { FontMapping } from '../dom2svg/index.js';
 import type { ExportOptions } from './types';
@@ -29,8 +31,19 @@ const EXCLUDE_SELECTORS = [
 /** KaTeX font CDN base URL */
 const KATEX_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts';
 
-/** KaTeX font mapping for dom2svg textToPath conversion */
-const KATEX_FONTS: FontMapping = {
+/** Font mapping for dom2svg textToPath conversion */
+const EXPORT_FONTS: FontMapping = {
+	// UI fonts (bundled)
+	Inter: [
+		{ url: '/fonts/Inter-Regular.woff2', weight: 400, style: 'normal' },
+		{ url: '/fonts/Inter-Medium.woff2', weight: 500, style: 'normal' },
+		{ url: '/fonts/Inter-SemiBold.woff2', weight: 600, style: 'normal' }
+	],
+	'JetBrains Mono': [
+		{ url: '/fonts/JetBrainsMono-Regular.woff2', weight: 400, style: 'normal' },
+		{ url: '/fonts/JetBrainsMono-Medium.woff2', weight: 500, style: 'normal' }
+	],
+	// KaTeX math fonts (CDN)
 	KaTeX_Main: [
 		{ url: `${KATEX_CDN}/KaTeX_Main-Regular.woff2`, weight: 'normal', style: 'normal' },
 		{ url: `${KATEX_CDN}/KaTeX_Main-Bold.woff2`, weight: 'bold', style: 'normal' },
@@ -173,7 +186,7 @@ export async function exportToSVG(options: ExportOptions = {}): Promise<string> 
 			exclude: EXCLUDE_SELECTORS,
 			flattenTransforms: true,
 			textToPath: true,
-			fonts: KATEX_FONTS,
+			fonts: EXPORT_FONTS,
 			compat: opts.compat
 		});
 
@@ -193,4 +206,25 @@ export async function exportToSVG(options: ExportOptions = {}): Promise<string> 
 		element.style.minHeight = origMinHeight;
 		element.style.overflow = origOverflow;
 	}
+}
+
+export async function exportToPDF(options: ExportOptions = {}): Promise<void> {
+	const svgString = await exportToSVG(options);
+
+	// Parse SVG string into a DOM element
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(svgString, 'image/svg+xml');
+	const svgEl = doc.documentElement;
+
+	const width = parseFloat(svgEl.getAttribute('width') || '800');
+	const height = parseFloat(svgEl.getAttribute('height') || '600');
+
+	const pdf = new jsPDF({
+		orientation: width > height ? 'landscape' : 'portrait',
+		unit: 'pt',
+		format: [width, height]
+	});
+
+	await (pdf as any).svg(svgEl, { x: 0, y: 0, width, height });
+	pdf.save('pathview-graph.pdf');
 }
