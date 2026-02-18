@@ -2023,7 +2023,11 @@ function cloneWithNamespace(node, ctx, resolveDepth = 0) {
     node.namespaceURI || SVG_NS,
     node.localName
   );
+  const stripStyle = ctx.compat.avoidStyleAttributes;
   for (const attr of Array.from(node.attributes)) {
+    if (stripStyle && (attr.localName === "style" || attr.localName === "class")) {
+      continue;
+    }
     if (attr.namespaceURI === XLINK_NS) {
       clone.setAttributeNS(XLINK_NS, attr.localName, attr.value);
     } else if (attr.namespaceURI) {
@@ -2032,7 +2036,7 @@ function cloneWithNamespace(node, ctx, resolveDepth = 0) {
       clone.setAttribute(attr.localName, attr.value);
     }
   }
-  inlineSvgPresentationStyles(node, clone);
+  inlineSvgPresentationStyles(node, clone, ctx);
   for (const child of Array.from(node.childNodes)) {
     if (child.nodeType === Node.ELEMENT_NODE) {
       clone.appendChild(cloneWithNamespace(child, ctx, resolveDepth));
@@ -2065,7 +2069,7 @@ function resolveUseElement(useEl, ctx, resolveDepth) {
     const existing = group.getAttribute("transform") || "";
     group.setAttribute("transform", `translate(${x},${y}) ${existing}`.trim());
   }
-  inlineSvgPresentationStyles(useEl, group);
+  inlineSvgPresentationStyles(useEl, group, ctx);
   if (refEl.localName === "symbol") {
     const viewBox = refEl.getAttribute("viewBox");
     const width = useEl.getAttribute("width") || refEl.getAttribute("width");
@@ -2086,7 +2090,7 @@ function resolveUseElement(useEl, ctx, resolveDepth) {
   }
   return group;
 }
-function inlineSvgPresentationStyles(source, clone) {
+function inlineSvgPresentationStyles(source, clone, ctx) {
   const styles = window.getComputedStyle(source);
   if (!clone.hasAttribute("fill")) {
     const fill = styles.fill;
@@ -2100,7 +2104,7 @@ function inlineSvgPresentationStyles(source, clone) {
       clone.setAttribute("stroke", stroke);
     }
   }
-  if (!clone.hasAttribute("opacity")) {
+  if (!ctx.compat.stripGroupOpacity && !clone.hasAttribute("opacity")) {
     const opacity = styles.opacity;
     if (opacity && opacity !== "1") {
       clone.setAttribute("opacity", opacity);
