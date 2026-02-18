@@ -15,6 +15,8 @@ interface SvgCompatConfig {
     stripTextShadows: boolean;
     avoidStyleAttributes: boolean;
     stripXmlSpace: boolean;
+    stripGroupOpacity: boolean;
+    inlineClipPathTransforms: boolean;
 }
 /** SVG compatibility preset */
 type SvgCompat = 'full' | 'inkscape' | SvgCompatConfig;

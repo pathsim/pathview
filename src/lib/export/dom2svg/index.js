@@ -1178,13 +1178,58 @@ function createSvgClipPath(shape, box, ctx) {
   const clipId = ctx.idGenerator.next("clip");
   const clipPath = createSvgElement(ctx.svgDocument, "clipPath");
   clipPath.setAttribute("id", clipId);
-  const svgShape = shapeToSvg(shape, box, ctx);
+  const svgShape = shapeToSvg(shape, box, ctx, ctx.compat.inlineClipPathTransforms);
   if (!svgShape) return null;
   clipPath.appendChild(svgShape);
   ctx.defs.appendChild(clipPath);
   return clipId;
 }
-function shapeToSvg(shape, box, ctx) {
+function translatePathData(d, dx, dy) {
+  return d.replace(/([MLHVCSQTAZmlhvcsqtaz])([^MLHVCSQTAZmlhvcsqtaz]*)/g, (_, cmd, args) => {
+    const nums = args.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi)?.map(Number) ?? [];
+    if (nums.length === 0) return cmd + args;
+    switch (cmd) {
+      case "M":
+      case "L":
+      case "T":
+        for (let i = 0; i < nums.length - 1; i += 2) {
+          nums[i] += dx;
+          nums[i + 1] += dy;
+        }
+        break;
+      case "H":
+        for (let i = 0; i < nums.length; i++) nums[i] += dx;
+        break;
+      case "V":
+        for (let i = 0; i < nums.length; i++) nums[i] += dy;
+        break;
+      case "C":
+        for (let i = 0; i < nums.length - 1; i += 2) {
+          nums[i] += dx;
+          nums[i + 1] += dy;
+        }
+        break;
+      case "S":
+      case "Q":
+        for (let i = 0; i < nums.length - 1; i += 2) {
+          nums[i] += dx;
+          nums[i + 1] += dy;
+        }
+        break;
+      case "A":
+        for (let i = 0; i < nums.length; i += 7) {
+          if (i + 5 < nums.length) nums[i + 5] += dx;
+          if (i + 6 < nums.length) nums[i + 6] += dy;
+        }
+        break;
+      // Relative commands (lowercase) — leave unchanged
+      default:
+        return cmd + args;
+    }
+    return cmd + nums.join(" ");
+  });
+}
+function shapeToSvg(shape, box, ctx, inlineTransforms = false) {
   switch (shape.type) {
     case "inset": {
       const x = box.x + shape.left;
@@ -1242,8 +1287,12 @@ function shapeToSvg(shape, box, ctx) {
     }
     case "path": {
       const path = createSvgElement(ctx.svgDocument, "path");
-      path.setAttribute("d", shape.d);
-      path.setAttribute("transform", `translate(${box.x}, ${box.y})`);
+      if (inlineTransforms && (box.x !== 0 || box.y !== 0)) {
+        path.setAttribute("d", translatePathData(shape.d, box.x, box.y));
+      } else {
+        path.setAttribute("d", shape.d);
+        path.setAttribute("transform", `translate(${box.x}, ${box.y})`);
+      }
       return path;
     }
     default:
@@ -1255,7 +1304,27 @@ function shapeToSvg(shape, box, ctx) {
 async function renderHtmlElement(element, rootElement, ctx) {
   const group = createSvgElement(ctx.svgDocument, "g");
   const styles = window.getComputedStyle(element);
-  const box = getRelativeBox(element, rootElement);
+  let box = getRelativeBox(element, rootElement);
+  let visualTransform = null;
+  if (ctx.options.flattenTransforms && styles.transform && styles.transform !== "none") {
+    const angle = extractRotationDeg(styles.transform);
+    if (Math.abs(angle) > 0.5) {
+      const el = element;
+      const preW = el.offsetWidth;
+      const preH = el.offsetHeight;
+      if (preW > 0 && preH > 0 && (Math.abs(preW - box.width) > 1 || Math.abs(preH - box.height) > 1)) {
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
+        box = {
+          x: cx - preW / 2,
+          y: cy - preH / 2,
+          width: preW,
+          height: preH
+        };
+        visualTransform = `rotate(${angle.toFixed(2)}, ${cx.toFixed(2)}, ${cy.toFixed(2)})`;
+      }
+    }
+  }
   const radii = clampRadii(parseBorderRadii(styles), box.width, box.height);
   if (!ctx.options.flattenTransforms && styles.transform && styles.transform !== "none") {
     const svgTransform = cssTransformToSvg(
@@ -1363,6 +1432,14 @@ async function renderHtmlElement(element, rootElement, ctx) {
       }
     }
     await renderPseudoElement(element, "::before", rootElement, ctx, group);
+  }
+  if (visualTransform) {
+    const visualGroup = createSvgElement(ctx.svgDocument, "g");
+    visualGroup.setAttribute("transform", visualTransform);
+    while (group.firstChild) {
+      visualGroup.appendChild(group.firstChild);
+    }
+    group.appendChild(visualGroup);
   }
   if (hasOverflowClip(styles) && element !== rootElement) {
     const clipGroup = ctx.compat.useClipPathForOverflow ? createOverflowClipPath(box, radii, ctx) : createOverflowMask(box, radii, ctx);
@@ -1919,6 +1996,14 @@ async function renderPseudoElement(element, pseudo, rootElement, ctx, group) {
   }
   textEl.textContent = text;
   group.appendChild(textEl);
+}
+function extractRotationDeg(transform) {
+  const match = transform.match(/^matrix\(([^,]+),\s*([^,]+)/);
+  if (!match) return 0;
+  const a = parseFloat(match[1]);
+  const b = parseFloat(match[2]);
+  if (isNaN(a) || isNaN(b)) return 0;
+  return Math.atan2(b, a) * (180 / Math.PI);
 }
 
 // src/renderers/svg-element.ts
@@ -2583,9 +2668,11 @@ async function walkElement(element, rootElement, ctx) {
   }
   const group = await renderHtmlElement(element, rootElement, ctx);
   const childTarget = getChildTarget(group);
-  const opacity = parseFloat(styles.opacity);
-  if (opacity < 1) {
-    group.setAttribute("opacity", String(opacity));
+  if (!ctx.compat.stripGroupOpacity) {
+    const opacity = parseFloat(styles.opacity);
+    if (opacity < 1) {
+      group.setAttribute("opacity", String(opacity));
+    }
   }
   const sortedChildren = sortChildrenByPaintOrder(element);
   for (const child of sortedChildren) {
@@ -2661,7 +2748,9 @@ var FULL_PRESET = {
   stripMaskImage: false,
   stripTextShadows: false,
   avoidStyleAttributes: false,
-  stripXmlSpace: false
+  stripXmlSpace: false,
+  stripGroupOpacity: false,
+  inlineClipPathTransforms: false
 };
 var INKSCAPE_PRESET = {
   useClipPathForOverflow: true,
@@ -2670,7 +2759,9 @@ var INKSCAPE_PRESET = {
   stripMaskImage: true,
   stripTextShadows: true,
   avoidStyleAttributes: true,
-  stripXmlSpace: true
+  stripXmlSpace: true,
+  stripGroupOpacity: true,
+  inlineClipPathTransforms: true
 };
 function resolveCompat(compat) {
   if (!compat || compat === "full") return FULL_PRESET;
