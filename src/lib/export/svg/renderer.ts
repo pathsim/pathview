@@ -33,15 +33,11 @@ const KATEX_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts';
 
 /** Font mapping for dom2svg textToPath conversion */
 const EXPORT_FONTS: FontMapping = {
-	// UI fonts (bundled)
-	Inter: [
-		{ url: '/fonts/Inter-Regular.woff2', weight: 400, style: 'normal' },
-		{ url: '/fonts/Inter-Medium.woff2', weight: 500, style: 'normal' },
-		{ url: '/fonts/Inter-SemiBold.woff2', weight: 600, style: 'normal' }
-	],
+	// UI fonts — TTF for opentype.js compatibility (woff2 not supported by opentype.js v1.x)
+	Inter: { url: '/fonts/InterVariable.ttf' },
 	'JetBrains Mono': [
-		{ url: '/fonts/JetBrainsMono-Regular.woff2', weight: 400, style: 'normal' },
-		{ url: '/fonts/JetBrainsMono-Medium.woff2', weight: 500, style: 'normal' }
+		{ url: '/fonts/JetBrainsMono-Regular.ttf', weight: 400, style: 'normal' },
+		{ url: '/fonts/JetBrainsMono-Medium.ttf', weight: 500, style: 'normal' }
 	],
 	// KaTeX math fonts (CDN)
 	KaTeX_Main: [
