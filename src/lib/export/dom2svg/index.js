@@ -1277,17 +1277,19 @@ async function renderHtmlElement(element, rootElement, ctx) {
   }
   const hidden = isVisibilityHidden(styles);
   if (!hidden) {
-    if (styles.filter && styles.filter !== "none") {
+    if (!ctx.compat.stripFilters && styles.filter && styles.filter !== "none") {
       const filterId = createSvgFilter(styles.filter, ctx);
       if (filterId) {
         group.setAttribute("filter", `url(#${filterId})`);
       }
     }
-    const boxShadowValue = styles.boxShadow;
-    if (boxShadowValue && boxShadowValue !== "none") {
-      const shadows = parseBoxShadows(boxShadowValue);
-      if (shadows.length > 0) {
-        renderBoxShadows(shadows, box, radii, ctx, group);
+    if (!ctx.compat.stripBoxShadows) {
+      const boxShadowValue = styles.boxShadow;
+      if (boxShadowValue && boxShadowValue !== "none") {
+        const shadows = parseBoxShadows(boxShadowValue);
+        if (shadows.length > 0) {
+          renderBoxShadows(shadows, box, radii, ctx, group);
+        }
       }
     }
     const bgColor = parseBackgroundColor(styles);
@@ -1354,16 +1356,18 @@ async function renderHtmlElement(element, rootElement, ctx) {
     if (styles.display === "list-item") {
       renderListMarker(element, styles, box, ctx, group);
     }
-    const maskImage = styles.webkitMaskImage || styles.maskImage || styles.webkitMask || styles.mask;
-    if (maskImage && maskImage !== "none") {
-      await applyMaskImage(maskImage, styles, box, ctx, group);
+    if (!ctx.compat.stripMaskImage) {
+      const maskImage = styles.webkitMaskImage || styles.maskImage || styles.webkitMask || styles.mask;
+      if (maskImage && maskImage !== "none") {
+        await applyMaskImage(maskImage, styles, box, ctx, group);
+      }
     }
     await renderPseudoElement(element, "::before", rootElement, ctx, group);
   }
   if (hasOverflowClip(styles) && element !== rootElement) {
-    const maskGroup = createOverflowMask(box, radii, ctx);
-    group.appendChild(maskGroup);
-    group.__childTarget = maskGroup;
+    const clipGroup = ctx.compat.useClipPathForOverflow ? createOverflowClipPath(box, radii, ctx) : createOverflowMask(box, radii, ctx);
+    group.appendChild(clipGroup);
+    group.__childTarget = clipGroup;
   }
   return group;
 }
@@ -1471,6 +1475,17 @@ function createOverflowMask(box, radii, ctx) {
   masked.setAttribute("mask", `url(#${maskId})`);
   return masked;
 }
+function createOverflowClipPath(box, radii, ctx) {
+  const clipId = ctx.idGenerator.next("clip");
+  const clipPath = createSvgElement(ctx.svgDocument, "clipPath");
+  clipPath.setAttribute("id", clipId);
+  const clipShape = createBoxShape(box, radii, ctx);
+  clipPath.appendChild(clipShape);
+  ctx.defs.appendChild(clipPath);
+  const clipped = createSvgElement(ctx.svgDocument, "g");
+  clipped.setAttribute("clip-path", `url(#${clipId})`);
+  return clipped;
+}
 function applyClipMask(target, box, radii, ctx, group) {
   const maskId = ctx.idGenerator.next("mask");
   const mask = createSvgElement(ctx.svgDocument, "mask");
@@ -1508,7 +1523,9 @@ async function applyMaskImage(maskImage, styles, box, ctx, group) {
   const maskId = ctx.idGenerator.next("mask");
   const mask = createSvgElement(ctx.svgDocument, "mask");
   mask.setAttribute("id", maskId);
-  mask.setAttribute("style", "mask-type: alpha");
+  if (!ctx.compat.avoidStyleAttributes) {
+    mask.setAttribute("style", "mask-type: alpha");
+  }
   const imgEl = createSvgElement(ctx.svgDocument, "image");
   setAttributes(imgEl, {
     x: box.x,
@@ -2350,18 +2367,20 @@ async function renderTextNode(textNode, rootElement, ctx) {
         x: line.x.toFixed(2),
         y: line.y.toFixed(2)
       });
-      applyTextStyles(textEl, styles);
+      applyTextStyles(textEl, styles, ctx);
       textEl.textContent = displayText;
       group.appendChild(textEl);
     }
   }
   if (group.childNodes.length === 0) return null;
-  const textShadowValue = styles.textShadow;
-  if (textShadowValue && textShadowValue !== "none") {
-    const shadows = parseTextShadows(textShadowValue);
-    const filterId = createTextShadowFilter(shadows, ctx);
-    if (filterId) {
-      group.setAttribute("filter", `url(#${filterId})`);
+  if (!ctx.compat.stripTextShadows) {
+    const textShadowValue = styles.textShadow;
+    if (textShadowValue && textShadowValue !== "none") {
+      const shadows = parseTextShadows(textShadowValue);
+      const filterId = createTextShadowFilter(shadows, ctx);
+      if (filterId) {
+        group.setAttribute("filter", `url(#${filterId})`);
+      }
     }
   }
   return group;
@@ -2508,7 +2527,7 @@ function applyTextTransform(text, transform) {
       return text;
   }
 }
-function applyTextStyles(textEl, styles) {
+function applyTextStyles(textEl, styles, ctx) {
   setAttributes(textEl, {
     "font-family": styles.fontFamily,
     "font-size": styles.fontSize,
@@ -2516,7 +2535,9 @@ function applyTextStyles(textEl, styles) {
     "font-style": styles.fontStyle,
     fill: styles.color
   });
-  textEl.setAttribute("xml:space", "preserve");
+  if (!ctx.compat.stripXmlSpace) {
+    textEl.setAttribute("xml:space", "preserve");
+  }
   if (styles.letterSpacing && styles.letterSpacing !== "normal") {
     textEl.setAttribute("letter-spacing", styles.letterSpacing);
   }
@@ -2632,6 +2653,31 @@ function shouldExclude(element, ctx) {
   return exclude(element);
 }
 
+// src/compat.ts
+var FULL_PRESET = {
+  useClipPathForOverflow: false,
+  stripFilters: false,
+  stripBoxShadows: false,
+  stripMaskImage: false,
+  stripTextShadows: false,
+  avoidStyleAttributes: false,
+  stripXmlSpace: false
+};
+var INKSCAPE_PRESET = {
+  useClipPathForOverflow: true,
+  stripFilters: true,
+  stripBoxShadows: true,
+  stripMaskImage: true,
+  stripTextShadows: true,
+  avoidStyleAttributes: true,
+  stripXmlSpace: true
+};
+function resolveCompat(compat) {
+  if (!compat || compat === "full") return FULL_PRESET;
+  if (compat === "inkscape") return INKSCAPE_PRESET;
+  return compat;
+}
+
 // src/index.ts
 async function domToSvg(element, options = {}) {
   const padding = options.padding ?? 0;
@@ -2665,6 +2711,7 @@ async function domToSvg(element, options = {}) {
     defs,
     idGenerator: createIdGenerator(),
     options,
+    compat: resolveCompat(options.compat),
     opacity: 1
   };
   if (options.textToPath && options.fonts) {

@@ -173,7 +173,8 @@ export async function exportToSVG(options: ExportOptions = {}): Promise<string> 
 			exclude: EXCLUDE_SELECTORS,
 			flattenTransforms: true,
 			textToPath: true,
-			fonts: KATEX_FONTS
+			fonts: KATEX_FONTS,
+			compat: opts.compat
 		});
 
 		// Crop SVG to the content area
