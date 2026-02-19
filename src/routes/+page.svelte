@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
     import { base } from '$app/paths';
-	import { fly, fade, scale } from 'svelte/transition';
+	import { fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import FlowCanvas from '$lib/components/FlowCanvas.svelte';
 	import SimulationPanel from '$lib/components/panels/SimulationPanel.svelte';
@@ -39,7 +39,8 @@
 	import { openNodeDialog } from '$lib/stores/nodeDialog';
 	import { openEventDialog } from '$lib/stores/eventDialog';
 	import type { MenuItemType } from '$lib/components/ContextMenu.svelte';
-	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation } from '$lib/pyodide/bridge';
+	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation, stageMutations } from '$lib/pyodide/bridge';
+	import { pendingMutationCount } from '$lib/pyodide/mutationQueue';
 	import { initBackendFromUrl, autoDetectBackend } from '$lib/pyodide/backend';
 	import { runGraphStreamingSimulation, validateGraphSimulation } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
@@ -1008,6 +1009,17 @@
 			>
 				<Icon name="skip-forward-filled" size={16} />
 			</button>
+			{#if hasRunSimulation && $pendingMutationCount > 0}
+				<button
+					class="toolbar-btn stage-btn active"
+					onclick={() => stageMutations()}
+					use:tooltip={"Stage Changes"}
+					aria-label="Stage Changes"
+				>
+					<Icon name="stage" size={16} />
+					<span class="mutation-badge">{$pendingMutationCount}</span>
+				</button>
+			{/if}
 		</div>
 
 		<!-- File operations -->
@@ -1024,17 +1036,7 @@
 				use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }}
 				aria-label="Save"
 			>
-				<span class="icon-crossfade">
-					{#if saveFlash === 'save'}
-						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
-							<Icon name="check" size={16} />
-						</span>
-					{:else}
-						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
-							<Icon name="upload" size={16} />
-						</span>
-					{/if}
-				</span>
+				<Icon name={saveFlash === 'save' ? 'check' : 'upload'} size={16} />
 			</button>
 			<button
 				class="toolbar-btn"
@@ -1042,17 +1044,7 @@
 				use:tooltip={{ text: "Save As", shortcut: "Ctrl+Shift+S" }}
 				aria-label="Save As"
 			>
-				<span class="icon-crossfade">
-					{#if saveFlash === 'save-as'}
-						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
-							<Icon name="check" size={16} />
-						</span>
-					{:else}
-						<span class="icon-crossfade-item" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
-							<Icon name="upload-plus" size={16} />
-						</span>
-					{/if}
-				</span>
+				<Icon name={saveFlash === 'save-as' ? 'check' : 'upload-plus'} size={16} />
 			</button>
 			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code">
 				<Icon name="braces" size={16} />
@@ -1434,18 +1426,25 @@
 		background: color-mix(in srgb, var(--error) 15%, var(--surface-raised));
 	}
 
-	.icon-crossfade {
+	.toolbar-btn.stage-btn {
 		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 16px;
-		height: 16px;
 	}
 
-	.icon-crossfade-item {
+	.mutation-badge {
 		position: absolute;
-		display: flex;
+		top: -4px;
+		right: -4px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		border-radius: 8px;
+		background: var(--accent);
+		color: var(--surface);
+		font-size: 10px;
+		font-weight: 600;
+		line-height: 16px;
+		text-align: center;
+		pointer-events: none;
 	}
 
 	/* Logo overlay */

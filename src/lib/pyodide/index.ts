@@ -8,6 +8,7 @@ export {
 	initPyodide,
 	runStreamingSimulation,
 	continueStreamingSimulation,
+	stageMutations,
 	resetSimulation,
 	validateGraph,
 	stopSimulation,
@@ -23,6 +24,7 @@ export {
 // Code generation
 export {
 	generatePythonCode,
+	type CodeGenResult,
 	runGraphStreamingSimulation,
 	exportToPython,
 	validateGraphSimulation,
@@ -51,3 +53,18 @@ export {
 	type Backend,
 	type BackendState
 } from './backend';
+
+// Mutation queue for runtime graph changes
+export {
+	queueAddBlock,
+	queueRemoveBlock,
+	queueAddConnection,
+	queueRemoveConnection,
+	queueUpdateParam,
+	queueUpdateSetting,
+	hasPendingMutations,
+	isActive as isMutationQueueActive,
+	pendingMutationCount,
+	getNodeVar,
+	getConnVar
+} from './mutationQueue';

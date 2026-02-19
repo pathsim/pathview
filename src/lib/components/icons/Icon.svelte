@@ -420,6 +420,13 @@
 		<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
 		<line x1="7" y1="7" x2="7.01" y2="7"/>
 	</svg>
+{:else if name === 'stage'}
+	<!-- Arrow pointing down into a horizontal line (apply/stage changes) -->
+	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<polyline points="7 10 12 15 17 10"/>
+		<line x1="12" y1="15" x2="12" y2="3"/>
+		<line x1="4" y1="21" x2="20" y2="21"/>
+	</svg>
 {:else if name === 'font-size-increase'}
 	<svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none">
 		<text x="2" y="18" font-size="16" font-weight="700" font-family="system-ui, sans-serif">A</text>
