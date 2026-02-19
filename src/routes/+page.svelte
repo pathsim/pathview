@@ -1474,11 +1474,13 @@
 		justify-content: center;
 		width: 16px;
 		height: 16px;
+		overflow: visible;
 	}
 
 	.icon-crossfade-item {
 		position: absolute;
 		display: flex;
+		overflow: visible;
 	}
 
 	/* Logo overlay */
