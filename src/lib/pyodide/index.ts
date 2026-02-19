@@ -52,3 +52,16 @@ export {
 	type Backend,
 	type BackendState
 } from './backend';
+
+// Mutation queue for runtime graph changes
+export {
+	queueAddBlock,
+	queueRemoveBlock,
+	queueAddConnection,
+	queueRemoveConnection,
+	queueUpdateParam,
+	queueUpdateSetting,
+	hasPendingMutations,
+	getNodeVar,
+	getConnVar
+} from './mutationQueue';

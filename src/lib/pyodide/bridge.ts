@@ -27,6 +27,9 @@ import {
 // Re-export for use in other modules
 export { execDuringStreaming };
 
+// Import mutation queue
+import { initMappings, flushQueue, clearQueue } from './mutationQueue';
+
 // Re-export replState as pyodideState for backwards compatibility
 export { replState as pyodideState };
 
@@ -298,12 +301,21 @@ async function runStreamingLoop(
 export async function runStreamingSimulation(
 	code: string,
 	duration: string,
-	onUpdate?: (result: SimulationResult) => void
+	onUpdate?: (result: SimulationResult) => void,
+	nodeVars?: Map<string, string>,
+	connVars?: Map<string, string>
 ): Promise<SimulationResult | null> {
 	// Ensure initialized
 	const state = get(replState);
 	if (!state.initialized) {
 		await initRepl();
+	}
+
+	// Initialize mutation queue mappings for this run
+	if (nodeVars && connVars) {
+		initMappings(nodeVars, connVars);
+	} else {
+		clearQueue();
 	}
 
 	streamingActive = true;
@@ -420,6 +432,13 @@ export async function continueStreamingSimulation(
 if 'sim' not in dir() or sim is None:
     raise RuntimeError("No simulation to continue. Run a simulation first.")
 		`);
+
+		// Apply any pending graph mutations before continuing
+		const mutationCode = flushQueue();
+		if (mutationCode) {
+			await exec(mutationCode);
+			consoleStore.info('Applied graph mutations');
+		}
 
 		// Start streaming generator with reset=False and optimized tickrate
 		await exec(generateStreamingStartCode(durationExpr, STREAMING_TICKRATE, false));

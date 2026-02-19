@@ -756,7 +756,7 @@ export async function runGraphStreamingSimulation(
 	// Generate code without sim.run() - streaming will handle execution
 	const result = generatePythonCode(nodes, connections, settings, codeContext, true, events, false);
 	const duration = getSettingOrDefault(settings, 'duration');
-	return runStreamingSimulation(result.code, String(duration), onUpdate);
+	return runStreamingSimulation(result.code, String(duration), onUpdate, result.nodeVars, result.connVars);
 }
 
 /**
