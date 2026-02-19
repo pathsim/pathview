@@ -39,7 +39,8 @@
 	import { openNodeDialog } from '$lib/stores/nodeDialog';
 	import { openEventDialog } from '$lib/stores/eventDialog';
 	import type { MenuItemType } from '$lib/components/ContextMenu.svelte';
-	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation } from '$lib/pyodide/bridge';
+	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation, stageMutations } from '$lib/pyodide/bridge';
+	import { pendingMutationCount } from '$lib/pyodide/mutationQueue';
 	import { initBackendFromUrl, autoDetectBackend } from '$lib/pyodide/backend';
 	import { runGraphStreamingSimulation, validateGraphSimulation } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
@@ -1008,6 +1009,21 @@
 			>
 				<Icon name="skip-forward-filled" size={16} />
 			</button>
+			{#if hasRunSimulation}
+				<button
+					class="toolbar-btn stage-btn"
+					class:active={$pendingMutationCount > 0}
+					onclick={() => stageMutations()}
+					disabled={$pendingMutationCount === 0}
+					use:tooltip={"Stage Changes"}
+					aria-label="Stage Changes"
+				>
+					<Icon name="stage" size={16} />
+					{#if $pendingMutationCount > 0}
+						<span class="mutation-badge">{$pendingMutationCount}</span>
+					{/if}
+				</button>
+			{/if}
 		</div>
 
 		<!-- File operations -->
@@ -1432,6 +1448,27 @@
 		color: var(--error);
 		border-color: var(--error);
 		background: color-mix(in srgb, var(--error) 15%, var(--surface-raised));
+	}
+
+	.toolbar-btn.stage-btn {
+		position: relative;
+	}
+
+	.mutation-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		border-radius: 8px;
+		background: var(--accent);
+		color: var(--surface);
+		font-size: 10px;
+		font-weight: 600;
+		line-height: 16px;
+		text-align: center;
+		pointer-events: none;
 	}
 
 	.icon-crossfade {
