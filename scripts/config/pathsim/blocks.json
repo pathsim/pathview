@@ -46,6 +46,7 @@
     "Algebraic": [
       "Adder",
       "Multiplier",
+      "Divider",
       "Amplifier",
       "Function",
       "Sin",
@@ -60,9 +61,21 @@
       "Mod",
       "Clip",
       "Pow",
+      "Atan2",
+      "Rescale",
+      "Alias",
       "Switch",
       "LUT",
       "LUT1D"
+    ],
+
+    "Logic": [
+      "GreaterThan",
+      "LessThan",
+      "Equal",
+      "LogicAnd",
+      "LogicOr",
+      "LogicNot"
     ],
 
     "Mixed": [

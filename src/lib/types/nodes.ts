@@ -44,6 +44,7 @@ export type NodeCategory =
 	| 'Sources'
 	| 'Dynamic'
 	| 'Algebraic'
+	| 'Logic'
 	| 'Mixed'
 	| 'Recording'
 	| 'Subsystem';
