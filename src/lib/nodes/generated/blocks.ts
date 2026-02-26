@@ -405,12 +405,17 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Delay": {
     "blockClass": "Delay",
     "description": "Delays the input signal by a time constant 'tau' in seconds.",
-    "docstringHtml": "<p>Delays the input signal by a time constant 'tau' in seconds.</p>\n<p>Mathematically this block creates a time delay of the input signal like this:</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) =\n\\begin{cases}\nx(t - \\tau) &amp; , t \\geq \\tau \\\\\n0            &amp; , t &lt; \\tau\n\\end{cases}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>The internal adaptive buffer uses interpolation for the evaluation. This is\nrequired to be compatible with variable step solvers. It has a drawback however.\nThe order of the ode solver used will degrade when this block is used, due to\nthe interpolation.</p>\n</div>\n<div class=\"section\" id=\"note-1\">\n<h3>Note</h3>\n<p>This block supports vector input, meaning we can have multiple parallel\ndelay paths through this block.</p>\n</div>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>The block is initialized like this:</p>\n<pre class=\"code python literal-block\">\n<span class=\"comment single\">#5 time units delay</span><span class=\"whitespace\">\n</span><span class=\"name\">D</span> <span class=\"operator\">=</span> <span class=\"name\">Delay</span><span class=\"punctuation\">(</span><span class=\"name\">tau</span><span class=\"operator\">=</span><span class=\"literal number integer\">5</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>delay time constant</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>_buffer <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">AdaptiveBuffer</span></dt>\n<dd>internal interpolatable adaptive rolling buffer</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Delays the input signal by a time constant 'tau' in seconds.</p>\n<p>Supports two modes of operation:</p>\n<p><strong>Continuous mode</strong> (default, <tt class=\"docutils literal\">sampling_period=None</tt>):\nUses an adaptive interpolating buffer for continuous-time delay.</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) =\n\\begin{cases}\nx(t - \\tau) &amp; , t \\geq \\tau \\\\\n0            &amp; , t &lt; \\tau\n\\end{cases}\n\\end{equation*}\n</div>\n<p><strong>Discrete mode</strong> (<tt class=\"docutils literal\">sampling_period</tt> provided):\nUses a ring buffer with scheduled sampling events for N-sample delay,\nwhere <tt class=\"docutils literal\">N = round(tau / sampling_period)</tt>.</p>\n<div class=\"math\">\n\\begin{equation*}\ny[k] = x[k - N]\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>In continuous mode, the internal adaptive buffer uses interpolation for\nthe evaluation. This is required to be compatible with variable step solvers.\nIt has a drawback however. The order of the ode solver used will degrade\nwhen this block is used, due to the interpolation.</p>\n</div>\n<div class=\"section\" id=\"note-1\">\n<h3>Note</h3>\n<p>This block supports vector input, meaning we can have multiple parallel\ndelay paths through this block.</p>\n</div>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>Continuous-time delay:</p>\n<pre class=\"code python literal-block\">\n<span class=\"comment single\">#5 time units delay</span><span class=\"whitespace\">\n</span><span class=\"name\">D</span> <span class=\"operator\">=</span> <span class=\"name\">Delay</span><span class=\"punctuation\">(</span><span class=\"name\">tau</span><span class=\"operator\">=</span><span class=\"literal number integer\">5</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Discrete-time N-sample delay (10 samples):</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">D</span> <span class=\"operator\">=</span> <span class=\"name\">Delay</span><span class=\"punctuation\">(</span><span class=\"name\">tau</span><span class=\"operator\">=</span><span class=\"literal number float\">0.01</span><span class=\"punctuation\">,</span> <span class=\"name\">sampling_period</span><span class=\"operator\">=</span><span class=\"literal number float\">0.001</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>delay time constant in seconds</dd>\n<dt>sampling_period <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float, None</span></dt>\n<dd>sampling period for discrete mode, default is continuous mode</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>_buffer <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">AdaptiveBuffer</span></dt>\n<dd>internal interpolatable adaptive rolling buffer (continuous mode)</dd>\n<dt>_ring <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">deque</span></dt>\n<dd>internal ring buffer for N-sample delay (discrete mode)</dd>\n</dl>\n</div>\n",
     "params": {
       "tau": {
         "type": "number",
         "default": "0.001",
-        "description": "delay time constant"
+        "description": "delay time constant in seconds"
+      },
+      "sampling_period": {
+        "type": "any",
+        "default": null,
+        "description": "sampling period for discrete mode, default is continuous mode"
       }
     },
     "inputs": null,
@@ -896,6 +901,27 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "out"
     ]
   },
+  "Divider": {
+    "blockClass": "Divider",
+    "description": "Multiplies and divides input signals (MISO).",
+    "docstringHtml": "<p>Multiplies and divides input signals (MISO).</p>\n<p>This is the default behavior (multiply all):</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) = \\prod_i u_i(t)\n\\end{equation*}\n</div>\n<p>and this is the behavior with an operations string:</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) = \\frac{\\prod_{i \\in M} u_i(t)}{\\prod_{j \\in D} u_j(t)}\n\\end{equation*}\n</div>\n<p>where <span class=\"math\">\\(M\\)</span> is the set of inputs with <tt class=\"docutils literal\">*</tt> and <span class=\"math\">\\(D\\)</span> the set with <tt class=\"docutils literal\">/</tt>.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>Default initialization multiplies the first input and divides by the second:</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">D</span> <span class=\"operator\">=</span> <span class=\"name\">Divider</span><span class=\"punctuation\">()</span>\n</pre>\n<p>Multiply the first two inputs and divide by the third:</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">D</span> <span class=\"operator\">=</span> <span class=\"name\">Divider</span><span class=\"punctuation\">(</span><span class=\"literal string single\">'**/'</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Raise an error instead of producing <tt class=\"docutils literal\">inf</tt> when a denominator input is zero:</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">D</span> <span class=\"operator\">=</span> <span class=\"name\">Divider</span><span class=\"punctuation\">(</span><span class=\"literal string single\">'**/'</span><span class=\"punctuation\">,</span> <span class=\"name\">zero_div</span><span class=\"operator\">=</span><span class=\"literal string single\">'raise'</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Clamp the denominator to machine epsilon so the output stays finite:</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">D</span> <span class=\"operator\">=</span> <span class=\"name\">Divider</span><span class=\"punctuation\">(</span><span class=\"literal string single\">'**/'</span><span class=\"punctuation\">,</span> <span class=\"name\">zero_div</span><span class=\"operator\">=</span><span class=\"literal string single\">'clamp'</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is purely algebraic and its operation (<tt class=\"docutils literal\">op_alg</tt>) will be called\nmultiple times per timestep, each time when <tt class=\"docutils literal\">Simulation._update(t)</tt> is\ncalled in the global simulation loop.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>operations <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">str, optional</span></dt>\n<dd>String of <tt class=\"docutils literal\">*</tt> and <tt class=\"docutils literal\">/</tt> characters indicating which inputs are\nmultiplied (<tt class=\"docutils literal\">*</tt>) or divided (<tt class=\"docutils literal\">/</tt>). Inputs beyond the length of\nthe string default to <tt class=\"docutils literal\">*</tt>. Defaults to <tt class=\"docutils literal\"><span class=\"pre\">'*/'</span></tt> (divide second\ninput by first).</dd>\n<dt>zero_div <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">str, optional</span></dt>\n<dd><p class=\"first\">Behaviour when a denominator input is zero. One of:</p>\n<dl class=\"last docutils\">\n<dt><tt class=\"docutils literal\">'warn'</tt> <em>(default)</em></dt>\n<dd>Propagates <tt class=\"docutils literal\">inf</tt> and emits a <tt class=\"docutils literal\">RuntimeWarning</tt> — numpy's\nstandard behaviour.</dd>\n<dt><tt class=\"docutils literal\">'raise'</tt></dt>\n<dd>Raises <tt class=\"docutils literal\">ZeroDivisionError</tt>.</dd>\n<dt><tt class=\"docutils literal\">'clamp'</tt></dt>\n<dd>Clamps the denominator magnitude to machine epsilon\n(<tt class=\"docutils literal\"><span class=\"pre\">numpy.finfo(float).eps</span></tt>), preserving sign, so the output\nstays large-but-finite rather than <tt class=\"docutils literal\">inf</tt>.</dd>\n</dl>\n</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>_ops <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">dict</span></dt>\n<dd>Maps operation characters to exponent values (<tt class=\"docutils literal\">+1</tt> or <tt class=\"docutils literal\"><span class=\"pre\">-1</span></tt>).</dd>\n<dt>_ops_array <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">numpy.ndarray</span></dt>\n<dd>Exponents (+1 for <tt class=\"docutils literal\">*</tt>, -1 for <tt class=\"docutils literal\">/</tt>) converted to an array.</dd>\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>Internal algebraic operator.</dd>\n</dl>\n</div>\n",
+    "params": {
+      "operations": {
+        "type": "string",
+        "default": "\"*/\"",
+        "description": "String of ``*`` and ``/`` characters indicating which inputs are multiplied (``*``) or divided (``/``). Inputs beyond the length of the string default to ``*``. Defaults to ``'*/'`` (divide second input by first)."
+      },
+      "zero_div": {
+        "type": "string",
+        "default": "\"warn\"",
+        "description": "Behaviour when a denominator input is zero. One of:"
+      }
+    },
+    "inputs": null,
+    "outputs": [
+      "out"
+    ]
+  },
   "Amplifier": {
     "blockClass": "Amplifier",
     "description": "Amplifies the input signal by multiplication with a constant gain term.",
@@ -1043,12 +1069,67 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
     "inputs": null,
     "outputs": null
   },
+  "Atan2": {
+    "blockClass": "Atan2",
+    "description": "Two-argument arctangent block.",
+    "docstringHtml": "<p>Two-argument arctangent block.</p>\n<p>Computes the four-quadrant arctangent of two inputs:</p>\n<div class=\"math\">\n\\begin{equation*}\ny = \\mathrm{atan2}(a, b)\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block takes exactly two inputs (a, b) and produces one output.\nThe first input is the y-coordinate, the second is the x-coordinate,\nmatching the convention of <tt class=\"docutils literal\">numpy.arctan2(y, x)</tt>.</p>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {},
+    "inputs": [
+      "a",
+      "b"
+    ],
+    "outputs": [
+      "y"
+    ]
+  },
+  "Rescale": {
+    "blockClass": "Rescale",
+    "description": "Linear rescaling / mapping block.",
+    "docstringHtml": "<p>Linear rescaling / mapping block.</p>\n<p>Maps the input linearly from range <tt class=\"docutils literal\">[i0, i1]</tt> to range <tt class=\"docutils literal\">[o0, o1]</tt>.\nOptionally saturates the output to <tt class=\"docutils literal\">[o0, o1]</tt>.</p>\n<div class=\"math\">\n\\begin{equation*}\ny = o_0 + \\frac{(x - i_0) \\cdot (o_1 - o_0)}{i_1 - i_0}\n\\end{equation*}\n</div>\n<p>This block supports vector inputs.</p>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>i0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>input range lower bound</dd>\n<dt>i1 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>input range upper bound</dd>\n<dt>o0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>output range lower bound</dd>\n<dt>o1 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>output range upper bound</dd>\n<dt>saturate <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">bool</span></dt>\n<dd>if True, clamp output to [min(o0,o1), max(o0,o1)]</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {
+      "i0": {
+        "type": "number",
+        "default": "0.0",
+        "description": "input range lower bound"
+      },
+      "i1": {
+        "type": "number",
+        "default": "1.0",
+        "description": "input range upper bound"
+      },
+      "o0": {
+        "type": "number",
+        "default": "0.0",
+        "description": "output range lower bound"
+      },
+      "o1": {
+        "type": "number",
+        "default": "1.0",
+        "description": "output range upper bound"
+      },
+      "saturate": {
+        "type": "boolean",
+        "default": "false",
+        "description": "if True, clamp output to [min(o0,o1), max(o0,o1)]"
+      }
+    },
+    "inputs": null,
+    "outputs": null
+  },
+  "Alias": {
+    "blockClass": "Alias",
+    "description": "Signal alias / pass-through block.",
+    "docstringHtml": "<p>Signal alias / pass-through block.</p>\n<p>Passes the input directly to the output without modification.\nThis is useful for signal renaming in model composition.</p>\n<div class=\"math\">\n\\begin{equation*}\ny = x\n\\end{equation*}\n</div>\n<p>This block supports vector inputs.</p>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {},
+    "inputs": null,
+    "outputs": null
+  },
   "Switch": {
     "blockClass": "Switch",
     "description": "Switch block that selects between its inputs.",
-    "docstringHtml": "<p>Switch block that selects between its inputs.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>The block is initialized like this:</p>\n<pre class=\"code python literal-block\">\n<span class=\"comment single\">#default None -&gt; no passthrough</span><span class=\"whitespace\">\n</span><span class=\"name\">s1</span> <span class=\"operator\">=</span> <span class=\"name\">Switch</span><span class=\"punctuation\">()</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#selecting port 2 as passthrough</span><span class=\"whitespace\">\n</span><span class=\"name\">s2</span> <span class=\"operator\">=</span> <span class=\"name\">Switch</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#change the state of the switch to port 3</span><span class=\"whitespace\">\n</span><span class=\"name\">s2</span><span class=\"operator\">.</span><span class=\"name\">select</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">3</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Sets block output depending on <cite>self.state</cite> like this:</p>\n<pre class=\"code literal-block\">\nstate == None -&gt; outputs[0] = 0\n\nstate == 0 -&gt; outputs[0] = inputs[0]\n\nstate == 1 -&gt; outputs[0] = inputs[1]\n\nstate == 2 -&gt; outputs[0] = inputs[2]\n\n...\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>state <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int, None</span></dt>\n<dd>state of the switch</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Switch block that selects between its inputs.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>The block is initialized like this:</p>\n<pre class=\"code python literal-block\">\n<span class=\"comment single\">#default None -&gt; no passthrough</span><span class=\"whitespace\">\n</span><span class=\"name\">s1</span> <span class=\"operator\">=</span> <span class=\"name\">Switch</span><span class=\"punctuation\">()</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#selecting port 2 as passthrough</span><span class=\"whitespace\">\n</span><span class=\"name\">s2</span> <span class=\"operator\">=</span> <span class=\"name\">Switch</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#change the state of the switch to port 3</span><span class=\"whitespace\">\n</span><span class=\"name\">s2</span><span class=\"operator\">.</span><span class=\"name\">select</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">3</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Sets block output depending on <cite>self.switch_state</cite> like this:</p>\n<pre class=\"code literal-block\">\nswitch_state == None -&gt; outputs[0] = 0\n\nswitch_state == 0 -&gt; outputs[0] = inputs[0]\n\nswitch_state == 1 -&gt; outputs[0] = inputs[1]\n\nswitch_state == 2 -&gt; outputs[0] = inputs[2]\n\n...\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>switch_state <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int, None</span></dt>\n<dd>state of the switch</dd>\n</dl>\n</div>\n",
     "params": {
-      "state": {
+      "switch_state": {
         "type": "any",
         "default": null,
         "description": "state of the switch"
@@ -1099,6 +1180,85 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
         "description": "The value to use for points outside the interpolation range. If \"extrapolate\", the interpolator will use linear extrapolation. Default is \"extrapolate\". See https://docs.scipy.org/doc/scipy-1.16.1/reference/generated/scipy.interpolate.interp1d.html for more details"
       }
     },
+    "inputs": null,
+    "outputs": null
+  },
+  "GreaterThan": {
+    "blockClass": "GreaterThan",
+    "description": "Greater-than comparison block.",
+    "docstringHtml": "<p>Greater-than comparison block.</p>\n<p>Compares two inputs and outputs 1.0 if a &gt; b, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny =\n\\begin{cases}\n1 &amp; , a &gt; b \\\\\n0 &amp; , a \\leq b\n\\end{cases}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {},
+    "inputs": [
+      "a",
+      "b"
+    ],
+    "outputs": [
+      "y"
+    ]
+  },
+  "LessThan": {
+    "blockClass": "LessThan",
+    "description": "Less-than comparison block.",
+    "docstringHtml": "<p>Less-than comparison block.</p>\n<p>Compares two inputs and outputs 1.0 if a &lt; b, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny =\n\\begin{cases}\n1 &amp; , a &lt; b \\\\\n0 &amp; , a \\geq b\n\\end{cases}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {},
+    "inputs": [
+      "a",
+      "b"
+    ],
+    "outputs": [
+      "y"
+    ]
+  },
+  "Equal": {
+    "blockClass": "Equal",
+    "description": "Equality comparison block.",
+    "docstringHtml": "<p>Equality comparison block.</p>\n<p>Compares two inputs and outputs 1.0 if <a href=\"#system-message-1\"><span class=\"problematic\" id=\"problematic-1\">|a - b|</span></a> &lt;= tolerance, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny =\n\\begin{cases}\n1 &amp; , |a - b| \\leq \\epsilon \\\\\n0 &amp; , |a - b| &gt; \\epsilon\n\\end{cases}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tolerance <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>comparison tolerance for floating point equality</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {
+      "tolerance": {
+        "type": "number",
+        "default": "1e-12",
+        "description": "comparison tolerance for floating point equality"
+      }
+    },
+    "inputs": [
+      "a",
+      "b"
+    ],
+    "outputs": [
+      "y"
+    ]
+  },
+  "LogicAnd": {
+    "blockClass": "LogicAnd",
+    "description": "Logical AND block.",
+    "docstringHtml": "<p>Logical AND block.</p>\n<p>Outputs 1.0 if both inputs are nonzero, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny = a \\land b\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {},
+    "inputs": [
+      "a",
+      "b"
+    ],
+    "outputs": [
+      "y"
+    ]
+  },
+  "LogicOr": {
+    "blockClass": "LogicOr",
+    "description": "Logical OR block.",
+    "docstringHtml": "<p>Logical OR block.</p>\n<p>Outputs 1.0 if either input is nonzero, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny = a \\lor b\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {},
+    "inputs": [
+      "a",
+      "b"
+    ],
+    "outputs": [
+      "y"
+    ]
+  },
+  "LogicNot": {
+    "blockClass": "LogicNot",
+    "description": "Logical NOT block.",
+    "docstringHtml": "<p>Logical NOT block.</p>\n<p>Outputs 1.0 if input is zero, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny = \\lnot x\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {},
     "inputs": null,
     "outputs": null
   },
@@ -1521,7 +1681,8 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
 export const blockConfig: Record<string, string[]> = {
   Sources: ["Constant", "Source", "SinusoidalSource", "StepSource", "PulseSource", "TriangleWaveSource", "SquareWaveSource", "GaussianPulseSource", "ChirpPhaseNoiseSource", "ClockSource", "WhiteNoise", "PinkNoise", "RandomNumberGenerator"],
   Dynamic: ["Integrator", "Differentiator", "Delay", "ODE", "DynamicalSystem", "StateSpace", "PT1", "PT2", "LeadLag", "PID", "AntiWindupPID", "RateLimiter", "Backlash", "Deadband", "TransferFunctionNumDen", "TransferFunctionZPG", "ButterworthLowpassFilter", "ButterworthHighpassFilter", "ButterworthBandpassFilter", "ButterworthBandstopFilter"],
-  Algebraic: ["Adder", "Multiplier", "Amplifier", "Function", "Sin", "Cos", "Tan", "Tanh", "Abs", "Sqrt", "Exp", "Log", "Log10", "Mod", "Clip", "Pow", "Switch", "LUT", "LUT1D"],
+  Algebraic: ["Adder", "Multiplier", "Divider", "Amplifier", "Function", "Sin", "Cos", "Tan", "Tanh", "Abs", "Sqrt", "Exp", "Log", "Log10", "Mod", "Clip", "Pow", "Atan2", "Rescale", "Alias", "Switch", "LUT", "LUT1D"],
+  Logic: ["GreaterThan", "LessThan", "Equal", "LogicAnd", "LogicOr", "LogicNot"],
   Mixed: ["SampleHold", "FIR", "ADC", "DAC", "Counter", "CounterUp", "CounterDown", "Relay"],
   Recording: ["Scope", "Spectrum"],
   Chemical: ["Process", "Bubbler4", "Splitter", "GLC"],
@@ -1531,8 +1692,10 @@ export const blockImportPaths: Record<string, string> = {
   "ADC": "pathsim.blocks",
   "Abs": "pathsim.blocks",
   "Adder": "pathsim.blocks",
+  "Alias": "pathsim.blocks",
   "Amplifier": "pathsim.blocks",
   "AntiWindupPID": "pathsim.blocks",
+  "Atan2": "pathsim.blocks",
   "Backlash": "pathsim.blocks",
   "Bubbler4": "pathsim_chem.tritium",
   "ButterworthBandpassFilter": "pathsim.blocks",
@@ -1551,18 +1714,25 @@ export const blockImportPaths: Record<string, string> = {
   "Deadband": "pathsim.blocks",
   "Delay": "pathsim.blocks",
   "Differentiator": "pathsim.blocks",
+  "Divider": "pathsim.blocks",
   "DynamicalSystem": "pathsim.blocks",
+  "Equal": "pathsim.blocks",
   "Exp": "pathsim.blocks",
   "FIR": "pathsim.blocks",
   "Function": "pathsim.blocks",
   "GLC": "pathsim_chem.tritium",
   "GaussianPulseSource": "pathsim.blocks",
+  "GreaterThan": "pathsim.blocks",
   "Integrator": "pathsim.blocks",
   "LUT": "pathsim.blocks",
   "LUT1D": "pathsim.blocks",
   "LeadLag": "pathsim.blocks",
+  "LessThan": "pathsim.blocks",
   "Log": "pathsim.blocks",
   "Log10": "pathsim.blocks",
+  "LogicAnd": "pathsim.blocks",
+  "LogicNot": "pathsim.blocks",
+  "LogicOr": "pathsim.blocks",
   "Mod": "pathsim.blocks",
   "Multiplier": "pathsim.blocks",
   "ODE": "pathsim.blocks",
@@ -1576,6 +1746,7 @@ export const blockImportPaths: Record<string, string> = {
   "RandomNumberGenerator": "pathsim.blocks",
   "RateLimiter": "pathsim.blocks",
   "Relay": "pathsim.blocks",
+  "Rescale": "pathsim.blocks",
   "SampleHold": "pathsim.blocks",
   "Scope": "pathsim.blocks",
   "Sin": "pathsim.blocks",

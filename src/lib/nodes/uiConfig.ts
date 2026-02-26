@@ -41,7 +41,8 @@ function parseOperationsString(value: unknown): string[] | null {
 export const portLabelParams: Record<string, PortLabelConfig | PortLabelConfig[]> = {
 	Scope: { param: 'labels', direction: 'input' },
 	Spectrum: { param: 'labels', direction: 'input' },
-	Adder: { param: 'operations', direction: 'input', parser: parseOperationsString }
+	Adder: { param: 'operations', direction: 'input', parser: parseOperationsString },
+	Divider: { param: 'operations', direction: 'input', parser: parseOperationsString }
 };
 
 /**
@@ -77,6 +78,11 @@ export const syncPortBlocks = new Set([
 	'Mod',
 	'Clip',
 	'Pow',
+	'Rescale',
+	'Alias',
+
+	// Logic blocks (element-wise)
+	'LogicNot',
 
 	// Mixed blocks (parallel sampling)
 	'SampleHold'

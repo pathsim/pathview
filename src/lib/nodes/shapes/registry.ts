@@ -87,6 +87,7 @@ const categoryShapeMap: Record<string, string> = {
 	Sources: 'pill',
 	Dynamic: 'rect',
 	Algebraic: 'rect',
+	Logic: 'rect',
 	Mixed: 'mixed',
 	Recording: 'pill',
 	Subsystem: 'rect'
