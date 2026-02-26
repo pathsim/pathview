@@ -81,6 +81,9 @@ export const syncPortBlocks = new Set([
 	'Rescale',
 	'Alias',
 
+	// Logic blocks (element-wise)
+	'LogicNot',
+
 	// Mixed blocks (parallel sampling)
 	'SampleHold'
 ]);
