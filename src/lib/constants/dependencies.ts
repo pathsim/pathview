@@ -23,13 +23,13 @@ export const PYTHON_PACKAGES: PackageConfig[] =
   {
     "pip": "pathsim",
     "required": true,
-    "pre": true,
+    "pre": false,
     "import": "pathsim"
   },
   {
     "pip": "pathsim-chem>=0.2.0",
     "required": false,
-    "pre": true,
+    "pre": false,
     "import": "pathsim_chem"
   }
 ];
