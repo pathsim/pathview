@@ -21,7 +21,7 @@ dependencies = [
     "numpy",
     "waitress>=3.0",
     "pathsim",
-    "pathsim-chem==0.2rc3",
+    "pathsim-chem>=0.2.0",
 ]
 
 [project.optional-dependencies]

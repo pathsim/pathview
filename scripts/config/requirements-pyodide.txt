@@ -6,4 +6,4 @@
 --pre
 
 pathsim
-pathsim-chem>=0.2rc2  # optional
+pathsim-chem>=0.2.0  # optional
