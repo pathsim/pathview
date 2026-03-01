@@ -334,7 +334,9 @@ def create_app(serve_static: bool = False) -> Flask:
         session_id = _get_session_id()
         if not session_id:
             return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
-        data = request.get_json(force=True)
+        data = request.get_json()
+        if data is None:
+            return jsonify({"type": "error", "error": "Invalid or missing JSON body"}), 400
         packages = data.get("packages", [])
 
         session = get_or_create_session(session_id)
@@ -401,7 +403,9 @@ def create_app(serve_static: bool = False) -> Flask:
     @app.route("/api/exec", methods=["POST"])
     def api_exec():
         """Execute Python code in the session's worker."""
-        data = request.get_json(force=True)
+        data = request.get_json()
+        if data is None:
+            return jsonify({"type": "error", "error": "Invalid or missing JSON body"}), 400
         msg_id = data.get("id", str(uuid.uuid4()))
         return _handle_worker_request(
             {"type": "exec", "id": msg_id, "code": data.get("code", "")},
@@ -411,7 +415,9 @@ def create_app(serve_static: bool = False) -> Flask:
     @app.route("/api/eval", methods=["POST"])
     def api_eval():
         """Evaluate a Python expression in the session's worker."""
-        data = request.get_json(force=True)
+        data = request.get_json()
+        if data is None:
+            return jsonify({"type": "error", "error": "Invalid or missing JSON body"}), 400
         msg_id = data.get("id", str(uuid.uuid4()))
         return _handle_worker_request(
             {"type": "eval", "id": msg_id, "expr": data.get("expr", "")},
@@ -428,7 +434,9 @@ def create_app(serve_static: bool = False) -> Flask:
         session_id = _get_session_id()
         if not session_id:
             return jsonify({"type": "error", "error": "Missing X-Session-ID header"}), 400
-        data = request.get_json(force=True)
+        data = request.get_json()
+        if data is None:
+            return jsonify({"type": "error", "error": "Invalid or missing JSON body"}), 400
         expr = data.get("expr", "")
         msg_id = data.get("id", str(uuid.uuid4()))
 
@@ -471,7 +479,9 @@ def create_app(serve_static: bool = False) -> Flask:
         session_id = _get_session_id()
         if not session_id:
             return jsonify({"error": "Missing X-Session-ID header"}), 400
-        data = request.get_json(force=True)
+        data = request.get_json()
+        if data is None:
+            return jsonify({"error": "Invalid or missing JSON body"}), 400
         code = data.get("code", "")
 
         with _sessions_lock:

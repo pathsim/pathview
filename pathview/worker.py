@@ -22,8 +22,12 @@ import threading
 import traceback
 import queue
 import ctypes
+import re
 
 from pathview.config import EXEC_TIMEOUT
+
+# Only allow valid Python dotted identifiers as import names
+_VALID_IMPORT_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$")
 
 # Lock for thread-safe stdout writing (protocol messages only)
 _stdout_lock = threading.Lock()
@@ -116,6 +120,9 @@ def _ensure_package(pkg: dict) -> None:
     pre = pkg.get("pre", False)
 
     send({"type": "progress", "value": f"Installing {import_name}..."})
+
+    if not _VALID_IMPORT_NAME.match(import_name):
+        raise ValueError(f"Invalid import name: {import_name!r}")
 
     try:
         # Try importing first — skip pip if already installed
@@ -249,6 +256,9 @@ def eval_expr(msg_id: str, expr: str) -> None:
             exec(exec_code_str, _namespace)
 
         _run_with_timeout(do_eval)
+        if "_eval_result" not in _namespace:
+            send({"type": "error", "id": msg_id, "error": "Expression produced no result"})
+            return
         to_json = _namespace.get("_to_json", str)
         result = json.dumps(_namespace["_eval_result"], default=to_json)
         send({"type": "value", "id": msg_id, "value": result})
@@ -344,6 +354,9 @@ def run_streaming_loop(msg_id: str, expr: str) -> None:
             except TimeoutError:
                 send({"type": "error", "id": msg_id,
                       "error": f"Simulation step timed out after {EXEC_TIMEOUT}s"})
+                break
+            if "_eval_result" not in _namespace:
+                send({"type": "error", "id": msg_id, "error": "Stream expression produced no result"})
                 break
             raw_result = _namespace["_eval_result"]
             done = raw_result.get("done", False) if isinstance(raw_result, dict) else False
