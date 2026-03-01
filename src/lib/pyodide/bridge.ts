@@ -396,6 +396,7 @@ export async function runStreamingSimulation(
 		throw error;
 	} finally {
 		streamingActive = false;
+		consoleStore.flush();
 	}
 }
 
@@ -492,6 +493,7 @@ if 'sim' not in dir() or sim is None:
 		throw error;
 	} finally {
 		streamingActive = false;
+		consoleStore.flush();
 	}
 }
 
