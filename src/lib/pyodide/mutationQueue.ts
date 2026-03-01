@@ -1,7 +1,7 @@
 /**
  * Mutation Queue
  * Collects graph changes (add/remove blocks, connections, parameter/setting changes)
- * as Python code strings. Changes are NOT applied automatically — the user
+ * as structured command objects. Changes are NOT applied automatically — the user
  * explicitly stages them via a "Stage Changes" action.
  *
  * On "Run": queue is cleared, mappings initialized from code generation result.
@@ -11,7 +11,8 @@
  * Design:
  * - Structural mutations (add/remove block/connection) are queued in order.
  * - Parameter and setting updates are coalesced: only the latest value per key.
- * - Each mutation is wrapped in try/except for error isolation on flush.
+ * - Mutations are serialized as JSON and dispatched by a Python-side handler
+ *   (_apply_mutations) which handles per-mutation error isolation.
  * - pendingMutationCount is a Svelte store for UI reactivity (badge on stage button).
  */
 
@@ -20,6 +21,16 @@ import type { NodeInstance, Connection } from '$lib/nodes/types';
 import { nodeRegistry } from '$lib/nodes/registry';
 import { isSubsystem } from '$lib/nodes/shapes';
 import { sanitizeName } from './codeBuilder';
+
+// --- Command types ---
+
+type MutationCommand =
+	| { type: 'set_param'; var: string; param: string; value: string }
+	| { type: 'set_setting'; code: string }
+	| { type: 'add_block'; var: string; blockClass: string; params: Record<string, string>; nodeId: string; nodeName: string }
+	| { type: 'remove_block'; var: string; nodeId: string }
+	| { type: 'add_connection'; var: string; sourceVar: string; sourcePort: number; targetVar: string; targetPort: number }
+	| { type: 'remove_connection'; var: string };
 
 // --- Internal state ---
 
@@ -31,13 +42,13 @@ let activeConnVars = new Map<string, string>();    // connectionId → Python va
 let dynamicVarCounter = 0;
 
 /** Ordered structural mutations (add/remove block/connection) */
-const structuralQueue: string[] = [];
+const structuralQueue: MutationCommand[] = [];
 
-/** Coalesced parameter updates: "nodeId:paramName" → Python assignment */
-const paramUpdates = new Map<string, string>();
+/** Coalesced parameter updates: "nodeId:paramName" → command */
+const paramUpdates = new Map<string, MutationCommand>();
 
-/** Coalesced setting updates: key → Python code */
-const settingUpdates = new Map<string, string>();
+/** Coalesced setting updates: key → command */
+const settingUpdates = new Map<string, MutationCommand>();
 
 /** Reactive store: number of pending mutations */
 export const pendingMutationCount = writable(0);
@@ -83,25 +94,25 @@ export function clearQueue(): void {
 
 /**
  * Get all pending mutations as a Python code string and clear the queue.
- * Each mutation is wrapped in try/except for error isolation.
+ * Mutations are serialized as JSON and dispatched via _apply_mutations().
  * Order: settings first, then structural mutations, then parameter updates.
  */
 export function flushQueue(): string | null {
-	const allCode: string[] = [];
+	const allCommands: MutationCommand[] = [];
 
 	// 1. Settings (apply before structural changes)
-	for (const code of settingUpdates.values()) {
-		allCode.push(wrapTryExcept(code));
+	for (const cmd of settingUpdates.values()) {
+		allCommands.push(cmd);
 	}
 
 	// 2. Structural mutations (add/remove in order)
-	for (const code of structuralQueue) {
-		allCode.push(wrapTryExcept(code));
+	for (const cmd of structuralQueue) {
+		allCommands.push(cmd);
 	}
 
 	// 3. Parameter updates (apply after blocks exist)
-	for (const code of paramUpdates.values()) {
-		allCode.push(wrapTryExcept(code));
+	for (const cmd of paramUpdates.values()) {
+		allCommands.push(cmd);
 	}
 
 	structuralQueue.length = 0;
@@ -109,8 +120,12 @@ export function flushQueue(): string | null {
 	settingUpdates.clear();
 	updateCount();
 
-	if (allCode.length === 0) return null;
-	return allCode.join('\n');
+	if (allCommands.length === 0) return null;
+
+	// Double stringify: inner produces the JSON array,
+	// outer wraps it as a Python string literal with proper escaping
+	const jsonPayload = JSON.stringify(JSON.stringify(allCommands));
+	return `_apply_mutations(${jsonPayload})`;
 }
 
 /**
@@ -141,23 +156,22 @@ export function queueAddBlock(node: NodeInstance): void {
 	activeNodeVars.set(node.id, varName);
 
 	const validParamNames = new Set(typeDef.params.map(p => p.name));
-	const paramParts: string[] = [];
+	const params: Record<string, string> = {};
 	for (const [name, value] of Object.entries(node.params)) {
 		if (value === null || value === undefined || value === '') continue;
 		if (name.startsWith('_')) continue;
 		if (!validParamNames.has(name)) continue;
-		paramParts.push(`${name}=${value}`);
+		params[name] = String(value);
 	}
-	const params = paramParts.join(', ');
-	const constructor = params ? `${typeDef.blockClass}(${params})` : `${typeDef.blockClass}()`;
 
-	structuralQueue.push([
-		`${varName} = ${constructor}`,
-		`sim.add_block(${varName})`,
-		`blocks.append(${varName})`,
-		`_node_id_map[id(${varName})] = "${node.id}"`,
-		`_node_name_map["${node.id}"] = "${node.name.replace(/"/g, '\\"')}"`
-	].join('\n'));
+	structuralQueue.push({
+		type: 'add_block',
+		var: varName,
+		blockClass: typeDef.blockClass,
+		params,
+		nodeId: node.id,
+		nodeName: node.name
+	});
 	updateCount();
 }
 
@@ -168,12 +182,11 @@ export function queueRemoveBlock(nodeId: string): void {
 	const varName = activeNodeVars.get(nodeId);
 	if (!varName) return;
 
-	structuralQueue.push([
-		`sim.remove_block(${varName})`,
-		`blocks.remove(${varName})`,
-		`_node_id_map.pop(id(${varName}), None)`,
-		`_node_name_map.pop("${nodeId}", None)`
-	].join('\n'));
+	structuralQueue.push({
+		type: 'remove_block',
+		var: varName,
+		nodeId
+	});
 	activeNodeVars.delete(nodeId);
 
 	// Remove any coalesced param updates for this block
@@ -198,11 +211,14 @@ export function queueAddConnection(conn: Connection): void {
 	const varName = `conn_dyn_${dynamicVarCounter++}`;
 	activeConnVars.set(conn.id, varName);
 
-	structuralQueue.push([
-		`${varName} = Connection(${sourceVar}[${conn.sourcePortIndex}], ${targetVar}[${conn.targetPortIndex}])`,
-		`sim.add_connection(${varName})`,
-		`connections.append(${varName})`
-	].join('\n'));
+	structuralQueue.push({
+		type: 'add_connection',
+		var: varName,
+		sourceVar,
+		sourcePort: conn.sourcePortIndex,
+		targetVar,
+		targetPort: conn.targetPortIndex
+	});
 	updateCount();
 }
 
@@ -213,10 +229,10 @@ export function queueRemoveConnection(connId: string): void {
 	const varName = activeConnVars.get(connId);
 	if (!varName) return;
 
-	structuralQueue.push([
-		`sim.remove_connection(${varName})`,
-		`connections.remove(${varName})`
-	].join('\n'));
+	structuralQueue.push({
+		type: 'remove_connection',
+		var: varName
+	});
 	activeConnVars.delete(connId);
 	updateCount();
 }
@@ -229,7 +245,12 @@ export function queueUpdateParam(nodeId: string, paramName: string, value: strin
 	const varName = activeNodeVars.get(nodeId);
 	if (!varName) return;
 
-	paramUpdates.set(`${nodeId}:${paramName}`, `${varName}.${paramName} = ${value}`);
+	paramUpdates.set(`${nodeId}:${paramName}`, {
+		type: 'set_param',
+		var: varName,
+		param: paramName,
+		value
+	});
 	updateCount();
 }
 
@@ -242,7 +263,10 @@ export function queueUpdateParam(nodeId: string, paramName: string, value: strin
 export function queueUpdateSetting(key: string, code: string): void {
 	if (!isActive()) return;
 
-	settingUpdates.set(key, code);
+	settingUpdates.set(key, {
+		type: 'set_setting',
+		code
+	});
 	updateCount();
 }
 
@@ -254,11 +278,4 @@ export function getNodeVar(nodeId: string): string | undefined {
 
 export function getConnVar(connId: string): string | undefined {
 	return activeConnVars.get(connId);
-}
-
-// --- Internal helpers ---
-
-function wrapTryExcept(code: string): string {
-	const indented = code.split('\n').map(line => `    ${line}`).join('\n');
-	return `try:\n${indented}\nexcept Exception as _e:\n    print(f"Mutation error: {_e}", file=__import__('sys').stderr)`;
 }
