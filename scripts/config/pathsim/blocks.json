@@ -86,7 +86,8 @@
       "Counter",
       "CounterUp",
       "CounterDown",
-      "Relay"
+      "Relay",
+      "Wrapper"
     ],
 
     "Recording": [

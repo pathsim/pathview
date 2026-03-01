@@ -1473,6 +1473,30 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "out"
     ]
   },
+  "Wrapper": {
+    "blockClass": "Wrapper",
+    "description": "Wrapper block for discrete implementation and external code integration.",
+    "docstringHtml": "<p>Wrapper block for discrete implementation and external code integration.</p>\n<p>The <cite>Wrapper</cite> class is designed to call the internal <cite>func</cite> at fixed intervals\nusing an internal <cite>Schedule</cite> event. This makes it particularly useful for wrapping\nexternal code or implementing discrete-time systems.</p>\n<p>Essentially this block does the same as <cite>Function</cite> with the difference that its\nnot evaluated continuously but periodically at discrete times.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>There are two ways to setup the <cite>Wrapper</cite>, first and standard way is to define\na function to be wrapped and pass it to the block initializer:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Wrapper</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#function to be wrapped</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">func</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span> <span class=\"operator\">*</span> <span class=\"punctuation\">(</span><span class=\"name\">b</span> <span class=\"operator\">+</span> <span class=\"name\">c</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">wrp</span> <span class=\"operator\">=</span> <span class=\"name\">Wrapper</span><span class=\"punctuation\">(</span><span class=\"name\">func</span><span class=\"punctuation\">,</span> <span class=\"name\">T</span><span class=\"operator\">=</span><span class=\"literal number float\">0.1</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Another option is to use the <cite>dec</cite> classmethod, which might be more convenient\nin some situations:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Wrapper</span><span class=\"whitespace\">\n\n</span><span class=\"name decorator\">&#64;Wrapper</span><span class=\"operator\">.</span><span class=\"name\">dec</span><span class=\"punctuation\">(</span><span class=\"name\">T</span><span class=\"operator\">=</span><span class=\"literal number float\">0.1</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">wrp</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span> <span class=\"operator\">*</span> <span class=\"punctuation\">(</span><span class=\"name\">b</span> <span class=\"operator\">+</span> <span class=\"name\">c</span><span class=\"punctuation\">)</span>\n</pre>\n<p>This way the internal function of the block <cite>wrp</cite> will be evaluated with a period\nof <cite>T=0.1</cite> and its outputs updated accordingly.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>function that defines algebraic block IO behaviour</dd>\n<dt>T <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>sampling period for the wrapped function</dd>\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>delay time for the start time of the event</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>Evt <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Schedule</span></dt>\n<dd>internal event. Used for periodic sampling the wrapped method</dd>\n</dl>\n</div>\n",
+    "params": {
+      "func": {
+        "type": "callable",
+        "default": null,
+        "description": "function that defines algebraic block IO behaviour"
+      },
+      "T": {
+        "type": "integer",
+        "default": "1",
+        "description": "sampling period for the wrapped function"
+      },
+      "tau": {
+        "type": "integer",
+        "default": "0",
+        "description": "delay time for the start time of the event Attributes ----------"
+      }
+    },
+    "inputs": null,
+    "outputs": null
+  },
   "Scope": {
     "blockClass": "Scope",
     "description": "Block for recording time domain data with variable sampling period.",
@@ -1620,43 +1644,43 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   },
   "GLC": {
     "blockClass": "GLC",
-    "description": "Gas Liquid Contactor model block.",
-    "docstringHtml": "<p>Gas Liquid Contactor model block. Inherits from Function block.</p>\n<p>More details about the model can be found in: <a class=\"reference external\" href=\"https://doi.org/10.13182/FST95-A30485\">https://doi.org/10.13182/FST95-A30485</a></p>\n<dl class=\"docutils\">\n<dt>Args:</dt>\n<dd>P_in: Inlet operating pressure [Pa]\nL: Column height [m]\nD: Column diameter [m]\nT: Temperature [K]\ng: Gravitational acceleration [m/s^2], default is 9.81\ninitial_nb_of_elements: Initial number of elements for BVP solver\nBCs: Boundary conditions type, &quot;C-C&quot; (Closed-Closed) or &quot;O-C&quot; (Open-Closed), default is &quot;C-C&quot;</dd>\n</dl>\n",
+    "description": "Counter-current bubble column gas-liquid contactor (GLC) for tritium extraction.",
+    "docstringHtml": "<p>Counter-current bubble column gas-liquid contactor (GLC) for tritium extraction.</p>\n<p>Solves the coupled, non-linear, second-order boundary value problem that\ndescribes tritium transport between a liquid metal (LiPb) stream and a\npurge gas in a counter-current bubble column. The model is based on\nC. Malara (1995) and accounts for axial dispersion, interfacial mass\ntransfer via Sieverts' law, and hydrostatic pressure variation along\nthe column.</p>\n<p>The block is intended for steady-state tritium extraction calculations\nin fusion blanket systems. At each evaluation it computes\ntemperature-dependent fluid properties, dimensionless groups, and solves\nthe BVP using <tt class=\"docutils literal\">scipy.integrate.solve_bvp</tt>.</p>\n<p>Reference: <a class=\"reference external\" href=\"https://doi.org/10.13182/FST95-A30485\">https://doi.org/10.13182/FST95-A30485</a></p>\n<p><strong>Input ports:</strong>\n<tt class=\"docutils literal\">c_T_in</tt> -- dissolved tritium concentration in liquid inlet [mol/m³],\n<tt class=\"docutils literal\">flow_l</tt> -- liquid mass flow rate [kg/s],\n<tt class=\"docutils literal\">y_T2_inlet</tt> -- T₂ mole fraction in inlet gas [-],\n<tt class=\"docutils literal\">flow_g</tt> -- gas mass flow rate [kg/s].</p>\n<p><strong>Output ports:</strong>\n<tt class=\"docutils literal\">c_T_out</tt> -- dissolved tritium concentration in liquid outlet [mol/m³],\n<tt class=\"docutils literal\">y_T2_out</tt> -- T₂ mole fraction in outlet gas [-],\n<tt class=\"docutils literal\">eff</tt> -- extraction efficiency [-],\n<tt class=\"docutils literal\">P_out</tt> -- total gas outlet pressure [Pa],\n<tt class=\"docutils literal\">Q_l</tt> -- liquid volumetric flow rate [m³/s],\n<tt class=\"docutils literal\">Q_g_out</tt> -- gas volumetric flow rate at outlet [m³/s],\n<tt class=\"docutils literal\">n_T_out_liquid</tt> -- tritium molar flow in liquid outlet [mol/s],\n<tt class=\"docutils literal\">n_T_out_gas</tt> -- tritium molar flow in gas outlet [mol/s].</p>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>P_in <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Inlet operating pressure [Pa].</dd>\n<dt>L <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Column height [m].</dd>\n<dt>D <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Column diameter [m].</dd>\n<dt>T <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Operating temperature [K]. Used to compute temperature-dependent\nLiPb properties (density, viscosity, Sieverts' constant, etc.).</dd>\n<dt>BCs <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">str</span></dt>\n<dd>Boundary condition type for the BVP: <tt class=\"docutils literal\"><span class=\"pre\">&quot;C-C&quot;</span></tt> (closed-closed) or\n<tt class=\"docutils literal\"><span class=\"pre\">&quot;O-C&quot;</span></tt> (open-closed).</dd>\n<dt>g <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float, optional</span></dt>\n<dd>Gravitational acceleration [m/s²]. Default: <tt class=\"docutils literal\">scipy.constants.g</tt>.</dd>\n<dt>initial_nb_of_elements <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int, optional</span></dt>\n<dd>Number of mesh elements for the initial BVP grid. Default: 20.</dd>\n</dl>\n</div>\n",
     "params": {
       "P_in": {
         "type": "any",
         "default": null,
-        "description": "L: Column height [m]"
+        "description": "Inlet operating pressure [Pa]."
       },
       "L": {
         "type": "any",
         "default": null,
-        "description": "D: Column diameter [m]"
+        "description": "Column height [m]."
       },
       "D": {
         "type": "any",
         "default": null,
-        "description": "T: Temperature [K]"
+        "description": "Column diameter [m]."
       },
       "T": {
         "type": "any",
         "default": null,
-        "description": "g: Gravitational acceleration [m/s^2], default is 9.81"
+        "description": "Operating temperature [K]. Used to compute temperature-dependent LiPb properties (density, viscosity, Sieverts' constant, etc.)."
       },
       "BCs": {
         "type": "any",
         "default": null,
-        "description": ""
+        "description": "Boundary condition type for the BVP: ``\"C-C\"`` (closed-closed) or ``\"O-C\"`` (open-closed)."
       },
       "g": {
         "type": "number",
         "default": "9.80665",
-        "description": "initial_nb_of_elements: Initial number of elements for BVP solver"
+        "description": "Gravitational acceleration [m/s²]. Default: ``scipy.constants.g``."
       },
       "initial_nb_of_elements": {
         "type": "integer",
         "default": "20",
-        "description": "BCs: Boundary conditions type, \"C-C\" (Closed-Closed) or \"O-C\" (Open-Closed), default is \"C-C\""
+        "description": "Number of mesh elements for the initial BVP grid. Default: 20."
       }
     },
     "inputs": [
@@ -1683,7 +1707,7 @@ export const blockConfig: Record<string, string[]> = {
   Dynamic: ["Integrator", "Differentiator", "Delay", "ODE", "DynamicalSystem", "StateSpace", "PT1", "PT2", "LeadLag", "PID", "AntiWindupPID", "RateLimiter", "Backlash", "Deadband", "TransferFunctionNumDen", "TransferFunctionZPG", "ButterworthLowpassFilter", "ButterworthHighpassFilter", "ButterworthBandpassFilter", "ButterworthBandstopFilter"],
   Algebraic: ["Adder", "Multiplier", "Divider", "Amplifier", "Function", "Sin", "Cos", "Tan", "Tanh", "Abs", "Sqrt", "Exp", "Log", "Log10", "Mod", "Clip", "Pow", "Atan2", "Rescale", "Alias", "Switch", "LUT", "LUT1D"],
   Logic: ["GreaterThan", "LessThan", "Equal", "LogicAnd", "LogicOr", "LogicNot"],
-  Mixed: ["SampleHold", "FIR", "ADC", "DAC", "Counter", "CounterUp", "CounterDown", "Relay"],
+  Mixed: ["SampleHold", "FIR", "ADC", "DAC", "Counter", "CounterUp", "CounterDown", "Relay", "Wrapper"],
   Recording: ["Scope", "Spectrum"],
   Chemical: ["Process", "Bubbler4", "Splitter", "GLC"],
 };
@@ -1765,4 +1789,5 @@ export const blockImportPaths: Record<string, string> = {
   "TransferFunctionZPG": "pathsim.blocks",
   "TriangleWaveSource": "pathsim.blocks",
   "WhiteNoise": "pathsim.blocks",
+  "Wrapper": "pathsim.blocks",
 };
