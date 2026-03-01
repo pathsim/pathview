@@ -34,6 +34,64 @@ def _step_streaming_gen():
         _sim_streaming = False
         return {'done': True, 'result': None}
 
+def _apply_mutations(json_str):
+    """Apply a batch of structured mutation commands.
+    Each mutation is isolated — errors in one do not prevent others from running.
+    """
+    import json as _json
+    mutations = _json.loads(json_str)
+    for mut in mutations:
+        try:
+            _apply_single_mutation(mut)
+        except Exception as _e:
+            print(f"Mutation error ({mut.get('type', '?')}): {_e}", file=__import__('sys').stderr)
+
+def _apply_single_mutation(mut):
+    """Dispatch a single mutation command by type."""
+    g = globals()
+    t = mut['type']
+
+    if t == 'set_param':
+        block = g[mut['var']]
+        setattr(block, mut['param'], eval(mut['value'], g))
+
+    elif t == 'set_setting':
+        exec(mut['code'], g)
+
+    elif t == 'add_block':
+        block_class = eval(mut['blockClass'], g)
+        params = {k: eval(v, g) for k, v in mut['params'].items()}
+        block = block_class(**params)
+        g[mut['var']] = block
+        sim.add_block(block)
+        blocks.append(block)
+        _node_id_map[id(block)] = mut['nodeId']
+        _node_name_map[mut['nodeId']] = mut['nodeName']
+
+    elif t == 'remove_block':
+        block = g[mut['var']]
+        sim.remove_block(block)
+        blocks.remove(block)
+        _node_id_map.pop(id(block), None)
+        _node_name_map.pop(mut['nodeId'], None)
+
+    elif t == 'add_connection':
+        source = g[mut['sourceVar']]
+        target = g[mut['targetVar']]
+        conn = Connection(source[mut['sourcePort']], target[mut['targetPort']])
+        g[mut['var']] = conn
+        sim.add_connection(conn)
+        connections.append(conn)
+
+    elif t == 'remove_connection':
+        conn = g[mut['var']]
+        sim.remove_connection(conn)
+        connections.remove(conn)
+
+    else:
+        raise ValueError(f"Unknown mutation type: {t}")
+
+
 def _extract_scope_data(blocks, node_id_map, incremental=False):
     """Extract data from Scope blocks recursively.
 
