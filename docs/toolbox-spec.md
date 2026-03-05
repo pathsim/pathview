@@ -42,7 +42,7 @@ Existing toolboxes: `pathsim` (core simulation blocks), `pathsim-chem` (chemical
 
 Each toolbox provides a set of block types (and optionally event types) that PathView discovers, extracts metadata from, and presents in the Block Library panel. The integration requires three things:
 
-1. **A Python package** with blocks that implement the `Block.info()` classmethod (and optionally an `events` submodule).
+1. **A Python package** with block classes that inherit from PathSim's base `Block` class (and optionally an `events` submodule).
 2. **A config directory** at `scripts/config/<toolbox-name>/` containing `blocks.json` (and optionally `events.json`).
 3. **An entry** in `scripts/config/requirements-pyodide.txt` so both the Pyodide and Flask backends install the package at runtime.
 
@@ -54,32 +54,45 @@ The extraction pipeline (`npm run extract`) reads the config files, imports the 
 
 ### 2.1 Block Classes
 
-The toolbox Python package must have an importable module containing block classes. For example, a package named `pathsim-controls` (installed as `pathsim_controls`) would expose blocks via `pathsim_controls.blocks`.
+The toolbox Python package must have an importable module containing block classes that inherit from PathSim's base `Block` class. For example, a package named `pathsim-controls` (installed as `pathsim_controls`) would expose blocks via `pathsim_controls.blocks`.
 
-Each block class must implement the `info()` classmethod returning a dict with the following keys:
+The `info()` classmethod is **inherited from the base `Block` class** — individual block classes do **not** need to implement it. The base implementation automatically:
+
+1. Reads `cls.input_port_labels` and `cls.output_port_labels` class attributes
+2. Introspects `cls.__init__` via `inspect.signature()` to discover parameters and their defaults
+3. Uses `cls.__doc__` as the description
+
+Block classes only need to:
+- **Set class attributes** `input_port_labels` and `output_port_labels` (defaults to `None` if not set, meaning variable ports)
+- **Define `__init__` parameters** with appropriate defaults
+- **Write a docstring** (RST-formatted, used for documentation)
 
 ```python
-@classmethod
-def info(cls):
-    return {
-        "input_port_labels": {"x": 0, "y": 1},  # or None or {}
-        "output_port_labels": {"out": 0},         # or None or {}
-        "parameters": {
-            "gain": {"default": 1.0},
-            "mode": {"default": "linear"}
-        },
-        "description": "A proportional controller block."
-    }
+class MyBlock(Block):
+    """A proportional controller block.
+
+    :param gain: Proportional gain factor.
+    :param mode: Operating mode.
+    """
+
+    input_port_labels = {"x": 0, "y": 1}
+    output_port_labels = {"out": 0}
+
+    def __init__(self, gain=1.0, mode="linear"):
+        super().__init__()
+        # ... block initialization
 ```
+
+The inherited `info()` method returns a dict with the following keys:
 
 | Key | Type | Description |
 |-----|------|-------------|
 | `input_port_labels` | `dict`, `None`, or `{}` | Defines input port names and indices. See [Port Label Semantics](#91-port-label-semantics). |
 | `output_port_labels` | `dict`, `None`, or `{}` | Defines output port names and indices. See [Port Label Semantics](#91-port-label-semantics). |
-| `parameters` | `dict` | Map of parameter names to dicts containing at minimum a `"default"` key. |
+| `parameters` | `dict` | Map of parameter names to dicts containing at minimum a `"default"` key. Derived from `__init__` signature. |
 | `description` | `str` | RST-formatted docstring. The first line/sentence is used as the short description. |
 
-If a block does not implement `info()`, the extractor falls back to `__init__` signature introspection, but this is less reliable. All new toolbox blocks should implement `info()`.
+If a block does not inherit from `Block` (or the `info()` call fails), the extractor falls back to direct `__init__` signature introspection.
 
 ### 2.2 Event Classes
 
@@ -421,20 +434,41 @@ This file also exports `PYODIDE_VERSION`, `PYODIDE_CDN_URL`, `PYODIDE_PRELOAD`, 
 
 ## 9. Block Metadata Contract (Block.info())
 
-The `info()` classmethod is the primary interface between a toolbox's Python code and PathView's extraction pipeline.
+The `info()` classmethod is the primary interface between a toolbox's Python code and PathView's extraction pipeline. It is **defined on the base `Block` class** and inherited by all subclasses — block authors do not need to override it.
+
+The base implementation (in `pathsim.blocks._block.Block`) works as follows:
 
 ```python
 @classmethod
+@lru_cache()
 def info(cls):
-    return {
-        "input_port_labels": {"x": 0, "y": 1},
-        "output_port_labels": {"out": 0},
-        "parameters": {
-            "gain": {"default": 1.0},
-            "mode": {"default": "linear"}
-        },
-        "description": "A proportional controller block."
+    sig = inspect.signature(cls.__init__)
+    params = {
+        name: {"default": None if param.default is inspect.Parameter.empty else param.default}
+        for name, param in sig.parameters.items()
+        if name not in ("self", "kwargs", "args")
     }
+    return {
+        "type": cls.__name__,
+        "description": cls.__doc__,
+        "input_port_labels": cls.input_port_labels,
+        "output_port_labels": cls.output_port_labels,
+        "parameters": params,
+    }
+```
+
+Block classes control their metadata by setting class attributes and `__init__` parameters:
+
+```python
+class MyBlock(Block):
+    """A proportional controller block."""
+
+    input_port_labels = {"x": 0, "y": 1}   # fixed labeled ports
+    output_port_labels = {"out": 0}          # fixed labeled ports
+
+    def __init__(self, gain=1.0, mode="linear"):
+        super().__init__()
+        # ...
 ```
 
 ### 9.1 Port Label Semantics
@@ -553,11 +587,11 @@ The extraction script needs to import the package. Install it in your developmen
 pip install pathsim-controls
 ```
 
-Verify the blocks module is importable and `info()` works:
+Verify the blocks module is importable and the inherited `info()` returns correct metadata:
 
 ```python
 from pathsim_controls.blocks import PIDController
-print(PIDController.info())
+print(PIDController.info())  # inherited from Block base class
 ```
 
 ### Step 4: Run the extraction
@@ -686,7 +720,7 @@ Categories not in the map use the `default` shape.
 
 ## Notes for Toolbox Authors
 
-1. **`info()` is the contract.** Implement it on every block class. The extractor falls back to `__init__` introspection, but `info()` gives you explicit control over port definitions and parameter metadata.
+1. **`info()` is inherited.** The base `Block` class provides the `info()` classmethod — you do not need to override it. It automatically discovers ports from class attributes (`input_port_labels`, `output_port_labels`) and parameters from the `__init__` signature. Set these correctly and the extraction pipeline will pick them up.
 
 2. **Port labels must be consistent.** The index values in port label dicts must be zero-based and contiguous. The extractor sorts by index, so `{"y": 1, "x": 0}` correctly produces `["x", "y"]`.
 
