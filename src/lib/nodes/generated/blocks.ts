@@ -1593,6 +1593,56 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "x/tau"
     ]
   },
+  "ResidenceTime": {
+    "blockClass": "ResidenceTime",
+    "description": "Chemical process block with residence time model.",
+    "docstringHtml": "<p>Chemical process block with residence time model.</p>\n<p>This block implements an internal 1st order linear ode with\nmultiple inputs, outputs, an internal constant source term\nand no direct passthrough.</p>\n<p>The internal ODE with inputs <span class=\"math\">\\(u_i\\)</span> :</p>\n<div class=\"math\">\n\\begin{equation*}\n\\dot{x} = - x / \\tau + \\mathrm{src} + \\sum_i \\beta_i u_i\n\\end{equation*}\n</div>\n<p>And the output equation for every output <cite>i</cite> :</p>\n<div class=\"math\">\n\\begin{equation*}\ny_i = \\gamma_i x\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>residence time, inverse natural frequency (eigenvalue)</dd>\n<dt>betas: None | list[float] | np.ndarray[float]</dt>\n<dd>weights of inputs that are accumulated in state, optional</dd>\n<dt>gammas <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">None | list[float] | np.ndarray[float]</span></dt>\n<dd>weights of states (fractions) for output, optional</dd>\n<dt>initial_value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>initial value of state / initial quantity of process</dd>\n<dt>source_term <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>constant source term / generation term of the process</dd>\n</dl>\n</div>\n",
+    "params": {
+      "tau": {
+        "type": "integer",
+        "default": "1",
+        "description": "residence time, inverse natural frequency (eigenvalue)"
+      },
+      "betas": {
+        "type": "any",
+        "default": null,
+        "description": "weights of inputs that are accumulated in state, optional"
+      },
+      "gammas": {
+        "type": "any",
+        "default": null,
+        "description": "weights of states (fractions) for output, optional"
+      },
+      "initial_value": {
+        "type": "integer",
+        "default": "0",
+        "description": "initial value of state / initial quantity of process"
+      },
+      "source_term": {
+        "type": "integer",
+        "default": "0",
+        "description": "constant source term / generation term of the process"
+      }
+    },
+    "inputs": null,
+    "outputs": null
+  },
+  "Splitter": {
+    "blockClass": "Splitter",
+    "description": "Splitter block that splits the input signal into multiple",
+    "docstringHtml": "<p>Splitter block that splits the input signal into multiple\noutputs weighted with the specified fractions.</p>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>The output fractions must sum to one.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>fractions <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">np.ndarray | list</span></dt>\n<dd>fractions to split the input signal into,\nmust sum up to one</dd>\n</dl>\n</div>\n",
+    "params": {
+      "fractions": {
+        "type": "any",
+        "default": null,
+        "description": "fractions to split the input signal into, must sum up to one"
+      }
+    },
+    "inputs": [
+      "in"
+    ],
+    "outputs": null
+  },
   "Bubbler4": {
     "blockClass": "Bubbler4",
     "description": "Tritium bubbling system with sequential vial collection stages.",
@@ -1625,22 +1675,6 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "vial4",
       "sample_out"
     ]
-  },
-  "Splitter": {
-    "blockClass": "Splitter",
-    "description": "Splitter block that splits the input signal into multiple",
-    "docstringHtml": "<p>Splitter block that splits the input signal into multiple\noutputs weighted with the specified fractions.</p>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>The output fractions must sum to one.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>fractions <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">np.ndarray | list</span></dt>\n<dd>fractions to split the input signal into,\nmust sum up to one</dd>\n</dl>\n</div>\n",
-    "params": {
-      "fractions": {
-        "type": "any",
-        "default": null,
-        "description": "fractions to split the input signal into, must sum up to one"
-      }
-    },
-    "inputs": [
-      "in"
-    ],
-    "outputs": null
   },
   "GLC": {
     "blockClass": "GLC",
@@ -1699,6 +1733,363 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "n_T_out_liquid",
       "n_T_out_gas"
     ]
+  },
+  "CSTR": {
+    "blockClass": "CSTR",
+    "description": "Continuous stirred-tank reactor with Arrhenius kinetics and energy balance.",
+    "docstringHtml": "<p>Continuous stirred-tank reactor with Arrhenius kinetics and energy balance.</p>\n<p>Models a well-mixed tank where a single reaction A -&gt; products occurs with\nnth-order kinetics. The reaction rate follows the Arrhenius temperature\ndependence. An external coolant jacket provides or removes heat.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>The state vector is <span class=\"math\">\\([C_A, T]\\)</span> where <span class=\"math\">\\(C_A\\)</span> is the concentration\nof species A and <span class=\"math\">\\(T\\)</span> is the reactor temperature.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dC_A}{dt} = \\frac{C_{A,in} - C_A}{\\tau} - k(T) \\, C_A^n\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT}{dt} = \\frac{T_{in} - T}{\\tau}\n    + \\frac{(-\\Delta H_{rxn})}{\\rho \\, C_p} \\, k(T) \\, C_A^n\n    + \\frac{UA}{\\rho \\, C_p \\, V} \\, (T_c - T)\n\\end{equation*}\n</div>\n<p>where the Arrhenius rate constant is:</p>\n<div class=\"math\">\n\\begin{equation*}\nk(T) = k_0 \\, \\exp\\!\\left(-\\frac{E_a}{R \\, T}\\right)\n\\end{equation*}\n</div>\n<p>and the residence time is <span class=\"math\">\\(\\tau = V / F\\)</span>.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>V <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Reactor volume [m³].</dd>\n<dt>F <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Volumetric flow rate [m³/s].</dd>\n<dt>k0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Pre-exponential Arrhenius factor [1/s for n=1, (m³/mol)^(n-1)/s].</dd>\n<dt>Ea <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Activation energy [J/mol].</dd>\n<dt>n <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Reaction order with respect to species A [-].</dd>\n<dt>dH_rxn <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Heat of reaction [J/mol]. Negative for exothermic reactions.</dd>\n<dt>rho <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid density [kg/m³].</dd>\n<dt>Cp <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid heat capacity [J/(kg·K)].</dd>\n<dt>UA <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Overall heat transfer coefficient times area [W/K].</dd>\n<dt>C_A0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial concentration of A [mol/m³].</dd>\n<dt>T0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial reactor temperature [K].</dd>\n</dl>\n</div>\n",
+    "params": {
+      "V": {
+        "type": "number",
+        "default": "1.0",
+        "description": "Reactor volume [m³]."
+      },
+      "F": {
+        "type": "number",
+        "default": "0.1",
+        "description": "Volumetric flow rate [m³/s]."
+      },
+      "k0": {
+        "type": "number",
+        "default": "1000000.0",
+        "description": "Pre-exponential Arrhenius factor [1/s for n=1, (m³/mol)^(n-1)/s]."
+      },
+      "Ea": {
+        "type": "number",
+        "default": "50000.0",
+        "description": "Activation energy [J/mol]."
+      },
+      "n": {
+        "type": "number",
+        "default": "1.0",
+        "description": "Reaction order with respect to species A [-]."
+      },
+      "dH_rxn": {
+        "type": "number",
+        "default": "-50000.0",
+        "description": "Heat of reaction [J/mol]. Negative for exothermic reactions."
+      },
+      "rho": {
+        "type": "number",
+        "default": "1000.0",
+        "description": "Fluid density [kg/m³]."
+      },
+      "Cp": {
+        "type": "number",
+        "default": "4184.0",
+        "description": "Fluid heat capacity [J/(kg·K)]."
+      },
+      "UA": {
+        "type": "number",
+        "default": "500.0",
+        "description": "Overall heat transfer coefficient times area [W/K]."
+      },
+      "C_A0": {
+        "type": "number",
+        "default": "0.0",
+        "description": "Initial concentration of A [mol/m³]."
+      },
+      "T0": {
+        "type": "number",
+        "default": "300.0",
+        "description": "Initial reactor temperature [K]."
+      }
+    },
+    "inputs": [
+      "C_in",
+      "T_in",
+      "T_c"
+    ],
+    "outputs": [
+      "C_out",
+      "T_out"
+    ]
+  },
+  "PFR": {
+    "blockClass": "PFR",
+    "description": "Plug flow reactor with Arrhenius kinetics and energy balance.",
+    "docstringHtml": "<p>Plug flow reactor with Arrhenius kinetics and energy balance.</p>\n<p>Discretized tubular reactor divided into N cells along its length.\nEach cell has concentration and temperature states with nth-order\nkinetics and an energy balance including heat of reaction.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>For each cell <span class=\"math\">\\(i = 1, \\ldots, N\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dC_i}{dt} = \\frac{F}{V_{cell}} (C_{i-1} - C_i) - k(T_i) \\, C_i^n\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT_i}{dt} = \\frac{F}{V_{cell}} (T_{i-1} - T_i)\n    + \\frac{(-\\Delta H_{rxn})}{\\rho \\, C_p} \\, k(T_i) \\, C_i^n\n\\end{equation*}\n</div>\n<p>where the Arrhenius rate constant is:</p>\n<div class=\"math\">\n\\begin{equation*}\nk(T) = k_0 \\, \\exp\\!\\left(-\\frac{E_a}{R \\, T}\\right)\n\\end{equation*}\n</div>\n<p>The state vector is ordered as\n<span class=\"math\">\\([C_1, T_1, C_2, T_2, \\ldots, C_N, T_N]\\)</span>.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>N_cells <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int</span></dt>\n<dd>Number of discretization cells [-].</dd>\n<dt>V <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total reactor volume [m³].</dd>\n<dt>F <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Volumetric flow rate [m³/s].</dd>\n<dt>k0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Pre-exponential Arrhenius factor [1/s for n=1].</dd>\n<dt>Ea <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Activation energy [J/mol].</dd>\n<dt>n <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Reaction order [-].</dd>\n<dt>dH_rxn <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Heat of reaction [J/mol]. Negative for exothermic.</dd>\n<dt>rho <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid density [kg/m³].</dd>\n<dt>Cp <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid heat capacity [J/(kg·K)].</dd>\n<dt>C0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial concentration [mol/m³].</dd>\n<dt>T0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial temperature [K].</dd>\n</dl>\n</div>\n",
+    "params": {
+      "N_cells": {
+        "type": "integer",
+        "default": "5",
+        "description": "Number of discretization cells [-]."
+      },
+      "V": {
+        "type": "number",
+        "default": "1.0",
+        "description": "Total reactor volume [m³]."
+      },
+      "F": {
+        "type": "number",
+        "default": "0.1",
+        "description": "Volumetric flow rate [m³/s]."
+      },
+      "k0": {
+        "type": "number",
+        "default": "1000000.0",
+        "description": "Pre-exponential Arrhenius factor [1/s for n=1]."
+      },
+      "Ea": {
+        "type": "number",
+        "default": "50000.0",
+        "description": "Activation energy [J/mol]."
+      },
+      "n": {
+        "type": "number",
+        "default": "1.0",
+        "description": "Reaction order [-]."
+      },
+      "dH_rxn": {
+        "type": "number",
+        "default": "-50000.0",
+        "description": "Heat of reaction [J/mol]. Negative for exothermic."
+      },
+      "rho": {
+        "type": "number",
+        "default": "1000.0",
+        "description": "Fluid density [kg/m³]."
+      },
+      "Cp": {
+        "type": "number",
+        "default": "4184.0",
+        "description": "Fluid heat capacity [J/(kg·K)]."
+      },
+      "C0": {
+        "type": "number",
+        "default": "0.0",
+        "description": "Initial concentration [mol/m³]."
+      },
+      "T0": {
+        "type": "number",
+        "default": "300.0",
+        "description": "Initial temperature [K]."
+      }
+    },
+    "inputs": [
+      "C_in",
+      "T_in"
+    ],
+    "outputs": [
+      "C_out",
+      "T_out"
+    ]
+  },
+  "HeatExchanger": {
+    "blockClass": "HeatExchanger",
+    "description": "Counter-current shell and tube heat exchanger with discretized cells.",
+    "docstringHtml": "<p>Counter-current shell and tube heat exchanger with discretized cells.</p>\n<p>The exchanger is divided into N cells along its length. The hot stream\nflows from cell 1 to N, the cold stream flows from cell N to 1\n(counter-current). Each cell exchanges heat proportional to the local\ntemperature difference.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>For each cell <span class=\"math\">\\(i = 1, \\ldots, N\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT_{h,i}}{dt} = \\frac{F_h}{V_{cell,h}} (T_{h,i-1} - T_{h,i})\n    - \\frac{UA_{cell}}{\\rho_h C_{p,h} V_{cell,h}} (T_{h,i} - T_{c,i})\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT_{c,i}}{dt} = \\frac{F_c}{V_{cell,c}} (T_{c,i+1} - T_{c,i})\n    + \\frac{UA_{cell}}{\\rho_c C_{p,c} V_{cell,c}} (T_{h,i} - T_{c,i})\n\\end{equation*}\n</div>\n<p>where <span class=\"math\">\\(T_{h,0} = T_{h,in}\\)</span> and <span class=\"math\">\\(T_{c,N+1} = T_{c,in}\\)</span>.</p>\n<p>The state vector is ordered as\n<span class=\"math\">\\([T_{h,1}, T_{c,1}, T_{h,2}, T_{c,2}, \\ldots, T_{h,N}, T_{c,N}]\\)</span>.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>N_cells <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int</span></dt>\n<dd>Number of discretization cells along the exchanger [-].</dd>\n<dt>F_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Hot stream volumetric flow rate [m³/s].</dd>\n<dt>F_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Cold stream volumetric flow rate [m³/s].</dd>\n<dt>V_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total hot-side volume [m³].</dd>\n<dt>V_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total cold-side volume [m³].</dd>\n<dt>UA <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total overall heat transfer coefficient times area [W/K].</dd>\n<dt>rho_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Hot stream density [kg/m³].</dd>\n<dt>Cp_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Hot stream heat capacity [J/(kg·K)].</dd>\n<dt>rho_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Cold stream density [kg/m³].</dd>\n<dt>Cp_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Cold stream heat capacity [J/(kg·K)].</dd>\n<dt>T_h0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial hot-side temperature [K].</dd>\n<dt>T_c0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial cold-side temperature [K].</dd>\n</dl>\n</div>\n",
+    "params": {
+      "N_cells": {
+        "type": "integer",
+        "default": "5",
+        "description": "Number of discretization cells along the exchanger [-]."
+      },
+      "F_h": {
+        "type": "number",
+        "default": "0.1",
+        "description": "Hot stream volumetric flow rate [m³/s]."
+      },
+      "F_c": {
+        "type": "number",
+        "default": "0.1",
+        "description": "Cold stream volumetric flow rate [m³/s]."
+      },
+      "V_h": {
+        "type": "number",
+        "default": "0.5",
+        "description": "Total hot-side volume [m³]."
+      },
+      "V_c": {
+        "type": "number",
+        "default": "0.5",
+        "description": "Total cold-side volume [m³]."
+      },
+      "UA": {
+        "type": "number",
+        "default": "500.0",
+        "description": "Total overall heat transfer coefficient times area [W/K]."
+      },
+      "rho_h": {
+        "type": "number",
+        "default": "1000.0",
+        "description": "Hot stream density [kg/m³]."
+      },
+      "Cp_h": {
+        "type": "number",
+        "default": "4184.0",
+        "description": "Hot stream heat capacity [J/(kg·K)]."
+      },
+      "rho_c": {
+        "type": "number",
+        "default": "1000.0",
+        "description": "Cold stream density [kg/m³]."
+      },
+      "Cp_c": {
+        "type": "number",
+        "default": "4184.0",
+        "description": "Cold stream heat capacity [J/(kg·K)]."
+      },
+      "T_h0": {
+        "type": "number",
+        "default": "370.0",
+        "description": "Initial hot-side temperature [K]."
+      },
+      "T_c0": {
+        "type": "number",
+        "default": "300.0",
+        "description": "Initial cold-side temperature [K]."
+      }
+    },
+    "inputs": [
+      "T_h_in",
+      "T_c_in"
+    ],
+    "outputs": [
+      "T_h_out",
+      "T_c_out"
+    ]
+  },
+  "FlashDrum": {
+    "blockClass": "FlashDrum",
+    "description": "Binary isothermal flash drum with Raoult's law vapor-liquid equilibrium.",
+    "docstringHtml": "<p>Binary isothermal flash drum with Raoult's law vapor-liquid equilibrium.</p>\n<p>Models a flash drum with liquid holdup for a binary mixture. Feed enters as\nliquid, vapor and liquid streams exit. Temperature and pressure are specified\nas inputs. VLE is computed algebraically using K-values from Raoult's law:</p>\n<div class=\"math\">\n\\begin{equation*}\nK_i = \\frac{P_{sat,i}(T)}{P}\n\\end{equation*}\n</div>\n<p>where the Antoine equation gives the saturation pressure:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\ln P_{sat,i} = A_i - \\frac{B_i}{T + C_i}\n\\end{equation*}\n</div>\n<p>The Rachford-Rice equation determines the vapor fraction <span class=\"math\">\\(\\beta\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\sum_i \\frac{z_i (K_i - 1)}{1 + \\beta (K_i - 1)} = 0\n\\end{equation*}\n</div>\n<p>For a binary system this has the analytical solution:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\beta = -\\frac{z_1(K_1 - 1) + z_2(K_2 - 1)}{(K_1 - 1)(K_2 - 1)}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"dynamic-states\">\n<h3>Dynamic States</h3>\n<p>The holdup moles of each component in the liquid phase:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dN_i}{dt} = F z_i - V y_i - L x_i\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>holdup <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total liquid holdup [mol]. Assumed approximately constant.</dd>\n<dt>antoine_A <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Antoine A parameters for each component [ln(Pa)].</dd>\n<dt>antoine_B <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Antoine B parameters for each component [K].</dd>\n<dt>antoine_C <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Antoine C parameters for each component [K].</dd>\n<dt>N0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like or None</span></dt>\n<dd>Initial component holdup moles [mol]. If None, equal split assumed.</dd>\n</dl>\n</div>\n",
+    "params": {
+      "holdup": {
+        "type": "number",
+        "default": "100.0",
+        "description": "Total liquid holdup [mol]. Assumed approximately constant."
+      },
+      "antoine_A": {
+        "type": "any",
+        "default": null,
+        "description": "Antoine A parameters for each component [ln(Pa)]."
+      },
+      "antoine_B": {
+        "type": "any",
+        "default": null,
+        "description": "Antoine B parameters for each component [K]."
+      },
+      "antoine_C": {
+        "type": "any",
+        "default": null,
+        "description": "Antoine C parameters for each component [K]."
+      },
+      "N0": {
+        "type": "any",
+        "default": null,
+        "description": "Initial component holdup moles [mol]. If None, equal split assumed."
+      }
+    },
+    "inputs": [
+      "F",
+      "z_1",
+      "T",
+      "P"
+    ],
+    "outputs": [
+      "V_rate",
+      "L_rate",
+      "y_1",
+      "x_1"
+    ]
+  },
+  "Mixer": {
+    "blockClass": "Mixer",
+    "description": "Algebraic 2-stream mixer with mass and energy balance.",
+    "docstringHtml": "<p>Algebraic 2-stream mixer with mass and energy balance.</p>\n<p>Mixes two streams by mass balance (additive flows) and energy balance\n(flow-weighted temperature mixing). No phase change or reaction.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<div class=\"math\">\n\\begin{equation*}\nF_{out} = F_1 + F_2\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\nT_{out} = \\frac{F_1 \\, T_1 + F_2 \\, T_2}{F_{out}}\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<p>None — this is a purely algebraic block.</p>\n</div>\n",
+    "params": {},
+    "inputs": [
+      "F_1",
+      "T_1",
+      "F_2",
+      "T_2"
+    ],
+    "outputs": [
+      "F_out",
+      "T_out"
+    ]
+  },
+  "Valve": {
+    "blockClass": "Valve",
+    "description": "Algebraic pressure-drop valve with standard flow equation.",
+    "docstringHtml": "<p>Algebraic pressure-drop valve with standard flow equation.</p>\n<p>Models an isenthalpic valve (no temperature change for liquids)\nwith flow proportional to the square root of the pressure drop.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<div class=\"math\">\n\\begin{equation*}\nF = C_v \\sqrt{|P_{in} - P_{out}|} \\cdot \\mathrm{sign}(P_{in} - P_{out})\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\nT_{out} = T_{in}\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>Cv <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Valve flow coefficient. Must be positive.</dd>\n</dl>\n</div>\n",
+    "params": {
+      "Cv": {
+        "type": "number",
+        "default": "1.0",
+        "description": "Valve flow coefficient. Must be positive."
+      }
+    },
+    "inputs": [
+      "P_in",
+      "P_out",
+      "T_in"
+    ],
+    "outputs": [
+      "F",
+      "T_out"
+    ]
+  },
+  "Heater": {
+    "blockClass": "Heater",
+    "description": "Algebraic duty-specified heater/cooler with no thermal mass.",
+    "docstringHtml": "<p>Algebraic duty-specified heater/cooler with no thermal mass.</p>\n<p>Raises or lowers the stream temperature by a specified heat duty.\nFlow passes through unchanged.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<div class=\"math\">\n\\begin{equation*}\nT_{out} = T_{in} + \\frac{Q}{F \\, \\rho \\, C_p}\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\nF_{out} = F_{in}\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>rho <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid density [kg/m³].</dd>\n<dt>Cp <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid heat capacity [J/(kg·K)].</dd>\n</dl>\n</div>\n",
+    "params": {
+      "rho": {
+        "type": "number",
+        "default": "1000.0",
+        "description": "Fluid density [kg/m³]."
+      },
+      "Cp": {
+        "type": "number",
+        "default": "4184.0",
+        "description": "Fluid heat capacity [J/(kg·K)]."
+      }
+    },
+    "inputs": [
+      "F",
+      "T_in",
+      "Q"
+    ],
+    "outputs": [
+      "F_out",
+      "T_out"
+    ]
+  },
+  "PointKinetics": {
+    "blockClass": "PointKinetics",
+    "description": "Reactor point kinetics equations with delayed neutron precursors.",
+    "docstringHtml": "<p>Reactor point kinetics equations with delayed neutron precursors.</p>\n<p>Models the time-dependent neutron population in a nuclear reactor using\nthe point kinetics equations (PKE). The neutron density responds to\nreactivity changes through prompt fission and delayed neutron emission\nfrom G precursor groups.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>The state vector is <span class=\"math\">\\([n, C_1, C_2, \\ldots, C_G]\\)</span> where <span class=\"math\">\\(n\\)</span>\nis the neutron density (or power) and <span class=\"math\">\\(C_i\\)</span> are the delayed neutron\nprecursor concentrations.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dn}{dt} = \\frac{\\rho - \\beta}{\\Lambda} \\, n\n    + \\sum_{i=1}^{G} \\lambda_i \\, C_i + S\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dC_i}{dt} = \\frac{\\beta_i}{\\Lambda} \\, n\n    - \\lambda_i \\, C_i \\qquad i = 1, \\ldots, G\n\\end{equation*}\n</div>\n<p>where <span class=\"math\">\\(\\beta = \\sum_i \\beta_i\\)</span> is the total delayed neutron\nfraction and <span class=\"math\">\\(\\Lambda\\)</span> is the prompt neutron generation time.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>n0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial neutron density [-]. Default 1.0 (normalized).</dd>\n<dt>Lambda <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Prompt neutron generation time [s].</dd>\n<dt>beta <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Delayed neutron fractions per group [-].</dd>\n<dt>lam <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Precursor decay constants per group [1/s].</dd>\n</dl>\n</div>\n",
+    "params": {
+      "n0": {
+        "type": "number",
+        "default": "1.0",
+        "description": "Initial neutron density [-]. Default 1.0 (normalized)."
+      },
+      "Lambda": {
+        "type": "number",
+        "default": "1e-05",
+        "description": "Prompt neutron generation time [s]."
+      },
+      "beta": {
+        "type": "any",
+        "default": null,
+        "description": "Delayed neutron fractions per group [-]."
+      },
+      "lam": {
+        "type": "any",
+        "default": null,
+        "description": "Precursor decay constants per group [1/s]."
+      }
+    },
+    "inputs": [
+      "rho",
+      "S"
+    ],
+    "outputs": [
+      "n"
+    ]
   }
 };
 
@@ -1709,7 +2100,7 @@ export const blockConfig: Record<string, string[]> = {
   Logic: ["GreaterThan", "LessThan", "Equal", "LogicAnd", "LogicOr", "LogicNot"],
   Mixed: ["SampleHold", "FIR", "ADC", "DAC", "Counter", "CounterUp", "CounterDown", "Relay", "Wrapper"],
   Recording: ["Scope", "Spectrum"],
-  Chemical: ["Process", "Bubbler4", "Splitter", "GLC"],
+  Chemical: ["Process", "ResidenceTime", "Splitter", "Bubbler4", "GLC", "CSTR", "PFR", "HeatExchanger", "FlashDrum", "Mixer", "Valve", "Heater", "PointKinetics"],
 };
 
 export const blockImportPaths: Record<string, string> = {
@@ -1721,11 +2112,12 @@ export const blockImportPaths: Record<string, string> = {
   "AntiWindupPID": "pathsim.blocks",
   "Atan2": "pathsim.blocks",
   "Backlash": "pathsim.blocks",
-  "Bubbler4": "pathsim_chem.tritium",
+  "Bubbler4": "pathsim_chem",
   "ButterworthBandpassFilter": "pathsim.blocks",
   "ButterworthBandstopFilter": "pathsim.blocks",
   "ButterworthHighpassFilter": "pathsim.blocks",
   "ButterworthLowpassFilter": "pathsim.blocks",
+  "CSTR": "pathsim_chem",
   "ChirpPhaseNoiseSource": "pathsim.blocks",
   "Clip": "pathsim.blocks",
   "ClockSource": "pathsim.blocks",
@@ -1743,10 +2135,13 @@ export const blockImportPaths: Record<string, string> = {
   "Equal": "pathsim.blocks",
   "Exp": "pathsim.blocks",
   "FIR": "pathsim.blocks",
+  "FlashDrum": "pathsim_chem",
   "Function": "pathsim.blocks",
-  "GLC": "pathsim_chem.tritium",
+  "GLC": "pathsim_chem",
   "GaussianPulseSource": "pathsim.blocks",
   "GreaterThan": "pathsim.blocks",
+  "HeatExchanger": "pathsim_chem",
+  "Heater": "pathsim_chem",
   "Integrator": "pathsim.blocks",
   "LUT": "pathsim.blocks",
   "LUT1D": "pathsim.blocks",
@@ -1757,27 +2152,31 @@ export const blockImportPaths: Record<string, string> = {
   "LogicAnd": "pathsim.blocks",
   "LogicNot": "pathsim.blocks",
   "LogicOr": "pathsim.blocks",
+  "Mixer": "pathsim_chem",
   "Mod": "pathsim.blocks",
   "Multiplier": "pathsim.blocks",
   "ODE": "pathsim.blocks",
+  "PFR": "pathsim_chem",
   "PID": "pathsim.blocks",
   "PT1": "pathsim.blocks",
   "PT2": "pathsim.blocks",
   "PinkNoise": "pathsim.blocks",
+  "PointKinetics": "pathsim_chem",
   "Pow": "pathsim.blocks",
-  "Process": "pathsim_chem.tritium",
+  "Process": "pathsim_chem",
   "PulseSource": "pathsim.blocks",
   "RandomNumberGenerator": "pathsim.blocks",
   "RateLimiter": "pathsim.blocks",
   "Relay": "pathsim.blocks",
   "Rescale": "pathsim.blocks",
+  "ResidenceTime": "pathsim_chem",
   "SampleHold": "pathsim.blocks",
   "Scope": "pathsim.blocks",
   "Sin": "pathsim.blocks",
   "SinusoidalSource": "pathsim.blocks",
   "Source": "pathsim.blocks",
   "Spectrum": "pathsim.blocks",
-  "Splitter": "pathsim_chem.tritium",
+  "Splitter": "pathsim_chem",
   "Sqrt": "pathsim.blocks",
   "SquareWaveSource": "pathsim.blocks",
   "StateSpace": "pathsim.blocks",
@@ -1788,6 +2187,7 @@ export const blockImportPaths: Record<string, string> = {
   "TransferFunctionNumDen": "pathsim.blocks",
   "TransferFunctionZPG": "pathsim.blocks",
   "TriangleWaveSource": "pathsim.blocks",
+  "Valve": "pathsim_chem",
   "WhiteNoise": "pathsim.blocks",
   "Wrapper": "pathsim.blocks",
 };

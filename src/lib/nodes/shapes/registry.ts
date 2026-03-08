@@ -90,7 +90,8 @@ const categoryShapeMap: Record<string, string> = {
 	Logic: 'rect',
 	Mixed: 'mixed',
 	Recording: 'pill',
-	Subsystem: 'rect'
+	Subsystem: 'rect',
+	Chemical: 'rect'
 };
 
 /** Get shape ID for a category */

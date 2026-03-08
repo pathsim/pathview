@@ -1,14 +1,23 @@
 {
   "$schema": "../schemas/blocks.schema.json",
   "toolbox": "pathsim-chem",
-  "importPath": "pathsim_chem.tritium",
+  "importPath": "pathsim_chem",
 
   "categories": {
     "Chemical": [
       "Process",
-      "Bubbler4",
+      "ResidenceTime",
       "Splitter",
-      "GLC"
+      "Bubbler4",
+      "GLC",
+      "CSTR",
+      "PFR",
+      "HeatExchanger",
+      "FlashDrum",
+      "Mixer",
+      "Valve",
+      "Heater",
+      "PointKinetics"
     ]
   }
 }
