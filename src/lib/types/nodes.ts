@@ -47,7 +47,8 @@ export type NodeCategory =
 	| 'Logic'
 	| 'Mixed'
 	| 'Recording'
-	| 'Subsystem';
+	| 'Subsystem'
+	| 'Chemical';
 
 /** Node shape override (defaults based on category if not specified) */
 export type NodeShape = 'pill' | 'rect' | 'circle' | 'diamond';
