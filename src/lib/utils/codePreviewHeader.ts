@@ -6,6 +6,7 @@
 import { nodeRegistry, type NodeInstance } from '$lib/nodes';
 import { eventRegistry, type EventInstance } from '$lib/events';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
+import { blockImportPaths } from '$lib/nodes/generated/blocks';
 
 /**
  * Extract Python identifiers from a string (parameter values)
@@ -134,10 +135,21 @@ export function generateBlockCodeHeader(node: NodeInstance, codeContext: string)
 		const blockClasses = new Set<string>();
 		collectSubsystemBlockClasses(node, blockClasses);
 		if (blockClasses.size > 0) {
-			lines.push(`from pathsim.blocks import ${[...blockClasses].sort().join(', ')}`);
+			// Group block classes by import path
+			const importGroups = new Map<string, string[]>();
+			for (const cls of [...blockClasses].sort()) {
+				const importPath = blockImportPaths[cls] || 'pathsim.blocks';
+				const group = importGroups.get(importPath) || [];
+				group.push(cls);
+				importGroups.set(importPath, group);
+			}
+			for (const [importPath, classes] of importGroups) {
+				lines.push(`from ${importPath} import ${classes.join(', ')}`);
+			}
 		}
 	} else {
-		lines.push(`from pathsim.blocks import ${typeDef.blockClass}`);
+		const importPath = blockImportPaths[typeDef.blockClass] || 'pathsim.blocks';
+		lines.push(`from ${importPath} import ${typeDef.blockClass}`);
 	}
 
 	// Extract referenced code context
