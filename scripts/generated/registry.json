@@ -138,7 +138,8 @@
       "blockClass": "Delay",
       "importPath": "pathsim.blocks",
       "params": [
-        "tau"
+        "tau",
+        "sampling_period"
       ]
     },
     "ODE": {
@@ -304,6 +305,14 @@
       "importPath": "pathsim.blocks",
       "params": []
     },
+    "Divider": {
+      "blockClass": "Divider",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "operations",
+        "zero_div"
+      ]
+    },
     "Amplifier": {
       "blockClass": "Amplifier",
       "importPath": "pathsim.blocks",
@@ -385,11 +394,32 @@
         "exponent"
       ]
     },
+    "Atan2": {
+      "blockClass": "Atan2",
+      "importPath": "pathsim.blocks",
+      "params": []
+    },
+    "Rescale": {
+      "blockClass": "Rescale",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "i0",
+        "i1",
+        "o0",
+        "o1",
+        "saturate"
+      ]
+    },
+    "Alias": {
+      "blockClass": "Alias",
+      "importPath": "pathsim.blocks",
+      "params": []
+    },
     "Switch": {
       "blockClass": "Switch",
       "importPath": "pathsim.blocks",
       "params": [
-        "state"
+        "switch_state"
       ]
     },
     "LUT": {
@@ -408,6 +438,38 @@
         "values",
         "fill_value"
       ]
+    },
+    "GreaterThan": {
+      "blockClass": "GreaterThan",
+      "importPath": "pathsim.blocks",
+      "params": []
+    },
+    "LessThan": {
+      "blockClass": "LessThan",
+      "importPath": "pathsim.blocks",
+      "params": []
+    },
+    "Equal": {
+      "blockClass": "Equal",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "tolerance"
+      ]
+    },
+    "LogicAnd": {
+      "blockClass": "LogicAnd",
+      "importPath": "pathsim.blocks",
+      "params": []
+    },
+    "LogicOr": {
+      "blockClass": "LogicOr",
+      "importPath": "pathsim.blocks",
+      "params": []
+    },
+    "LogicNot": {
+      "blockClass": "LogicNot",
+      "importPath": "pathsim.blocks",
+      "params": []
     },
     "SampleHold": {
       "blockClass": "SampleHold",
@@ -480,6 +542,15 @@
         "value_down"
       ]
     },
+    "Wrapper": {
+      "blockClass": "Wrapper",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "func",
+        "T",
+        "tau"
+      ]
+    },
     "Scope": {
       "blockClass": "Scope",
       "importPath": "pathsim.blocks",
@@ -511,32 +582,43 @@
     },
     "Process": {
       "blockClass": "Process",
-      "importPath": "pathsim_chem.tritium",
+      "importPath": "pathsim_chem",
       "params": [
         "tau",
         "initial_value",
         "source_term"
       ]
     },
+    "ResidenceTime": {
+      "blockClass": "ResidenceTime",
+      "importPath": "pathsim_chem",
+      "params": [
+        "tau",
+        "betas",
+        "gammas",
+        "initial_value",
+        "source_term"
+      ]
+    },
+    "Splitter": {
+      "blockClass": "Splitter",
+      "importPath": "pathsim_chem",
+      "params": [
+        "fractions"
+      ]
+    },
     "Bubbler4": {
       "blockClass": "Bubbler4",
-      "importPath": "pathsim_chem.tritium",
+      "importPath": "pathsim_chem",
       "params": [
         "conversion_efficiency",
         "vial_efficiency",
         "replacement_times"
       ]
     },
-    "Splitter": {
-      "blockClass": "Splitter",
-      "importPath": "pathsim_chem.tritium",
-      "params": [
-        "fractions"
-      ]
-    },
     "GLC": {
       "blockClass": "GLC",
-      "importPath": "pathsim_chem.tritium",
+      "importPath": "pathsim_chem",
       "params": [
         "P_in",
         "L",
@@ -545,6 +627,99 @@
         "BCs",
         "g",
         "initial_nb_of_elements"
+      ]
+    },
+    "CSTR": {
+      "blockClass": "CSTR",
+      "importPath": "pathsim_chem",
+      "params": [
+        "V",
+        "F",
+        "k0",
+        "Ea",
+        "n",
+        "dH_rxn",
+        "rho",
+        "Cp",
+        "UA",
+        "C_A0",
+        "T0"
+      ]
+    },
+    "PFR": {
+      "blockClass": "PFR",
+      "importPath": "pathsim_chem",
+      "params": [
+        "N_cells",
+        "V",
+        "F",
+        "k0",
+        "Ea",
+        "n",
+        "dH_rxn",
+        "rho",
+        "Cp",
+        "C0",
+        "T0"
+      ]
+    },
+    "HeatExchanger": {
+      "blockClass": "HeatExchanger",
+      "importPath": "pathsim_chem",
+      "params": [
+        "N_cells",
+        "F_h",
+        "F_c",
+        "V_h",
+        "V_c",
+        "UA",
+        "rho_h",
+        "Cp_h",
+        "rho_c",
+        "Cp_c",
+        "T_h0",
+        "T_c0"
+      ]
+    },
+    "FlashDrum": {
+      "blockClass": "FlashDrum",
+      "importPath": "pathsim_chem",
+      "params": [
+        "holdup",
+        "antoine_A",
+        "antoine_B",
+        "antoine_C",
+        "N0"
+      ]
+    },
+    "Mixer": {
+      "blockClass": "Mixer",
+      "importPath": "pathsim_chem",
+      "params": []
+    },
+    "Valve": {
+      "blockClass": "Valve",
+      "importPath": "pathsim_chem",
+      "params": [
+        "Cv"
+      ]
+    },
+    "Heater": {
+      "blockClass": "Heater",
+      "importPath": "pathsim_chem",
+      "params": [
+        "rho",
+        "Cp"
+      ]
+    },
+    "PointKinetics": {
+      "blockClass": "PointKinetics",
+      "importPath": "pathsim_chem",
+      "params": [
+        "n0",
+        "Lambda",
+        "beta",
+        "lam"
       ]
     }
   },

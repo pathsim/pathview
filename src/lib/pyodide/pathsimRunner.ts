@@ -396,8 +396,13 @@ export function generatePythonCode(
 	} else {
 		lines.push('from pathsim import Simulation, Connection');
 	}
-	for (const [importPath] of importGroups) {
-		lines.push(`from ${importPath} import *`);
+	for (const [importPath, classes] of importGroups) {
+		const sorted = [...classes].sort();
+		if (sorted.length === 1) {
+			lines.push(`from ${importPath} import ${sorted[0]}`);
+		} else {
+			lines.push(`from ${importPath} import ${sorted.join(', ')}`);
+		}
 	}
 	// Ensure at least pathsim.blocks is imported even if no blocks
 	if (!importGroups.has('pathsim.blocks')) {
