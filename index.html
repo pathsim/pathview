@@ -4,11 +4,24 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>PathView</title>
-		<meta name="description" content="Visual node editor for building and simulating dynamic systems with PathSim" />
+		<title>PathView — Visual Block Diagram Simulation Editor</title>
+		<meta name="description" content="Build and simulate dynamic systems visually in your browser. Drag-and-drop block diagram editor powered by PathSim. No installation required." />
+		<link rel="canonical" href="https://view.pathsim.org/" />
 		<meta property="og:type" content="website" />
-		<meta property="og:title" content="PathView" />
-		<meta property="og:description" content="Visual node editor for building and simulating dynamic systems with PathSim" />
+		<meta property="og:title" content="PathView — Visual Block Diagram Simulation Editor" />
+		<meta property="og:description" content="Build and simulate dynamic systems visually in your browser. Drag-and-drop block diagram editor powered by PathSim." />
+		<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "SoftwareApplication",
+			"name": "PathView",
+			"url": "https://view.pathsim.org",
+			"applicationCategory": "Scientific Software",
+			"operatingSystem": "Any",
+			"description": "Visual node editor for building and simulating dynamic systems with PathSim.",
+			"author": { "@type": "Person", "name": "Milan Rother", "url": "https://milanrother.com" }
+		}
+		</script>
 		<meta property="og:image" content="https://view.pathsim.org/pathview_logo.png" />
 		<meta property="og:url" content="https://view.pathsim.org" />
 		<meta name="twitter:card" content="summary_large_image" />
@@ -16,12 +29,12 @@
 		<meta name="twitter:description" content="Visual node editor for building and simulating dynamic systems with PathSim" />
 		<meta name="twitter:image" content="https://view.pathsim.org/pathview_logo.png" />
 		
-		<link rel="modulepreload" href="/app/immutable/entry/start.BXZFa7NO.js">
-		<link rel="modulepreload" href="/app/immutable/chunks/rsZZV2YL.js">
+		<link rel="modulepreload" href="/app/immutable/entry/start.ChqYqd9u.js">
+		<link rel="modulepreload" href="/app/immutable/chunks/BIXjpCWM.js">
 		<link rel="modulepreload" href="/app/immutable/chunks/Dz8CYQ9q.js">
 		<link rel="modulepreload" href="/app/immutable/chunks/DaVItsBB.js">
-		<link rel="modulepreload" href="/app/immutable/chunks/C0ZRnw90.js">
-		<link rel="modulepreload" href="/app/immutable/entry/app.CzFMYENK.js">
+		<link rel="modulepreload" href="/app/immutable/chunks/B2cYQA1y.js">
+		<link rel="modulepreload" href="/app/immutable/entry/app.CjTcRcbp.js">
 		<link rel="modulepreload" href="/app/immutable/chunks/DpeF_9q4.js">
 		<link rel="modulepreload" href="/app/immutable/chunks/Caco3cvs.js">
 		<link rel="modulepreload" href="/app/immutable/chunks/DCnzmz8z.js">
@@ -31,15 +44,15 @@
 		<div style="display: contents">
 			<script>
 				{
-					__sveltekit_jykcot = {
+					__sveltekit_1pfh9qs = {
 						base: ""
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/app/immutable/entry/start.BXZFa7NO.js"),
-						import("/app/immutable/entry/app.CzFMYENK.js")
+						import("/app/immutable/entry/start.ChqYqd9u.js"),
+						import("/app/immutable/entry/app.CjTcRcbp.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element);
 					});
