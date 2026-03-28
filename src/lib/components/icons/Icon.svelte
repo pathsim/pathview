@@ -427,6 +427,12 @@
 		<line x1="12" y1="15" x2="12" y2="3"/>
 		<line x1="4" y1="21" x2="20" y2="21"/>
 	</svg>
+{:else if name === 'codegen'}
+	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M7 4H6a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/>
+		<path d="M17 4h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/>
+		<text x="12" y="16" text-anchor="middle" fill="currentColor" stroke="none" font-size="12" font-weight="700" font-family="var(--font-mono), monospace">C</text>
+	</svg>
 {:else if name === 'font-size-increase'}
 	<svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none">
 		<text x="2" y="18" font-size="16" font-weight="700" font-family="system-ui, sans-serif">A</text>

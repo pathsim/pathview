@@ -42,7 +42,7 @@
 	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation, stageMutations } from '$lib/pyodide/bridge';
 	import { pendingMutationCount } from '$lib/pyodide/mutationQueue';
 	import { initBackendFromUrl, autoDetectBackend } from '$lib/pyodide/backend';
-	import { runGraphStreamingSimulation, validateGraphSimulation } from '$lib/pyodide/pathsimRunner';
+	import { runGraphStreamingSimulation, validateGraphSimulation, exportToPython } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
 	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName } from '$lib/schema/fileOps';
 	import { confirmationStore } from '$lib/stores/confirmation';
@@ -59,10 +59,10 @@
 	let mousePosition = $state({ x: 0, y: 0 });
 
 	// Save feedback animation state
-	let saveFlash = $state<'save' | 'save-as' | null>(null);
+	let saveFlash = $state<'save' | 'save-as' | 'codegen' | null>(null);
 	let saveFlashTimeout: ReturnType<typeof setTimeout> | undefined;
 
-	function flashSaveButton(which: 'save' | 'save-as') {
+	function flashSaveButton(which: 'save' | 'save-as' | 'codegen') {
 		clearTimeout(saveFlashTimeout);
 		saveFlash = which;
 		saveFlashTimeout = setTimeout(() => { saveFlash = null; }, 1500);
@@ -76,6 +76,58 @@
 	async function handleSaveAs() {
 		const success = await saveAsFile();
 		if (success) flashSaveButton('save-as');
+	}
+
+	// Codegen export — compress Python code into URL hash and open codegen
+	const CODEGEN_URL = import.meta.env.VITE_CODEGEN_URL ?? 'https://code.pathsim.org/app';
+	const CODEGEN_MAX_BYTES = 100_000; // 100 KB raw Python limit
+
+	async function compressAndEncode(text: string): Promise<string> {
+		const data = new TextEncoder().encode(text);
+		const cs = new CompressionStream('deflate-raw');
+		const writer = cs.writable.getWriter();
+		writer.write(data);
+		writer.close();
+		const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+		let binary = '';
+		for (const b of compressed) binary += String.fromCharCode(b);
+		return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	}
+
+	async function handleSendToCodegen() {
+		const { nodes, connections } = graphStore.toJSON();
+
+		if (nodes.length === 0) {
+			await confirmationStore.show({
+				title: 'No Model',
+				message: 'There are no blocks in the current graph. Add blocks to your simulation before exporting to Codegen.',
+				confirmText: 'OK',
+				cancelText: 'Cancel'
+			});
+			return;
+		}
+
+		const settings = settingsStore.get();
+		const codeContext = codeContextStore.getCode();
+		const events = eventStore.toJSON();
+		const pythonCode = exportToPython(nodes, connections, settings, codeContext, events);
+
+		const rawBytes = new TextEncoder().encode(pythonCode).length;
+		if (rawBytes > CODEGEN_MAX_BYTES) {
+			const sizeKB = Math.round(rawBytes / 1024);
+			const openExport = await confirmationStore.show({
+				title: 'Model Too Large',
+				message: `The generated Python code is ${sizeKB} KB, which exceeds the transfer limit. Use the Python Code export (Ctrl+E) to copy the code and paste it into Codegen manually.`,
+				confirmText: 'Open Python Export',
+				cancelText: 'Cancel'
+			});
+			if (openExport) exportDialogOpen = true;
+			return;
+		}
+
+		const encoded = await compressAndEncode(pythonCode);
+		window.open(`${CODEGEN_URL}#code=${encoded}`, '_blank');
+		flashSaveButton('codegen');
 	}
 
 	// Panel visibility state
@@ -1048,6 +1100,9 @@
 			</button>
 			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code">
 				<Icon name="braces" size={16} />
+			</button>
+			<button class="toolbar-btn" onclick={handleSendToCodegen} use:tooltip={"Send to Codegen"} aria-label="Send to Codegen">
+				<Icon name={saveFlash === 'codegen' ? 'check' : 'codegen'} size={16} />
 			</button>
 		</div>
 
