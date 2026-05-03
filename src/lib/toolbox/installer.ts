@@ -6,6 +6,7 @@
  */
 
 import { exec, evaluate } from '$lib/pyodide/backend';
+import { initPyodide } from '$lib/pyodide/bridge';
 import { TOOLBOX_PYTHON_HELPERS, TOOLBOX_HELPERS_SENTINEL } from './python';
 
 /** Raw block metadata as returned by pathview_introspect_blocks. */
@@ -28,11 +29,14 @@ export interface IntrospectedEvent {
 let helpersLoaded = false;
 
 /**
- * Make sure the Python-side helper functions are defined in the REPL.
- * Idempotent: a sentinel global is checked first.
+ * Make sure Pyodide is initialized (so `json` and `_to_json` are available
+ * for `evaluate(...)`) and that our toolbox helpers are defined.
  */
 async function ensureHelpers(): Promise<void> {
 	if (helpersLoaded) return;
+	// initPyodide is idempotent and also runs REPL_SETUP_CODE which imports
+	// `json` and defines `_to_json` — both needed by evaluate().
+	await initPyodide();
 	const present = await evaluate<boolean>(TOOLBOX_HELPERS_SENTINEL);
 	if (!present) {
 		await exec(TOOLBOX_PYTHON_HELPERS);
