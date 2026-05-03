@@ -4,4 +4,3 @@
 # For Pyodide runtime: "# optional" means installation failure won't block app
 
 pathsim
-pathsim-chem>=0.2.0  # optional

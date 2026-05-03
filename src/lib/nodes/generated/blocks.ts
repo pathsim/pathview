@@ -40,7 +40,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Source": {
     "blockClass": "Source",
     "description": "Source that produces an arbitrary time dependent output defined by `func` (callable).",
-    "docstringHtml": "<p>Source that produces an arbitrary time dependent output defined by <cite>func</cite> (callable).</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) = \\mathrm{func}(t)\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is purely algebraic and its internal function (<cite>func</cite>) will\nbe called multiple times per timestep, each time when <cite>Simulation._update(t)</cite>\nis called in the global simulation loop.</p>\n</div>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>For example a ramp:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Source</span><span class=\"whitespace\">\n\n</span><span class=\"name\">src</span> <span class=\"operator\">=</span> <span class=\"name\">Source</span><span class=\"punctuation\">(</span><span class=\"keyword\">lambda</span> <span class=\"name\">t</span> <span class=\"punctuation\">:</span> <span class=\"name\">t</span><span class=\"punctuation\">)</span>\n</pre>\n<p>or a simple sinusoid with some frequency:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span> <span class=\"name namespace\">numpy</span> <span class=\"keyword\">as</span> <span class=\"name namespace\">np</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Source</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#some parameter</span><span class=\"whitespace\">\n</span><span class=\"name\">omega</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">100</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#the function that gets evaluated</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">f</span><span class=\"punctuation\">(</span><span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">sin</span><span class=\"punctuation\">(</span><span class=\"name\">omega</span> <span class=\"operator\">*</span> <span class=\"name\">t</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">src</span> <span class=\"operator\">=</span> <span class=\"name\">Source</span><span class=\"punctuation\">(</span><span class=\"name\">f</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Because the <cite>Source</cite> block only has a single argument, it can be\nused to decorate a function and make it a <cite>PathSim</cite> block. This might\nbe handy in some cases to keep definitions concise and localized\nin the code:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span> <span class=\"name namespace\">numpy</span> <span class=\"keyword\">as</span> <span class=\"name namespace\">np</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Source</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#does the same as the definition above</span><span class=\"whitespace\">\n\n</span><span class=\"name decorator\">&#64;Source</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">src</span><span class=\"punctuation\">(</span><span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"name\">omega</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">100</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">sin</span><span class=\"punctuation\">(</span><span class=\"name\">omega</span> <span class=\"operator\">*</span> <span class=\"name\">t</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#'src' is now a PathSim block</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>function defining time dependent block output</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Source that produces an arbitrary time dependent output defined by <cite>func</cite> (callable).</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) = \\mathrm{func}(t)\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is purely algebraic and its internal function (<cite>func</cite>) will\nbe called multiple times per timestep, each time when <cite>Simulation._update(t)</cite>\nis called in the global simulation loop.</p>\n</div>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>For example a ramp:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Source</span><span class=\"whitespace\">\n\n</span><span class=\"name\">src</span> <span class=\"operator\">=</span> <span class=\"name\">Source</span><span class=\"punctuation\">(</span><span class=\"keyword\">lambda</span> <span class=\"name\">t</span> <span class=\"punctuation\">:</span> <span class=\"name\">t</span><span class=\"punctuation\">)</span>\n</pre>\n<p>or a simple sinusoid with some frequency:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span><span class=\"whitespace\"> </span><span class=\"name namespace\">numpy</span><span class=\"whitespace\"> </span><span class=\"keyword\">as</span><span class=\"whitespace\"> </span><span class=\"name namespace\">np</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Source</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#some parameter</span><span class=\"whitespace\">\n</span><span class=\"name\">omega</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">100</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#the function that gets evaluated</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">f</span><span class=\"punctuation\">(</span><span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">sin</span><span class=\"punctuation\">(</span><span class=\"name\">omega</span> <span class=\"operator\">*</span> <span class=\"name\">t</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">src</span> <span class=\"operator\">=</span> <span class=\"name\">Source</span><span class=\"punctuation\">(</span><span class=\"name\">f</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Because the <cite>Source</cite> block only has a single argument, it can be\nused to decorate a function and make it a <cite>PathSim</cite> block. This might\nbe handy in some cases to keep definitions concise and localized\nin the code:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span><span class=\"whitespace\"> </span><span class=\"name namespace\">numpy</span><span class=\"whitespace\"> </span><span class=\"keyword\">as</span><span class=\"whitespace\"> </span><span class=\"name namespace\">np</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Source</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#does the same as the definition above</span><span class=\"whitespace\">\n\n</span><span class=\"name decorator\">&#64;Source</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">src</span><span class=\"punctuation\">(</span><span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"name\">omega</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">100</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">sin</span><span class=\"punctuation\">(</span><span class=\"name\">omega</span> <span class=\"operator\">*</span> <span class=\"name\">t</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#'src' is now a PathSim block</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>function defining time dependent block output</dd>\n</dl>\n</div>\n",
     "params": {
       "func": {
         "type": "callable",
@@ -82,7 +82,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "StepSource": {
     "blockClass": "StepSource",
     "description": "Discrete time unit step (or multi step) source block.",
-    "docstringHtml": "<p>Discrete time unit step (or multi step) source block.</p>\n<p>Utilizes a scheduled event to set the block output\nto the specified output levels at the defined event times.</p>\n<p>The arguments can be vectorial and in that case, the output is set to the\namplitude that corresponds to the defined delay like a zero-order-hold stage.\nThis functionality enables adding external or time series measurement data\ninto the system.</p>\n<div class=\"section\" id=\"examples\">\n<h3>Examples</h3>\n<p>This is how to use the source as a unit step source:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">StepSource</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#default, starts at 0, jumps to 1</span><span class=\"whitespace\">\n</span><span class=\"name\">stp</span> <span class=\"operator\">=</span> <span class=\"name\">StepSource</span><span class=\"punctuation\">()</span>\n</pre>\n<p>And this is how to configure it with multiple consecutive steps:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">StepSource</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#starts at 0, jumps to 1 at 1, jumps to -1 at 2 and jumps back to 0 at 3</span><span class=\"whitespace\">\n</span><span class=\"name\">stp</span> <span class=\"operator\">=</span> <span class=\"name\">StepSource</span><span class=\"punctuation\">(</span><span class=\"name\">amplitude</span><span class=\"operator\">=</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"operator\">-</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">0</span><span class=\"punctuation\">],</span> <span class=\"name\">tau</span><span class=\"operator\">=</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">3</span><span class=\"punctuation\">])</span>\n</pre>\n<p>Similarly implementing measured time series data via zoh:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span> <span class=\"name namespace\">numpy</span> <span class=\"keyword\">as</span> <span class=\"name namespace\">np</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">StepSource</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#some random time series arrays</span><span class=\"whitespace\">\n</span><span class=\"name\">times</span><span class=\"punctuation\">,</span> <span class=\"name\">data</span> <span class=\"operator\">=</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">linspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">1000</span><span class=\"punctuation\">),</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">random</span><span class=\"operator\">.</span><span class=\"name\">rand</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1000</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#pass them to the block</span><span class=\"whitespace\">\n</span><span class=\"name\">stp</span> <span class=\"operator\">=</span> <span class=\"name\">StepSource</span><span class=\"punctuation\">(</span><span class=\"name\">amplitude</span><span class=\"operator\">=</span><span class=\"name\">data</span><span class=\"punctuation\">,</span> <span class=\"name\">tau</span><span class=\"operator\">=</span><span class=\"name\">times</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>amplitude <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float | list[float]</span></dt>\n<dd>amplitude of the step signal, or amplitudes / output\nlevels of the multiple steps</dd>\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float | list[float]</span></dt>\n<dd>delay of the step, or delays of the different steps</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>Evt <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">ScheduleList</span></dt>\n<dd>internal scheduled event directly accessible</dd>\n<dt>events <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[ScheduleList]</span></dt>\n<dd>list of interna events</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Discrete time unit step (or multi step) source block.</p>\n<p>Utilizes a scheduled event to set the block output\nto the specified output levels at the defined event times.</p>\n<p>The arguments can be vectorial and in that case, the output is set to the\namplitude that corresponds to the defined delay like a zero-order-hold stage.\nThis functionality enables adding external or time series measurement data\ninto the system.</p>\n<div class=\"section\" id=\"examples\">\n<h3>Examples</h3>\n<p>This is how to use the source as a unit step source:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">StepSource</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#default, starts at 0, jumps to 1</span><span class=\"whitespace\">\n</span><span class=\"name\">stp</span> <span class=\"operator\">=</span> <span class=\"name\">StepSource</span><span class=\"punctuation\">()</span>\n</pre>\n<p>And this is how to configure it with multiple consecutive steps:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">StepSource</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#starts at 0, jumps to 1 at 1, jumps to -1 at 2 and jumps back to 0 at 3</span><span class=\"whitespace\">\n</span><span class=\"name\">stp</span> <span class=\"operator\">=</span> <span class=\"name\">StepSource</span><span class=\"punctuation\">(</span><span class=\"name\">amplitude</span><span class=\"operator\">=</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"operator\">-</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">0</span><span class=\"punctuation\">],</span> <span class=\"name\">tau</span><span class=\"operator\">=</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">3</span><span class=\"punctuation\">])</span>\n</pre>\n<p>Similarly implementing measured time series data via zoh:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span><span class=\"whitespace\"> </span><span class=\"name namespace\">numpy</span><span class=\"whitespace\"> </span><span class=\"keyword\">as</span><span class=\"whitespace\"> </span><span class=\"name namespace\">np</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">StepSource</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#some random time series arrays</span><span class=\"whitespace\">\n</span><span class=\"name\">times</span><span class=\"punctuation\">,</span> <span class=\"name\">data</span> <span class=\"operator\">=</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">linspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">1000</span><span class=\"punctuation\">),</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">random</span><span class=\"operator\">.</span><span class=\"name\">rand</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1000</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#pass them to the block</span><span class=\"whitespace\">\n</span><span class=\"name\">stp</span> <span class=\"operator\">=</span> <span class=\"name\">StepSource</span><span class=\"punctuation\">(</span><span class=\"name\">amplitude</span><span class=\"operator\">=</span><span class=\"name\">data</span><span class=\"punctuation\">,</span> <span class=\"name\">tau</span><span class=\"operator\">=</span><span class=\"name\">times</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>amplitude <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float | list[float]</span></dt>\n<dd>amplitude of the step signal, or amplitudes / output\nlevels of the multiple steps</dd>\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float | list[float]</span></dt>\n<dd>delay of the step, or delays of the different steps</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>Evt <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">ScheduleList</span></dt>\n<dd>internal scheduled event directly accessible</dd>\n<dt>events <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[ScheduleList]</span></dt>\n<dd>list of interna events</dd>\n</dl>\n</div>\n",
     "params": {
       "amplitude": {
         "type": "integer",
@@ -424,7 +424,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "ODE": {
     "blockClass": "ODE",
     "description": "Ordinary differential equation (ODE) defined by its right hand side function.",
-    "docstringHtml": "<p>Ordinary differential equation (ODE) defined by its right hand side function.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\begin{align}\n    \\dot{x}(t) &amp;= \\mathrm{func}(x(t), u(t), t) \\\\\n           y(t) &amp;= x(t)\n\\end{align}\n\\end{equation*}\n</div>\n<p>with inhomogenity (input) <cite>u</cite> and state vector <cite>x</cite>. The function can be nonlinear\nand the ODE can be of arbitrary order. The block utilizes the integration engine\nto solve the ODE by integrating the <cite>func</cite>, which is the right hand side function.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>For example a linear 1st order ODE:</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">ode</span> <span class=\"operator\">=</span> <span class=\"name\">ODE</span><span class=\"punctuation\">(</span><span class=\"keyword\">lambda</span> <span class=\"name\">x</span><span class=\"punctuation\">,</span> <span class=\"name\">u</span><span class=\"punctuation\">,</span> <span class=\"name\">t</span><span class=\"punctuation\">:</span> <span class=\"operator\">-</span><span class=\"name\">x</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Or something more complex like the <cite>Van der Pol</cite> system, where it makes sense to\nalso specify the jacobian, which improves convergence for implicit solvers but is\nnot needed in most cases:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span> <span class=\"name namespace\">numpy</span> <span class=\"keyword\">as</span> <span class=\"name namespace\">np</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#initial condition</span><span class=\"whitespace\">\n</span><span class=\"name\">x0</span> <span class=\"operator\">=</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">([</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">0</span><span class=\"punctuation\">])</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#van der Pol parameter</span><span class=\"whitespace\">\n</span><span class=\"name\">mu</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">1000</span><span class=\"whitespace\">\n\n</span><span class=\"keyword\">def</span> <span class=\"name function\">func</span><span class=\"punctuation\">(</span><span class=\"name\">x</span><span class=\"punctuation\">,</span> <span class=\"name\">u</span><span class=\"punctuation\">,</span> <span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">([</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">],</span> <span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1</span> <span class=\"operator\">-</span> <span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"operator\">*</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">]</span> <span class=\"operator\">-</span> <span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]])</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#analytical jacobian (optional)</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">jac</span><span class=\"punctuation\">(</span><span class=\"name\">x</span><span class=\"punctuation\">,</span> <span class=\"name\">u</span><span class=\"punctuation\">,</span> <span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>        <span class=\"punctuation\">[[</span><span class=\"literal number integer\">0</span>                <span class=\"punctuation\">,</span> <span class=\"literal number integer\">1</span>               <span class=\"punctuation\">],</span><span class=\"whitespace\">\n</span>         <span class=\"punctuation\">[</span><span class=\"operator\">-</span><span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"literal number integer\">2</span><span class=\"operator\">*</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]</span><span class=\"operator\">*</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">]</span><span class=\"operator\">-</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1</span> <span class=\"operator\">-</span> <span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)]]</span><span class=\"whitespace\">\n</span>         <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#finally the block</span><span class=\"whitespace\">\n</span><span class=\"name\">vdp</span> <span class=\"operator\">=</span> <span class=\"name\">ODE</span><span class=\"punctuation\">(</span><span class=\"name\">func</span><span class=\"punctuation\">,</span> <span class=\"name\">x0</span><span class=\"punctuation\">,</span> <span class=\"name\">jac</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>right hand side function of ODE</dd>\n<dt>initial_value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array[float]</span></dt>\n<dd>initial state / initial condition</dd>\n<dt>jac <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable, None</span></dt>\n<dd>jacobian of 'func' or 'None'</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_dyn <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">DynamicOperator</span></dt>\n<dd>internal dynamic operator for ODE right hand side 'func'</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Ordinary differential equation (ODE) defined by its right hand side function.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\begin{align}\n    \\dot{x}(t) &amp;= \\mathrm{func}(x(t), u(t), t) \\\\\n           y(t) &amp;= x(t)\n\\end{align}\n\\end{equation*}\n</div>\n<p>with inhomogenity (input) <cite>u</cite> and state vector <cite>x</cite>. The function can be nonlinear\nand the ODE can be of arbitrary order. The block utilizes the integration engine\nto solve the ODE by integrating the <cite>func</cite>, which is the right hand side function.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>For example a linear 1st order ODE:</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">ode</span> <span class=\"operator\">=</span> <span class=\"name\">ODE</span><span class=\"punctuation\">(</span><span class=\"keyword\">lambda</span> <span class=\"name\">x</span><span class=\"punctuation\">,</span> <span class=\"name\">u</span><span class=\"punctuation\">,</span> <span class=\"name\">t</span><span class=\"punctuation\">:</span> <span class=\"operator\">-</span><span class=\"name\">x</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Or something more complex like the <cite>Van der Pol</cite> system, where it makes sense to\nalso specify the jacobian, which improves convergence for implicit solvers but is\nnot needed in most cases:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span><span class=\"whitespace\"> </span><span class=\"name namespace\">numpy</span><span class=\"whitespace\"> </span><span class=\"keyword\">as</span><span class=\"whitespace\"> </span><span class=\"name namespace\">np</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#initial condition</span><span class=\"whitespace\">\n</span><span class=\"name\">x0</span> <span class=\"operator\">=</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">([</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">0</span><span class=\"punctuation\">])</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#van der Pol parameter</span><span class=\"whitespace\">\n</span><span class=\"name\">mu</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">1000</span><span class=\"whitespace\">\n\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">func</span><span class=\"punctuation\">(</span><span class=\"name\">x</span><span class=\"punctuation\">,</span> <span class=\"name\">u</span><span class=\"punctuation\">,</span> <span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">([</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">],</span> <span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1</span> <span class=\"operator\">-</span> <span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"operator\">*</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">]</span> <span class=\"operator\">-</span> <span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]])</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#analytical jacobian (optional)</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">jac</span><span class=\"punctuation\">(</span><span class=\"name\">x</span><span class=\"punctuation\">,</span> <span class=\"name\">u</span><span class=\"punctuation\">,</span> <span class=\"name\">t</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>        <span class=\"punctuation\">[[</span><span class=\"literal number integer\">0</span>                <span class=\"punctuation\">,</span> <span class=\"literal number integer\">1</span>               <span class=\"punctuation\">],</span><span class=\"whitespace\">\n</span>         <span class=\"punctuation\">[</span><span class=\"operator\">-</span><span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"literal number integer\">2</span><span class=\"operator\">*</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]</span><span class=\"operator\">*</span><span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">]</span><span class=\"operator\">-</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">,</span> <span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1</span> <span class=\"operator\">-</span> <span class=\"name\">x</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">]</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)]]</span><span class=\"whitespace\">\n</span>         <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#finally the block</span><span class=\"whitespace\">\n</span><span class=\"name\">vdp</span> <span class=\"operator\">=</span> <span class=\"name\">ODE</span><span class=\"punctuation\">(</span><span class=\"name\">func</span><span class=\"punctuation\">,</span> <span class=\"name\">x0</span><span class=\"punctuation\">,</span> <span class=\"name\">jac</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>right hand side function of ODE</dd>\n<dt>initial_value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array[float]</span></dt>\n<dd>initial state / initial condition</dd>\n<dt>jac <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable, None</span></dt>\n<dd>jacobian of 'func' or 'None'</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_dyn <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">DynamicOperator</span></dt>\n<dd>internal dynamic operator for ODE right hand side 'func'</dd>\n</dl>\n</div>\n",
     "params": {
       "func": {
         "type": "callable",
@@ -939,7 +939,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Function": {
     "blockClass": "Function",
     "description": "Arbitrary MIMO function block, defined by a function or `lambda` expression.",
-    "docstringHtml": "<p>Arbitrary MIMO function block, defined by a function or <cite>lambda</cite> expression.</p>\n<p>The function can have multiple arguments that are then provided\nby the input channels of the function block.</p>\n<p>Form multi input, the function has to specify multiple arguments\nand for multi output, the aoutputs have to be provided as a\ntuple or list.</p>\n<p>In the context of the global system, this block implements algebraic\ncomponents of the global system ODE/DAE.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\mathrm{func}(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is purely algebraic and its operation (<cite>op_alg</cite>) will be called\nmultiple times per timestep, each time when <cite>Simulation._update(t)</cite> is\ncalled in the global simulation loop.\nTherefore <cite>func</cite> must be purely algebraic and not introduce states,\ndelay, etc. For interfacing with external stateful APIs, use the\n<cite>Wrapper</cite> block.</p>\n</div>\n<div class=\"section\" id=\"note-1\">\n<h3>Note</h3>\n<p>If the outputs are provided as a single numpy array, they are\nconsidered a single output. For MIMO, output has to be tuple.</p>\n</div>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>consider the function:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Function</span><span class=\"whitespace\">\n\n</span><span class=\"keyword\">def</span> <span class=\"name function\">f</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"name\">a</span><span class=\"operator\">*</span><span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"operator\">/</span><span class=\"name\">c</span><span class=\"whitespace\">\n\n</span><span class=\"name\">fn</span> <span class=\"operator\">=</span> <span class=\"name\">Function</span><span class=\"punctuation\">(</span><span class=\"name\">f</span><span class=\"punctuation\">)</span>\n</pre>\n<p>then, when the block is updated, the input channels of the block are\nassigned to the function arguments following this scheme:</p>\n<pre class=\"code literal-block\">\ninputs[0] -&gt; a\ninputs[1] -&gt; b\ninputs[2] -&gt; c\n</pre>\n<p>and the function outputs are assigned to the\noutput channels of the block in the same way:</p>\n<pre class=\"code literal-block\">\na**2 -&gt; outputs[0]\na*b  -&gt; outputs[1]\nb/c  -&gt; outputs[2]\n</pre>\n<p>Because the <cite>Function</cite> block only has a single argument, it can be\nused to decorate a function and make it a <cite>PathSim</cite> block. This might\nbe handy in some cases to keep definitions concise and localized\nin the code:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Function</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#does the same as the definition above</span><span class=\"whitespace\">\n\n</span><span class=\"name decorator\">&#64;Function</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">fn</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"name\">a</span><span class=\"operator\">*</span><span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"operator\">/</span><span class=\"name\">c</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#'fn' is now a PathSim block</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>MIMO function that defines algebraic block IO behaviour, signature <cite>func(*tuple)</cite></dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator that wraps <cite>func</cite></dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Arbitrary MIMO function block, defined by a function or <cite>lambda</cite> expression.</p>\n<p>The function can have multiple arguments that are then provided\nby the input channels of the function block.</p>\n<p>Form multi input, the function has to specify multiple arguments\nand for multi output, the aoutputs have to be provided as a\ntuple or list.</p>\n<p>In the context of the global system, this block implements algebraic\ncomponents of the global system ODE/DAE.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\vec{y} = \\mathrm{func}(\\vec{u})\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is purely algebraic and its operation (<cite>op_alg</cite>) will be called\nmultiple times per timestep, each time when <cite>Simulation._update(t)</cite> is\ncalled in the global simulation loop.\nTherefore <cite>func</cite> must be purely algebraic and not introduce states,\ndelay, etc. For interfacing with external stateful APIs, use the\n<cite>Wrapper</cite> block.</p>\n</div>\n<div class=\"section\" id=\"note-1\">\n<h3>Note</h3>\n<p>If the outputs are provided as a single numpy array, they are\nconsidered a single output. For MIMO, output has to be tuple.</p>\n</div>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>consider the function:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Function</span><span class=\"whitespace\">\n\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">f</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"name\">a</span><span class=\"operator\">*</span><span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"operator\">/</span><span class=\"name\">c</span><span class=\"whitespace\">\n\n</span><span class=\"name\">fn</span> <span class=\"operator\">=</span> <span class=\"name\">Function</span><span class=\"punctuation\">(</span><span class=\"name\">f</span><span class=\"punctuation\">)</span>\n</pre>\n<p>then, when the block is updated, the input channels of the block are\nassigned to the function arguments following this scheme:</p>\n<pre class=\"code literal-block\">\ninputs[0] -&gt; a\ninputs[1] -&gt; b\ninputs[2] -&gt; c\n</pre>\n<p>and the function outputs are assigned to the\noutput channels of the block in the same way:</p>\n<pre class=\"code literal-block\">\na**2 -&gt; outputs[0]\na*b  -&gt; outputs[1]\nb/c  -&gt; outputs[2]\n</pre>\n<p>Because the <cite>Function</cite> block only has a single argument, it can be\nused to decorate a function and make it a <cite>PathSim</cite> block. This might\nbe handy in some cases to keep definitions concise and localized\nin the code:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Function</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#does the same as the definition above</span><span class=\"whitespace\">\n\n</span><span class=\"name decorator\">&#64;Function</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">fn</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">,</span> <span class=\"name\">a</span><span class=\"operator\">*</span><span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"operator\">/</span><span class=\"name\">c</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#'fn' is now a PathSim block</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>MIMO function that defines algebraic block IO behaviour, signature <cite>func(*tuple)</cite></dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator that wraps <cite>func</cite></dd>\n</dl>\n</div>\n",
     "params": {
       "func": {
         "type": "callable",
@@ -1212,7 +1212,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Equal": {
     "blockClass": "Equal",
     "description": "Equality comparison block.",
-    "docstringHtml": "<p>Equality comparison block.</p>\n<p>Compares two inputs and outputs 1.0 if <a href=\"#system-message-1\"><span class=\"problematic\" id=\"problematic-1\">|a - b|</span></a> &lt;= tolerance, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny =\n\\begin{cases}\n1 &amp; , |a - b| \\leq \\epsilon \\\\\n0 &amp; , |a - b| &gt; \\epsilon\n\\end{cases}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tolerance <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>comparison tolerance for floating point equality</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Equality comparison block.</p>\n<p>Compares two inputs and outputs 1.0 if |a - b| &lt;= tolerance, else 0.0.</p>\n<div class=\"math\">\n\\begin{equation*}\ny =\n\\begin{cases}\n1 &amp; , |a - b| \\leq \\epsilon \\\\\n0 &amp; , |a - b| &gt; \\epsilon\n\\end{cases}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tolerance <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>comparison tolerance for floating point equality</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
     "params": {
       "tolerance": {
         "type": "number",
@@ -1384,7 +1384,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "threshold": {
         "type": "number",
         "default": "0.0",
-        "description": "threshold for zero crossing Attributes ----------"
+        "description": "threshold for zero crossing"
       }
     },
     "inputs": [
@@ -1407,7 +1407,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "threshold": {
         "type": "number",
         "default": "0.0",
-        "description": "threshold for zero crossing Attributes ----------"
+        "description": "threshold for zero crossing"
       }
     },
     "inputs": [
@@ -1430,7 +1430,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "threshold": {
         "type": "number",
         "default": "0.0",
-        "description": "threshold for zero crossing Attributes ----------"
+        "description": "threshold for zero crossing"
       }
     },
     "inputs": [
@@ -1443,7 +1443,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Relay": {
     "blockClass": "Relay",
     "description": "Relay block with hysteresis (Schmitt trigger).",
-    "docstringHtml": "<p>Relay block with hysteresis (Schmitt trigger).</p>\n<p>Switches output between two values based on input crossing upper and lower\nthresholds. The hysteresis prevents rapid switching when input is noisy.</p>\n<p>When input rises above <cite>threshold_up</cite>, output switches to <cite>value_up</cite>.\nWhen input falls below <cite>threshold_down</cite>, output switches to <cite>value_down</cite>.</p>\n<div class=\"section\" id=\"examples\">\n<h3>Examples</h3>\n<p>Basic thermostat that turns heater on below 19°C, off above 21°C:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Relay</span><span class=\"whitespace\">\n\n</span><span class=\"name\">thermostat</span> <span class=\"operator\">=</span> <span class=\"name\">Relay</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">threshold_up</span><span class=\"operator\">=</span><span class=\"literal number float\">21.0</span><span class=\"punctuation\">,</span><span class=\"whitespace\">\n</span>    <span class=\"name\">threshold_down</span><span class=\"operator\">=</span><span class=\"literal number float\">19.0</span><span class=\"punctuation\">,</span><span class=\"whitespace\">\n</span>    <span class=\"name\">value_up</span><span class=\"operator\">=</span><span class=\"literal number float\">0.0</span><span class=\"punctuation\">,</span><span class=\"whitespace\">\n</span>    <span class=\"name\">value_down</span><span class=\"operator\">=</span><span class=\"literal number float\">1.0</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>threshold_up <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>threshold for transitioning to upper relay state <cite>value_up</cite> (default: 1.0)</dd>\n<dt>threshold_down <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>threshold for transitioning to lower relay state <cite>value_down</cite> (default: 0.0)</dd>\n<dt>value_up <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>value for upper relay state (default: 1.0)</dd>\n<dt>value_down <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>value for lower relay state (default: 0.0)</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>events <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[ZeroCrossingUp, ZeroCrossingDown]</span></dt>\n<dd>internal zero crossing events for relay state transitions</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Relay block with hysteresis (Schmitt trigger).</p>\n<p>Switches output between two values based on input crossing upper and lower\nthresholds. The hysteresis prevents rapid switching when input is noisy.</p>\n<p>When input rises above <cite>threshold_up</cite>, output switches to <cite>value_up</cite>.\nWhen input falls below <cite>threshold_down</cite>, output switches to <cite>value_down</cite>.</p>\n<div class=\"section\" id=\"examples\">\n<h3>Examples</h3>\n<p>Basic thermostat that turns heater on below 19°C, off above 21°C:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Relay</span><span class=\"whitespace\">\n\n</span><span class=\"name\">thermostat</span> <span class=\"operator\">=</span> <span class=\"name\">Relay</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">threshold_up</span><span class=\"operator\">=</span><span class=\"literal number float\">21.0</span><span class=\"punctuation\">,</span><span class=\"whitespace\">\n</span>    <span class=\"name\">threshold_down</span><span class=\"operator\">=</span><span class=\"literal number float\">19.0</span><span class=\"punctuation\">,</span><span class=\"whitespace\">\n</span>    <span class=\"name\">value_up</span><span class=\"operator\">=</span><span class=\"literal number float\">0.0</span><span class=\"punctuation\">,</span><span class=\"whitespace\">\n</span>    <span class=\"name\">value_down</span><span class=\"operator\">=</span><span class=\"literal number float\">1.0</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>threshold_up <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>threshold for transitioning to upper relay state <cite>value_up</cite> (default: 1.0)</dd>\n<dt>threshold_down <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>threshold for transitioning to lower relay state <cite>value_down</cite> (default: 0.0)</dd>\n<dt>value_up <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>value for upper relay state (default: 1.0)</dd>\n<dt>value_down <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>value for lower relay state (default: 0.0)</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>events <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[ZeroCrossingUp, ZeroCrossingDown]</span></dt>\n<dd>internal zero crossing events for relay state transitions</dd>\n</dl>\n</div>\n",
     "params": {
       "threshold_up": {
         "type": "number",
@@ -1476,7 +1476,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Wrapper": {
     "blockClass": "Wrapper",
     "description": "Wrapper block for discrete implementation and external code integration.",
-    "docstringHtml": "<p>Wrapper block for discrete implementation and external code integration.</p>\n<p>The <cite>Wrapper</cite> class is designed to call the internal <cite>func</cite> at fixed intervals\nusing an internal <cite>Schedule</cite> event. This makes it particularly useful for wrapping\nexternal code or implementing discrete-time systems.</p>\n<p>Essentially this block does the same as <cite>Function</cite> with the difference that its\nnot evaluated continuously but periodically at discrete times.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>There are two ways to setup the <cite>Wrapper</cite>, first and standard way is to define\na function to be wrapped and pass it to the block initializer:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Wrapper</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#function to be wrapped</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">func</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span> <span class=\"operator\">*</span> <span class=\"punctuation\">(</span><span class=\"name\">b</span> <span class=\"operator\">+</span> <span class=\"name\">c</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">wrp</span> <span class=\"operator\">=</span> <span class=\"name\">Wrapper</span><span class=\"punctuation\">(</span><span class=\"name\">func</span><span class=\"punctuation\">,</span> <span class=\"name\">T</span><span class=\"operator\">=</span><span class=\"literal number float\">0.1</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Another option is to use the <cite>dec</cite> classmethod, which might be more convenient\nin some situations:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Wrapper</span><span class=\"whitespace\">\n\n</span><span class=\"name decorator\">&#64;Wrapper</span><span class=\"operator\">.</span><span class=\"name\">dec</span><span class=\"punctuation\">(</span><span class=\"name\">T</span><span class=\"operator\">=</span><span class=\"literal number float\">0.1</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span> <span class=\"name function\">wrp</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span> <span class=\"operator\">*</span> <span class=\"punctuation\">(</span><span class=\"name\">b</span> <span class=\"operator\">+</span> <span class=\"name\">c</span><span class=\"punctuation\">)</span>\n</pre>\n<p>This way the internal function of the block <cite>wrp</cite> will be evaluated with a period\nof <cite>T=0.1</cite> and its outputs updated accordingly.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>function that defines algebraic block IO behaviour</dd>\n<dt>T <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>sampling period for the wrapped function</dd>\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>delay time for the start time of the event</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>Evt <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Schedule</span></dt>\n<dd>internal event. Used for periodic sampling the wrapped method</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Wrapper block for discrete implementation and external code integration.</p>\n<p>The <cite>Wrapper</cite> class is designed to call the internal <cite>func</cite> at fixed intervals\nusing an internal <cite>Schedule</cite> event. This makes it particularly useful for wrapping\nexternal code or implementing discrete-time systems.</p>\n<p>Essentially this block does the same as <cite>Function</cite> with the difference that its\nnot evaluated continuously but periodically at discrete times.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>There are two ways to setup the <cite>Wrapper</cite>, first and standard way is to define\na function to be wrapped and pass it to the block initializer:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Wrapper</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#function to be wrapped</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">func</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span> <span class=\"operator\">*</span> <span class=\"punctuation\">(</span><span class=\"name\">b</span> <span class=\"operator\">+</span> <span class=\"name\">c</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">wrp</span> <span class=\"operator\">=</span> <span class=\"name\">Wrapper</span><span class=\"punctuation\">(</span><span class=\"name\">func</span><span class=\"punctuation\">,</span> <span class=\"name\">T</span><span class=\"operator\">=</span><span class=\"literal number float\">0.1</span><span class=\"punctuation\">)</span>\n</pre>\n<p>Another option is to use the <cite>dec</cite> classmethod, which might be more convenient\nin some situations:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Wrapper</span><span class=\"whitespace\">\n\n</span><span class=\"name decorator\">&#64;Wrapper</span><span class=\"operator\">.</span><span class=\"name\">dec</span><span class=\"punctuation\">(</span><span class=\"name\">T</span><span class=\"operator\">=</span><span class=\"literal number float\">0.1</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span><span class=\"keyword\">def</span><span class=\"whitespace\"> </span><span class=\"name function\">wrp</span><span class=\"punctuation\">(</span><span class=\"name\">a</span><span class=\"punctuation\">,</span> <span class=\"name\">b</span><span class=\"punctuation\">,</span> <span class=\"name\">c</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"keyword\">return</span> <span class=\"name\">a</span> <span class=\"operator\">*</span> <span class=\"punctuation\">(</span><span class=\"name\">b</span> <span class=\"operator\">+</span> <span class=\"name\">c</span><span class=\"punctuation\">)</span>\n</pre>\n<p>This way the internal function of the block <cite>wrp</cite> will be evaluated with a period\nof <cite>T=0.1</cite> and its outputs updated accordingly.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>func <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">callable</span></dt>\n<dd>function that defines algebraic block IO behaviour</dd>\n<dt>T <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>sampling period for the wrapped function</dd>\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>delay time for the start time of the event</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>Evt <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Schedule</span></dt>\n<dd>internal event. Used for periodic sampling the wrapped method</dd>\n</dl>\n</div>\n",
     "params": {
       "func": {
         "type": "callable",
@@ -1524,7 +1524,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Spectrum": {
     "blockClass": "Spectrum",
     "description": "Block for fourier spectrum analysis (spectrum analyzer).",
-    "docstringHtml": "<p>Block for fourier spectrum analysis (spectrum analyzer).</p>\n<p>Computes continuous time running fourier transform (RFT) of the incoming signal.</p>\n<p>A time threshold can be set by 't_wait' to start recording data only after the\nsimulation time is larger then the specified waiting time, i.e. 't - t_wait &gt; dt'.\nThis is useful for recording the steady state after all the transients have settled.</p>\n<p>An exponential forgetting factor 'alpha' can be specified for realtime spectral\nanalysis. It biases the spectral components exponentially to the most recent signal\nvalues by applying a single sided exponential window like this:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\int_0^t u(\\tau) \\exp(\\alpha (t-\\tau))  \\exp(-j \\omega \\tau)\\ d \\tau\n\\end{equation*}\n</div>\n<p>It is also known as the 'exponentially forgetting transform' (EFT) and a form of\nshort time fourier transform (STFT). It is implemented as a 1st order statespace model</p>\n<div class=\"math\">\n\\begin{equation*}\n\\dot{x} = - \\alpha  x +  \\exp(-j \\omega t) u\n\\end{equation*}\n</div>\n<p>where 'u' is the input signal and 'x' is the state variable that represents the\ncomplex fourier coefficient to the frequency 'omega'. The ODE is integrated using the\nnumerical integration engine of the block.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>This is how to initialize it:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span> <span class=\"name namespace\">numpy</span> <span class=\"keyword\">as</span> <span class=\"name namespace\">np</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#linear frequencies (0Hz, DC -&gt; 1kHz)</span><span class=\"whitespace\">\n</span><span class=\"name\">sp1</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">linspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">1e3</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">),</span><span class=\"whitespace\">\n</span>    <span class=\"name\">labels</span><span class=\"operator\">=</span><span class=\"punctuation\">[</span><span class=\"literal string single\">'x1'</span><span class=\"punctuation\">,</span> <span class=\"literal string single\">'x2'</span><span class=\"punctuation\">]</span> <span class=\"comment single\">#labels for two inputs</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#log frequencies (1Hz -&gt; 1kHz)</span><span class=\"whitespace\">\n</span><span class=\"name\">sp2</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">logspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">3</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#log frequencies including DC (0Hz, DC + 1Hz -&gt; 1kHz)</span><span class=\"whitespace\">\n</span><span class=\"name\">sp3</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">hstack</span><span class=\"punctuation\">([</span><span class=\"literal number float\">0.0</span><span class=\"punctuation\">,</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">logspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">3</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">)])</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#arbitrary frequencies</span><span class=\"whitespace\">\n</span><span class=\"name\">sp4</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">([</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">0.5</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">20</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">1e3</span><span class=\"punctuation\">])</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is relatively slow! But it is valuable for long running simulations\nwith few evaluation frequencies, where just FFT'ing the time series data\nwouldnt be efficient OR if only the evaluation at weirdly spaced frequencies\nis required. Otherwise its more efficient to just do an FFT on the time\nseries recording after the simulation has finished.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>freq <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array[float]</span></dt>\n<dd>list of evaluation frequencies for RFT, can be arbitrarily spaced</dd>\n<dt>t_wait <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>wait time before starting RFT</dd>\n<dt>alpha <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>exponential forgetting factor for realtime spectrum</dd>\n<dt>labels <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[str]</span></dt>\n<dd>labels for the inputs</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Block for fourier spectrum analysis (spectrum analyzer).</p>\n<p>Computes continuous time running fourier transform (RFT) of the incoming signal.</p>\n<p>A time threshold can be set by 't_wait' to start recording data only after the\nsimulation time is larger then the specified waiting time, i.e. 't - t_wait &gt; dt'.\nThis is useful for recording the steady state after all the transients have settled.</p>\n<p>An exponential forgetting factor 'alpha' can be specified for realtime spectral\nanalysis. It biases the spectral components exponentially to the most recent signal\nvalues by applying a single sided exponential window like this:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\int_0^t u(\\tau) \\exp(\\alpha (t-\\tau))  \\exp(-j \\omega \\tau)\\ d \\tau\n\\end{equation*}\n</div>\n<p>It is also known as the 'exponentially forgetting transform' (EFT) and a form of\nshort time fourier transform (STFT). It is implemented as a 1st order statespace model</p>\n<div class=\"math\">\n\\begin{equation*}\n\\dot{x} = - \\alpha  x +  \\exp(-j \\omega t) u\n\\end{equation*}\n</div>\n<p>where 'u' is the input signal and 'x' is the state variable that represents the\ncomplex fourier coefficient to the frequency 'omega'. The ODE is integrated using the\nnumerical integration engine of the block.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>This is how to initialize it:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">import</span><span class=\"whitespace\"> </span><span class=\"name namespace\">numpy</span><span class=\"whitespace\"> </span><span class=\"keyword\">as</span><span class=\"whitespace\"> </span><span class=\"name namespace\">np</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#linear frequencies (0Hz, DC -&gt; 1kHz)</span><span class=\"whitespace\">\n</span><span class=\"name\">sp1</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">linspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">1e3</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">),</span><span class=\"whitespace\">\n</span>    <span class=\"name\">labels</span><span class=\"operator\">=</span><span class=\"punctuation\">[</span><span class=\"literal string single\">'x1'</span><span class=\"punctuation\">,</span> <span class=\"literal string single\">'x2'</span><span class=\"punctuation\">]</span> <span class=\"comment single\">#labels for two inputs</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#log frequencies (1Hz -&gt; 1kHz)</span><span class=\"whitespace\">\n</span><span class=\"name\">sp2</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">logspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">3</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#log frequencies including DC (0Hz, DC + 1Hz -&gt; 1kHz)</span><span class=\"whitespace\">\n</span><span class=\"name\">sp3</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">hstack</span><span class=\"punctuation\">([</span><span class=\"literal number float\">0.0</span><span class=\"punctuation\">,</span> <span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">logspace</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">3</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">100</span><span class=\"punctuation\">)])</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#arbitrary frequencies</span><span class=\"whitespace\">\n</span><span class=\"name\">sp4</span> <span class=\"operator\">=</span> <span class=\"name\">Spectrum</span><span class=\"punctuation\">(</span><span class=\"whitespace\">\n</span>    <span class=\"name\">freq</span><span class=\"operator\">=</span><span class=\"name\">np</span><span class=\"operator\">.</span><span class=\"name\">array</span><span class=\"punctuation\">([</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">0.5</span><span class=\"punctuation\">,</span> <span class=\"literal number integer\">20</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">1e3</span><span class=\"punctuation\">])</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is relatively slow! But it is valuable for long running simulations\nwith few evaluation frequencies, where just FFT'ing the time series data\nwouldnt be efficient OR if only the evaluation at weirdly spaced frequencies\nis required. Otherwise its more efficient to just do an FFT on the time\nseries recording after the simulation has finished.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>freq <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array[float]</span></dt>\n<dd>list of evaluation frequencies for RFT, can be arbitrarily spaced</dd>\n<dt>t_wait <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>wait time before starting RFT</dd>\n<dt>alpha <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>exponential forgetting factor for realtime spectrum</dd>\n<dt>labels <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[str]</span></dt>\n<dd>labels for the inputs</dd>\n</dl>\n</div>\n",
     "params": {
       "freq": {
         "type": "array",
@@ -1553,7 +1553,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
   "Subsystem": {
     "blockClass": "Subsystem",
     "description": "Subsystem class that holds its own blocks and connecions and",
-    "docstringHtml": "<p>Subsystem class that holds its own blocks and connecions and\ncan natively interface with the main simulation loop.</p>\n<p>IO interface is realized by a special 'Interface' block, that has extra\nmethods for setting and getting inputs and outputs and serves\nas the interface of the internal blocks to the outside.</p>\n<p>The subsystem doesnt use its 'inputs' and 'outputs' dicts directly.\nIt exclusively handles data transfer via the 'Interface' block.</p>\n<p>This class can be used just like any other block during the simulation,\nsince it implements the required methods 'update' for the fixed-point\niteration (resolving algebraic loops with instant time blocks),\nthe 'step' method that performs timestepping (especially for dynamic\nblocks with internal states) and the 'solve' method for solving the\nimplicit update equation for implicit solvers.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>This is how we can wrap up multiple blocks within a subsystem.\nIn this case vanderpol system built from discrete components\ninstead of using an ODE block (in practice you should use\na monolithic ODE whenever possible due to performance).</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Subsystem</span><span class=\"punctuation\">,</span> <span class=\"name\">Interface</span><span class=\"punctuation\">,</span> <span class=\"name\">Connection</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span> <span class=\"name namespace\">pathsim.blocks</span> <span class=\"keyword namespace\">import</span> <span class=\"name\">Integrator</span><span class=\"punctuation\">,</span> <span class=\"name\">Function</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#van der Pol parameter</span><span class=\"whitespace\">\n</span><span class=\"name\">mu</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">1000</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#blocks in the subsystem</span><span class=\"whitespace\">\n</span><span class=\"name\">If</span> <span class=\"operator\">=</span> <span class=\"name\">Interface</span><span class=\"punctuation\">()</span> <span class=\"comment single\"># this is the interface to the outside</span><span class=\"whitespace\">\n</span><span class=\"name\">I1</span> <span class=\"operator\">=</span> <span class=\"name\">Integrator</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span><span class=\"name\">I2</span> <span class=\"operator\">=</span> <span class=\"name\">Integrator</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span><span class=\"name\">Fn</span> <span class=\"operator\">=</span> <span class=\"name\">Function</span><span class=\"punctuation\">(</span><span class=\"keyword\">lambda</span> <span class=\"name\">x1</span><span class=\"punctuation\">,</span> <span class=\"name\">x2</span><span class=\"punctuation\">:</span> <span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1</span> <span class=\"operator\">-</span> <span class=\"name\">x1</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"operator\">*</span><span class=\"name\">x2</span> <span class=\"operator\">-</span> <span class=\"name\">x1</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">sub_blocks</span> <span class=\"operator\">=</span> <span class=\"punctuation\">[</span><span class=\"name\">If</span><span class=\"punctuation\">,</span> <span class=\"name\">I1</span><span class=\"punctuation\">,</span> <span class=\"name\">I2</span><span class=\"punctuation\">,</span> <span class=\"name\">Fn</span><span class=\"punctuation\">]</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#connections in the subsystem</span><span class=\"whitespace\">\n</span><span class=\"name\">sub_connections</span> <span class=\"operator\">=</span> <span class=\"punctuation\">[</span><span class=\"whitespace\">\n</span>    <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">I2</span><span class=\"punctuation\">,</span> <span class=\"name\">I1</span><span class=\"punctuation\">,</span> <span class=\"name\">Fn</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">],</span> <span class=\"name\">If</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">]),</span><span class=\"whitespace\">\n</span>    <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">I1</span><span class=\"punctuation\">,</span> <span class=\"name\">Fn</span><span class=\"punctuation\">,</span> <span class=\"name\">If</span><span class=\"punctuation\">),</span><span class=\"whitespace\">\n</span>    <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">Fn</span><span class=\"punctuation\">,</span> <span class=\"name\">I2</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">]</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#the subsystem acts just like a normal block</span><span class=\"whitespace\">\n</span><span class=\"name\">vdp</span> <span class=\"operator\">=</span> <span class=\"name\">Subsystem</span><span class=\"punctuation\">(</span><span class=\"name\">sub_blocks</span><span class=\"punctuation\">,</span> <span class=\"name\">sub_connections</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>blocks <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[Block] | None</span></dt>\n<dd>internal blocks of the subsystem</dd>\n<dt>connections <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[Connection] | None</span></dt>\n<dd>internal connections of the subsystem</dd>\n</dl>\n<p>events : list[Event] | None\ntolerance_fpi : float</p>\n<blockquote>\nabsolute tolerance for convergence of algebraic loops\ndefault see ´SIM_TOLERANCE_FPI´ in ´_constants.py´</blockquote>\n<dl class=\"docutils\">\n<dt>iterations_max <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int</span></dt>\n<dd>maximum allowed number of iterations for algebraic loop\nsolver, default see ´SIM_ITERATIONS_MAX´ in ´_constants.py´</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>interface <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Interface</span></dt>\n<dd>internal interface block for data transfer to the outside</dd>\n<dt>graph <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Graph</span></dt>\n<dd>internal graph representation for fast system funcion\nevluations using DAG with algebraic depths</dd>\n<dt>boosters <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">None | list[ConnectionBooster]</span></dt>\n<dd>list of boosters (fixed point accelerators) that wrap\nalgebraic loop closing connections assembled from the\nsystem graph</dd>\n</dl>\n</div>\n",
+    "docstringHtml": "<p>Subsystem class that holds its own blocks and connecions and\ncan natively interface with the main simulation loop.</p>\n<p>IO interface is realized by a special 'Interface' block, that has extra\nmethods for setting and getting inputs and outputs and serves\nas the interface of the internal blocks to the outside.</p>\n<p>The subsystem doesnt use its 'inputs' and 'outputs' dicts directly.\nIt exclusively handles data transfer via the 'Interface' block.</p>\n<p>This class can be used just like any other block during the simulation,\nsince it implements the required methods 'update' for the fixed-point\niteration (resolving algebraic loops with instant time blocks),\nthe 'step' method that performs timestepping (especially for dynamic\nblocks with internal states) and the 'solve' method for solving the\nimplicit update equation for implicit solvers.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>This is how we can wrap up multiple blocks within a subsystem.\nIn this case vanderpol system built from discrete components\ninstead of using an ODE block (in practice you should use\na monolithic ODE whenever possible due to performance).</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Subsystem</span><span class=\"punctuation\">,</span> <span class=\"name\">Interface</span><span class=\"punctuation\">,</span> <span class=\"name\">Connection</span><span class=\"whitespace\">\n</span><span class=\"keyword namespace\">from</span><span class=\"whitespace\"> </span><span class=\"name namespace\">pathsim.blocks</span><span class=\"whitespace\"> </span><span class=\"keyword namespace\">import</span> <span class=\"name\">Integrator</span><span class=\"punctuation\">,</span> <span class=\"name\">Function</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#van der Pol parameter</span><span class=\"whitespace\">\n</span><span class=\"name\">mu</span> <span class=\"operator\">=</span> <span class=\"literal number integer\">1000</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#blocks in the subsystem</span><span class=\"whitespace\">\n</span><span class=\"name\">If</span> <span class=\"operator\">=</span> <span class=\"name\">Interface</span><span class=\"punctuation\">()</span> <span class=\"comment single\"># this is the interface to the outside</span><span class=\"whitespace\">\n</span><span class=\"name\">I1</span> <span class=\"operator\">=</span> <span class=\"name\">Integrator</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span><span class=\"name\">I2</span> <span class=\"operator\">=</span> <span class=\"name\">Integrator</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span><span class=\"name\">Fn</span> <span class=\"operator\">=</span> <span class=\"name\">Function</span><span class=\"punctuation\">(</span><span class=\"keyword\">lambda</span> <span class=\"name\">x1</span><span class=\"punctuation\">,</span> <span class=\"name\">x2</span><span class=\"punctuation\">:</span> <span class=\"name\">mu</span><span class=\"operator\">*</span><span class=\"punctuation\">(</span><span class=\"literal number integer\">1</span> <span class=\"operator\">-</span> <span class=\"name\">x1</span><span class=\"operator\">**</span><span class=\"literal number integer\">2</span><span class=\"punctuation\">)</span><span class=\"operator\">*</span><span class=\"name\">x2</span> <span class=\"operator\">-</span> <span class=\"name\">x1</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">sub_blocks</span> <span class=\"operator\">=</span> <span class=\"punctuation\">[</span><span class=\"name\">If</span><span class=\"punctuation\">,</span> <span class=\"name\">I1</span><span class=\"punctuation\">,</span> <span class=\"name\">I2</span><span class=\"punctuation\">,</span> <span class=\"name\">Fn</span><span class=\"punctuation\">]</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#connections in the subsystem</span><span class=\"whitespace\">\n</span><span class=\"name\">sub_connections</span> <span class=\"operator\">=</span> <span class=\"punctuation\">[</span><span class=\"whitespace\">\n</span>    <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">I2</span><span class=\"punctuation\">,</span> <span class=\"name\">I1</span><span class=\"punctuation\">,</span> <span class=\"name\">Fn</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">],</span> <span class=\"name\">If</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">1</span><span class=\"punctuation\">]),</span><span class=\"whitespace\">\n</span>    <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">I1</span><span class=\"punctuation\">,</span> <span class=\"name\">Fn</span><span class=\"punctuation\">,</span> <span class=\"name\">If</span><span class=\"punctuation\">),</span><span class=\"whitespace\">\n</span>    <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">Fn</span><span class=\"punctuation\">,</span> <span class=\"name\">I2</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n</span>    <span class=\"punctuation\">]</span><span class=\"whitespace\">\n\n</span><span class=\"comment single\">#the subsystem acts just like a normal block</span><span class=\"whitespace\">\n</span><span class=\"name\">vdp</span> <span class=\"operator\">=</span> <span class=\"name\">Subsystem</span><span class=\"punctuation\">(</span><span class=\"name\">sub_blocks</span><span class=\"punctuation\">,</span> <span class=\"name\">sub_connections</span><span class=\"punctuation\">)</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>blocks <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[Block] | None</span></dt>\n<dd>internal blocks of the subsystem</dd>\n<dt>connections <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">list[Connection] | None</span></dt>\n<dd>internal connections of the subsystem</dd>\n</dl>\n<p>events : list[Event] | None\ntolerance_fpi : float</p>\n<blockquote>\nabsolute tolerance for convergence of algebraic loops\ndefault see ´SIM_TOLERANCE_FPI´ in ´_constants.py´</blockquote>\n<dl class=\"docutils\">\n<dt>iterations_max <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int</span></dt>\n<dd>maximum allowed number of iterations for algebraic loop\nsolver, default see ´SIM_ITERATIONS_MAX´ in ´_constants.py´</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>interface <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Interface</span></dt>\n<dd>internal interface block for data transfer to the outside</dd>\n<dt>graph <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Graph</span></dt>\n<dd>internal graph representation for fast system funcion\nevluations using DAG with algebraic depths</dd>\n<dt>boosters <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">None | list[ConnectionBooster]</span></dt>\n<dd>list of boosters (fixed point accelerators) that wrap\nalgebraic loop closing connections assembled from the\nsystem graph</dd>\n</dl>\n</div>\n",
     "params": {},
     "inputs": [],
     "outputs": []
@@ -1565,531 +1565,6 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
     "params": {},
     "inputs": [],
     "outputs": []
-  },
-  "Process": {
-    "blockClass": "Process",
-    "description": "Simplified version of the `ResidenceTime` model block",
-    "docstringHtml": "<p>Simplified version of the <cite>ResidenceTime</cite> model block\nwith all inputs being summed equally and only the state\nand the flux being returned to the output</p>\n<p>This block implements an internal 1st order linear ode with\nmultiple inputs, outputs and no direct passthrough.</p>\n<p>The internal ODE with inputs <span class=\"math\">\\(u_i\\)</span> :</p>\n<div class=\"math\">\n\\begin{equation*}\n\\dot{x} = - x / \\tau + \\mathrm{src} + \\sum_i u_i\n\\end{equation*}\n</div>\n<p>And the output equations for output <cite>i=0</cite> and <cite>i=1</cite>:</p>\n<div class=\"math\">\n\\begin{equation*}\ny_0 = x\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\ny_1 = x / \\tau\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>residence time, inverse natural frequency (eigenvalue)</dd>\n<dt>initial_value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>initial value of state / initial quantity of process</dd>\n<dt>source_term <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>constant source term / generation term of the process</dd>\n</dl>\n</div>\n",
-    "params": {
-      "tau": {
-        "type": "integer",
-        "default": "1",
-        "description": "residence time, inverse natural frequency (eigenvalue)"
-      },
-      "initial_value": {
-        "type": "integer",
-        "default": "0",
-        "description": "initial value of state / initial quantity of process"
-      },
-      "source_term": {
-        "type": "integer",
-        "default": "0",
-        "description": "constant source term / generation term of the process"
-      }
-    },
-    "inputs": null,
-    "outputs": [
-      "x",
-      "x/tau"
-    ]
-  },
-  "ResidenceTime": {
-    "blockClass": "ResidenceTime",
-    "description": "Chemical process block with residence time model.",
-    "docstringHtml": "<p>Chemical process block with residence time model.</p>\n<p>This block implements an internal 1st order linear ode with\nmultiple inputs, outputs, an internal constant source term\nand no direct passthrough.</p>\n<p>The internal ODE with inputs <span class=\"math\">\\(u_i\\)</span> :</p>\n<div class=\"math\">\n\\begin{equation*}\n\\dot{x} = - x / \\tau + \\mathrm{src} + \\sum_i \\beta_i u_i\n\\end{equation*}\n</div>\n<p>And the output equation for every output <cite>i</cite> :</p>\n<div class=\"math\">\n\\begin{equation*}\ny_i = \\gamma_i x\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>tau <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>residence time, inverse natural frequency (eigenvalue)</dd>\n<dt>betas: None | list[float] | np.ndarray[float]</dt>\n<dd>weights of inputs that are accumulated in state, optional</dd>\n<dt>gammas <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">None | list[float] | np.ndarray[float]</span></dt>\n<dd>weights of states (fractions) for output, optional</dd>\n<dt>initial_value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>initial value of state / initial quantity of process</dd>\n<dt>source_term <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>constant source term / generation term of the process</dd>\n</dl>\n</div>\n",
-    "params": {
-      "tau": {
-        "type": "integer",
-        "default": "1",
-        "description": "residence time, inverse natural frequency (eigenvalue)"
-      },
-      "betas": {
-        "type": "any",
-        "default": null,
-        "description": "weights of inputs that are accumulated in state, optional"
-      },
-      "gammas": {
-        "type": "any",
-        "default": null,
-        "description": "weights of states (fractions) for output, optional"
-      },
-      "initial_value": {
-        "type": "integer",
-        "default": "0",
-        "description": "initial value of state / initial quantity of process"
-      },
-      "source_term": {
-        "type": "integer",
-        "default": "0",
-        "description": "constant source term / generation term of the process"
-      }
-    },
-    "inputs": null,
-    "outputs": null
-  },
-  "Splitter": {
-    "blockClass": "Splitter",
-    "description": "Splitter block that splits the input signal into multiple",
-    "docstringHtml": "<p>Splitter block that splits the input signal into multiple\noutputs weighted with the specified fractions.</p>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>The output fractions must sum to one.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>fractions <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">np.ndarray | list</span></dt>\n<dd>fractions to split the input signal into,\nmust sum up to one</dd>\n</dl>\n</div>\n",
-    "params": {
-      "fractions": {
-        "type": "any",
-        "default": null,
-        "description": "fractions to split the input signal into, must sum up to one"
-      }
-    },
-    "inputs": [
-      "in"
-    ],
-    "outputs": null
-  },
-  "Bubbler4": {
-    "blockClass": "Bubbler4",
-    "description": "Tritium bubbling system with sequential vial collection stages.",
-    "docstringHtml": "<p>Tritium bubbling system with sequential vial collection stages.</p>\n<p>This block models a tritium collection system used in fusion reactor blanket\npurge gas processing. The system bubbles tritium-containing gas through a series\nof liquid-filled vials to capture and concentrate tritium for measurement and\ninventory tracking.</p>\n<div class=\"section\" id=\"physical-description\">\n<h3>Physical Description</h3>\n<p>The bubbler consists of two parallel processing chains:</p>\n<p><strong>Soluble Chain (Vials 1-2):</strong>\nTritium already in soluble forms (HTO, HT) flows sequentially through\nvials 1 and 2. Each vial has a collection efficiency <span class=\"math\">\\(\\eta_{vial}\\)</span>,\nrepresenting the fraction of tritium that dissolves into the liquid phase\nand is retained.</p>\n<p><strong>Insoluble Chain (Vials 3-4):</strong>\nTritium in insoluble forms (T₂, organically bound) first undergoes catalytic\nconversion to soluble forms with efficiency <span class=\"math\">\\(\\alpha_{conv}\\)</span>. The\nconverted tritium, along with uncaptured soluble tritium from the first chain,\nthen flows through vials 3 and 4 with the same collection efficiency.</p>\n</div>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>The system is governed by the following differential equations for the\nvial inventories <span class=\"math\">\\(x_i\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_1}{dt} &amp;= \\eta_{vial} \\cdot u_{sol}\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_2}{dt} &amp;= \\eta_{vial} \\cdot (1-\\eta_{vial}) \\cdot u_{sol}\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_3}{dt} &amp;= \\eta_{vial} \\cdot [\\alpha_{conv} \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot u_{sol}]\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dx_4}{dt} &amp;= \\eta_{vial} \\cdot (1-\\eta_{vial}) \\cdot [\\alpha_{conv} \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot u_{sol}]\n\\end{equation*}\n</div>\n<p>The sample output represents uncaptured tritium exiting the system:</p>\n<div class=\"math\">\n\\begin{equation*}\ny_{sample} = (1-\\alpha_{conv}) \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot [\\alpha_{conv} \\cdot u_{insol} + (1-\\eta_{vial})^2 \\cdot u_{sol}]\n\\end{equation*}\n</div>\n<dl class=\"docutils\">\n<dt>Where:</dt>\n<dd><ul class=\"first last simple\">\n<li><span class=\"math\">\\(u_{sol}\\)</span> = soluble tritium input flow rate</li>\n<li><span class=\"math\">\\(u_{insol}\\)</span> = insoluble tritium input flow rate</li>\n<li><span class=\"math\">\\(\\eta_{vial}\\)</span> = vial collection efficiency</li>\n<li><span class=\"math\">\\(\\alpha_{conv}\\)</span> = conversion efficiency from insoluble to soluble</li>\n<li><span class=\"math\">\\(x_i\\)</span> = tritium inventory in vial i</li>\n</ul>\n</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>conversion_efficiency <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Conversion efficiency from insoluble to soluble forms (<span class=\"math\">\\(\\alpha_{conv}\\)</span>),\nbetween 0 and 1.</dd>\n<dt>vial_efficiency <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Collection efficiency of each vial (<span class=\"math\">\\(\\eta_{vial}\\)</span>), between 0 and 1.</dd>\n<dt>replacement_times <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float | list[float] | list[list[float]]</span></dt>\n<dd>Times at which each vial is replaced with a fresh one. If None, no\nreplacement events are created. If a single value is provided, it is\nused for all vials. If a single list of floats is provided, it will be\nused for all vials. If a list of lists is provided, each sublist\ncorresponds to the replacement times for each vial.</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"notes\">\n<h3>Notes</h3>\n<p>Vial replacement is modeled as instantaneous reset events that set the\ncorresponding vial inventory to zero, simulating the physical replacement\nof a full vial with an empty one.</p>\n</div>\n",
-    "params": {
-      "conversion_efficiency": {
-        "type": "number",
-        "default": "0.9",
-        "description": "Conversion efficiency from insoluble to soluble forms (:math:`\\alpha_{conv}`), between 0 and 1."
-      },
-      "vial_efficiency": {
-        "type": "number",
-        "default": "0.9",
-        "description": "Collection efficiency of each vial (:math:`\\eta_{vial}`), between 0 and 1."
-      },
-      "replacement_times": {
-        "type": "any",
-        "default": null,
-        "description": "Times at which each vial is replaced with a fresh one. If None, no replacement events are created. If a single value is provided, it is used for all vials. If a single list of floats is provided, it will be used for all vials. If a list of lists is provided, each sublist corresponds to the replacement times for each vial."
-      }
-    },
-    "inputs": [
-      "sample_in_soluble",
-      "sample_in_insoluble"
-    ],
-    "outputs": [
-      "vial1",
-      "vial2",
-      "vial3",
-      "vial4",
-      "sample_out"
-    ]
-  },
-  "GLC": {
-    "blockClass": "GLC",
-    "description": "Counter-current bubble column gas-liquid contactor (GLC) for tritium extraction.",
-    "docstringHtml": "<p>Counter-current bubble column gas-liquid contactor (GLC) for tritium extraction.</p>\n<p>Solves the coupled, non-linear, second-order boundary value problem that\ndescribes tritium transport between a liquid metal (LiPb) stream and a\npurge gas in a counter-current bubble column. The model is based on\nC. Malara (1995) and accounts for axial dispersion, interfacial mass\ntransfer via Sieverts' law, and hydrostatic pressure variation along\nthe column.</p>\n<p>The block is intended for steady-state tritium extraction calculations\nin fusion blanket systems. At each evaluation it computes\ntemperature-dependent fluid properties, dimensionless groups, and solves\nthe BVP using <tt class=\"docutils literal\">scipy.integrate.solve_bvp</tt>.</p>\n<p>Reference: <a class=\"reference external\" href=\"https://doi.org/10.13182/FST95-A30485\">https://doi.org/10.13182/FST95-A30485</a></p>\n<p><strong>Input ports:</strong>\n<tt class=\"docutils literal\">c_T_in</tt> -- dissolved tritium concentration in liquid inlet [mol/m³],\n<tt class=\"docutils literal\">flow_l</tt> -- liquid mass flow rate [kg/s],\n<tt class=\"docutils literal\">y_T2_inlet</tt> -- T₂ mole fraction in inlet gas [-],\n<tt class=\"docutils literal\">flow_g</tt> -- gas mass flow rate [kg/s].</p>\n<p><strong>Output ports:</strong>\n<tt class=\"docutils literal\">c_T_out</tt> -- dissolved tritium concentration in liquid outlet [mol/m³],\n<tt class=\"docutils literal\">y_T2_out</tt> -- T₂ mole fraction in outlet gas [-],\n<tt class=\"docutils literal\">eff</tt> -- extraction efficiency [-],\n<tt class=\"docutils literal\">P_out</tt> -- total gas outlet pressure [Pa],\n<tt class=\"docutils literal\">Q_l</tt> -- liquid volumetric flow rate [m³/s],\n<tt class=\"docutils literal\">Q_g_out</tt> -- gas volumetric flow rate at outlet [m³/s],\n<tt class=\"docutils literal\">n_T_out_liquid</tt> -- tritium molar flow in liquid outlet [mol/s],\n<tt class=\"docutils literal\">n_T_out_gas</tt> -- tritium molar flow in gas outlet [mol/s].</p>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>P_in <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Inlet operating pressure [Pa].</dd>\n<dt>L <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Column height [m].</dd>\n<dt>D <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Column diameter [m].</dd>\n<dt>T <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Operating temperature [K]. Used to compute temperature-dependent\nLiPb properties (density, viscosity, Sieverts' constant, etc.).</dd>\n<dt>BCs <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">str</span></dt>\n<dd>Boundary condition type for the BVP: <tt class=\"docutils literal\"><span class=\"pre\">&quot;C-C&quot;</span></tt> (closed-closed) or\n<tt class=\"docutils literal\"><span class=\"pre\">&quot;O-C&quot;</span></tt> (open-closed).</dd>\n<dt>g <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float, optional</span></dt>\n<dd>Gravitational acceleration [m/s²]. Default: <tt class=\"docutils literal\">scipy.constants.g</tt>.</dd>\n<dt>initial_nb_of_elements <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int, optional</span></dt>\n<dd>Number of mesh elements for the initial BVP grid. Default: 20.</dd>\n</dl>\n</div>\n",
-    "params": {
-      "P_in": {
-        "type": "any",
-        "default": null,
-        "description": "Inlet operating pressure [Pa]."
-      },
-      "L": {
-        "type": "any",
-        "default": null,
-        "description": "Column height [m]."
-      },
-      "D": {
-        "type": "any",
-        "default": null,
-        "description": "Column diameter [m]."
-      },
-      "T": {
-        "type": "any",
-        "default": null,
-        "description": "Operating temperature [K]. Used to compute temperature-dependent LiPb properties (density, viscosity, Sieverts' constant, etc.)."
-      },
-      "BCs": {
-        "type": "any",
-        "default": null,
-        "description": "Boundary condition type for the BVP: ``\"C-C\"`` (closed-closed) or ``\"O-C\"`` (open-closed)."
-      },
-      "g": {
-        "type": "number",
-        "default": "9.80665",
-        "description": "Gravitational acceleration [m/s²]. Default: ``scipy.constants.g``."
-      },
-      "initial_nb_of_elements": {
-        "type": "integer",
-        "default": "20",
-        "description": "Number of mesh elements for the initial BVP grid. Default: 20."
-      }
-    },
-    "inputs": [
-      "c_T_in",
-      "flow_l",
-      "y_T2_inlet",
-      "flow_g"
-    ],
-    "outputs": [
-      "c_T_out",
-      "y_T2_out",
-      "eff",
-      "P_out",
-      "Q_l",
-      "Q_g_out",
-      "n_T_out_liquid",
-      "n_T_out_gas"
-    ]
-  },
-  "CSTR": {
-    "blockClass": "CSTR",
-    "description": "Continuous stirred-tank reactor with Arrhenius kinetics and energy balance.",
-    "docstringHtml": "<p>Continuous stirred-tank reactor with Arrhenius kinetics and energy balance.</p>\n<p>Models a well-mixed tank where a single reaction A -&gt; products occurs with\nnth-order kinetics. The reaction rate follows the Arrhenius temperature\ndependence. An external coolant jacket provides or removes heat.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>The state vector is <span class=\"math\">\\([C_A, T]\\)</span> where <span class=\"math\">\\(C_A\\)</span> is the concentration\nof species A and <span class=\"math\">\\(T\\)</span> is the reactor temperature.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dC_A}{dt} = \\frac{C_{A,in} - C_A}{\\tau} - k(T) \\, C_A^n\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT}{dt} = \\frac{T_{in} - T}{\\tau}\n    + \\frac{(-\\Delta H_{rxn})}{\\rho \\, C_p} \\, k(T) \\, C_A^n\n    + \\frac{UA}{\\rho \\, C_p \\, V} \\, (T_c - T)\n\\end{equation*}\n</div>\n<p>where the Arrhenius rate constant is:</p>\n<div class=\"math\">\n\\begin{equation*}\nk(T) = k_0 \\, \\exp\\!\\left(-\\frac{E_a}{R \\, T}\\right)\n\\end{equation*}\n</div>\n<p>and the residence time is <span class=\"math\">\\(\\tau = V / F\\)</span>.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>V <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Reactor volume [m³].</dd>\n<dt>F <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Volumetric flow rate [m³/s].</dd>\n<dt>k0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Pre-exponential Arrhenius factor [1/s for n=1, (m³/mol)^(n-1)/s].</dd>\n<dt>Ea <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Activation energy [J/mol].</dd>\n<dt>n <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Reaction order with respect to species A [-].</dd>\n<dt>dH_rxn <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Heat of reaction [J/mol]. Negative for exothermic reactions.</dd>\n<dt>rho <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid density [kg/m³].</dd>\n<dt>Cp <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid heat capacity [J/(kg·K)].</dd>\n<dt>UA <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Overall heat transfer coefficient times area [W/K].</dd>\n<dt>C_A0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial concentration of A [mol/m³].</dd>\n<dt>T0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial reactor temperature [K].</dd>\n</dl>\n</div>\n",
-    "params": {
-      "V": {
-        "type": "number",
-        "default": "1.0",
-        "description": "Reactor volume [m³]."
-      },
-      "F": {
-        "type": "number",
-        "default": "0.1",
-        "description": "Volumetric flow rate [m³/s]."
-      },
-      "k0": {
-        "type": "number",
-        "default": "1000000.0",
-        "description": "Pre-exponential Arrhenius factor [1/s for n=1, (m³/mol)^(n-1)/s]."
-      },
-      "Ea": {
-        "type": "number",
-        "default": "50000.0",
-        "description": "Activation energy [J/mol]."
-      },
-      "n": {
-        "type": "number",
-        "default": "1.0",
-        "description": "Reaction order with respect to species A [-]."
-      },
-      "dH_rxn": {
-        "type": "number",
-        "default": "-50000.0",
-        "description": "Heat of reaction [J/mol]. Negative for exothermic reactions."
-      },
-      "rho": {
-        "type": "number",
-        "default": "1000.0",
-        "description": "Fluid density [kg/m³]."
-      },
-      "Cp": {
-        "type": "number",
-        "default": "4184.0",
-        "description": "Fluid heat capacity [J/(kg·K)]."
-      },
-      "UA": {
-        "type": "number",
-        "default": "500.0",
-        "description": "Overall heat transfer coefficient times area [W/K]."
-      },
-      "C_A0": {
-        "type": "number",
-        "default": "0.0",
-        "description": "Initial concentration of A [mol/m³]."
-      },
-      "T0": {
-        "type": "number",
-        "default": "300.0",
-        "description": "Initial reactor temperature [K]."
-      }
-    },
-    "inputs": [
-      "C_in",
-      "T_in",
-      "T_c"
-    ],
-    "outputs": [
-      "C_out",
-      "T_out"
-    ]
-  },
-  "PFR": {
-    "blockClass": "PFR",
-    "description": "Plug flow reactor with Arrhenius kinetics and energy balance.",
-    "docstringHtml": "<p>Plug flow reactor with Arrhenius kinetics and energy balance.</p>\n<p>Discretized tubular reactor divided into N cells along its length.\nEach cell has concentration and temperature states with nth-order\nkinetics and an energy balance including heat of reaction.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>For each cell <span class=\"math\">\\(i = 1, \\ldots, N\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dC_i}{dt} = \\frac{F}{V_{cell}} (C_{i-1} - C_i) - k(T_i) \\, C_i^n\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT_i}{dt} = \\frac{F}{V_{cell}} (T_{i-1} - T_i)\n    + \\frac{(-\\Delta H_{rxn})}{\\rho \\, C_p} \\, k(T_i) \\, C_i^n\n\\end{equation*}\n</div>\n<p>where the Arrhenius rate constant is:</p>\n<div class=\"math\">\n\\begin{equation*}\nk(T) = k_0 \\, \\exp\\!\\left(-\\frac{E_a}{R \\, T}\\right)\n\\end{equation*}\n</div>\n<p>The state vector is ordered as\n<span class=\"math\">\\([C_1, T_1, C_2, T_2, \\ldots, C_N, T_N]\\)</span>.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>N_cells <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int</span></dt>\n<dd>Number of discretization cells [-].</dd>\n<dt>V <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total reactor volume [m³].</dd>\n<dt>F <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Volumetric flow rate [m³/s].</dd>\n<dt>k0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Pre-exponential Arrhenius factor [1/s for n=1].</dd>\n<dt>Ea <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Activation energy [J/mol].</dd>\n<dt>n <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Reaction order [-].</dd>\n<dt>dH_rxn <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Heat of reaction [J/mol]. Negative for exothermic.</dd>\n<dt>rho <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid density [kg/m³].</dd>\n<dt>Cp <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid heat capacity [J/(kg·K)].</dd>\n<dt>C0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial concentration [mol/m³].</dd>\n<dt>T0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial temperature [K].</dd>\n</dl>\n</div>\n",
-    "params": {
-      "N_cells": {
-        "type": "integer",
-        "default": "5",
-        "description": "Number of discretization cells [-]."
-      },
-      "V": {
-        "type": "number",
-        "default": "1.0",
-        "description": "Total reactor volume [m³]."
-      },
-      "F": {
-        "type": "number",
-        "default": "0.1",
-        "description": "Volumetric flow rate [m³/s]."
-      },
-      "k0": {
-        "type": "number",
-        "default": "1000000.0",
-        "description": "Pre-exponential Arrhenius factor [1/s for n=1]."
-      },
-      "Ea": {
-        "type": "number",
-        "default": "50000.0",
-        "description": "Activation energy [J/mol]."
-      },
-      "n": {
-        "type": "number",
-        "default": "1.0",
-        "description": "Reaction order [-]."
-      },
-      "dH_rxn": {
-        "type": "number",
-        "default": "-50000.0",
-        "description": "Heat of reaction [J/mol]. Negative for exothermic."
-      },
-      "rho": {
-        "type": "number",
-        "default": "1000.0",
-        "description": "Fluid density [kg/m³]."
-      },
-      "Cp": {
-        "type": "number",
-        "default": "4184.0",
-        "description": "Fluid heat capacity [J/(kg·K)]."
-      },
-      "C0": {
-        "type": "number",
-        "default": "0.0",
-        "description": "Initial concentration [mol/m³]."
-      },
-      "T0": {
-        "type": "number",
-        "default": "300.0",
-        "description": "Initial temperature [K]."
-      }
-    },
-    "inputs": [
-      "C_in",
-      "T_in"
-    ],
-    "outputs": [
-      "C_out",
-      "T_out"
-    ]
-  },
-  "HeatExchanger": {
-    "blockClass": "HeatExchanger",
-    "description": "Counter-current shell and tube heat exchanger with discretized cells.",
-    "docstringHtml": "<p>Counter-current shell and tube heat exchanger with discretized cells.</p>\n<p>The exchanger is divided into N cells along its length. The hot stream\nflows from cell 1 to N, the cold stream flows from cell N to 1\n(counter-current). Each cell exchanges heat proportional to the local\ntemperature difference.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>For each cell <span class=\"math\">\\(i = 1, \\ldots, N\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT_{h,i}}{dt} = \\frac{F_h}{V_{cell,h}} (T_{h,i-1} - T_{h,i})\n    - \\frac{UA_{cell}}{\\rho_h C_{p,h} V_{cell,h}} (T_{h,i} - T_{c,i})\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dT_{c,i}}{dt} = \\frac{F_c}{V_{cell,c}} (T_{c,i+1} - T_{c,i})\n    + \\frac{UA_{cell}}{\\rho_c C_{p,c} V_{cell,c}} (T_{h,i} - T_{c,i})\n\\end{equation*}\n</div>\n<p>where <span class=\"math\">\\(T_{h,0} = T_{h,in}\\)</span> and <span class=\"math\">\\(T_{c,N+1} = T_{c,in}\\)</span>.</p>\n<p>The state vector is ordered as\n<span class=\"math\">\\([T_{h,1}, T_{c,1}, T_{h,2}, T_{c,2}, \\ldots, T_{h,N}, T_{c,N}]\\)</span>.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>N_cells <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">int</span></dt>\n<dd>Number of discretization cells along the exchanger [-].</dd>\n<dt>F_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Hot stream volumetric flow rate [m³/s].</dd>\n<dt>F_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Cold stream volumetric flow rate [m³/s].</dd>\n<dt>V_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total hot-side volume [m³].</dd>\n<dt>V_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total cold-side volume [m³].</dd>\n<dt>UA <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total overall heat transfer coefficient times area [W/K].</dd>\n<dt>rho_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Hot stream density [kg/m³].</dd>\n<dt>Cp_h <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Hot stream heat capacity [J/(kg·K)].</dd>\n<dt>rho_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Cold stream density [kg/m³].</dd>\n<dt>Cp_c <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Cold stream heat capacity [J/(kg·K)].</dd>\n<dt>T_h0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial hot-side temperature [K].</dd>\n<dt>T_c0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial cold-side temperature [K].</dd>\n</dl>\n</div>\n",
-    "params": {
-      "N_cells": {
-        "type": "integer",
-        "default": "5",
-        "description": "Number of discretization cells along the exchanger [-]."
-      },
-      "F_h": {
-        "type": "number",
-        "default": "0.1",
-        "description": "Hot stream volumetric flow rate [m³/s]."
-      },
-      "F_c": {
-        "type": "number",
-        "default": "0.1",
-        "description": "Cold stream volumetric flow rate [m³/s]."
-      },
-      "V_h": {
-        "type": "number",
-        "default": "0.5",
-        "description": "Total hot-side volume [m³]."
-      },
-      "V_c": {
-        "type": "number",
-        "default": "0.5",
-        "description": "Total cold-side volume [m³]."
-      },
-      "UA": {
-        "type": "number",
-        "default": "500.0",
-        "description": "Total overall heat transfer coefficient times area [W/K]."
-      },
-      "rho_h": {
-        "type": "number",
-        "default": "1000.0",
-        "description": "Hot stream density [kg/m³]."
-      },
-      "Cp_h": {
-        "type": "number",
-        "default": "4184.0",
-        "description": "Hot stream heat capacity [J/(kg·K)]."
-      },
-      "rho_c": {
-        "type": "number",
-        "default": "1000.0",
-        "description": "Cold stream density [kg/m³]."
-      },
-      "Cp_c": {
-        "type": "number",
-        "default": "4184.0",
-        "description": "Cold stream heat capacity [J/(kg·K)]."
-      },
-      "T_h0": {
-        "type": "number",
-        "default": "370.0",
-        "description": "Initial hot-side temperature [K]."
-      },
-      "T_c0": {
-        "type": "number",
-        "default": "300.0",
-        "description": "Initial cold-side temperature [K]."
-      }
-    },
-    "inputs": [
-      "T_h_in",
-      "T_c_in"
-    ],
-    "outputs": [
-      "T_h_out",
-      "T_c_out"
-    ]
-  },
-  "FlashDrum": {
-    "blockClass": "FlashDrum",
-    "description": "Binary isothermal flash drum with Raoult's law vapor-liquid equilibrium.",
-    "docstringHtml": "<p>Binary isothermal flash drum with Raoult's law vapor-liquid equilibrium.</p>\n<p>Models a flash drum with liquid holdup for a binary mixture. Feed enters as\nliquid, vapor and liquid streams exit. Temperature and pressure are specified\nas inputs. VLE is computed algebraically using K-values from Raoult's law:</p>\n<div class=\"math\">\n\\begin{equation*}\nK_i = \\frac{P_{sat,i}(T)}{P}\n\\end{equation*}\n</div>\n<p>where the Antoine equation gives the saturation pressure:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\ln P_{sat,i} = A_i - \\frac{B_i}{T + C_i}\n\\end{equation*}\n</div>\n<p>The Rachford-Rice equation determines the vapor fraction <span class=\"math\">\\(\\beta\\)</span>:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\sum_i \\frac{z_i (K_i - 1)}{1 + \\beta (K_i - 1)} = 0\n\\end{equation*}\n</div>\n<p>For a binary system this has the analytical solution:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\beta = -\\frac{z_1(K_1 - 1) + z_2(K_2 - 1)}{(K_1 - 1)(K_2 - 1)}\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"dynamic-states\">\n<h3>Dynamic States</h3>\n<p>The holdup moles of each component in the liquid phase:</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dN_i}{dt} = F z_i - V y_i - L x_i\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>holdup <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Total liquid holdup [mol]. Assumed approximately constant.</dd>\n<dt>antoine_A <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Antoine A parameters for each component [ln(Pa)].</dd>\n<dt>antoine_B <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Antoine B parameters for each component [K].</dd>\n<dt>antoine_C <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Antoine C parameters for each component [K].</dd>\n<dt>N0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like or None</span></dt>\n<dd>Initial component holdup moles [mol]. If None, equal split assumed.</dd>\n</dl>\n</div>\n",
-    "params": {
-      "holdup": {
-        "type": "number",
-        "default": "100.0",
-        "description": "Total liquid holdup [mol]. Assumed approximately constant."
-      },
-      "antoine_A": {
-        "type": "any",
-        "default": null,
-        "description": "Antoine A parameters for each component [ln(Pa)]."
-      },
-      "antoine_B": {
-        "type": "any",
-        "default": null,
-        "description": "Antoine B parameters for each component [K]."
-      },
-      "antoine_C": {
-        "type": "any",
-        "default": null,
-        "description": "Antoine C parameters for each component [K]."
-      },
-      "N0": {
-        "type": "any",
-        "default": null,
-        "description": "Initial component holdup moles [mol]. If None, equal split assumed."
-      }
-    },
-    "inputs": [
-      "F",
-      "z_1",
-      "T",
-      "P"
-    ],
-    "outputs": [
-      "V_rate",
-      "L_rate",
-      "y_1",
-      "x_1"
-    ]
-  },
-  "Mixer": {
-    "blockClass": "Mixer",
-    "description": "Algebraic 2-stream mixer with mass and energy balance.",
-    "docstringHtml": "<p>Algebraic 2-stream mixer with mass and energy balance.</p>\n<p>Mixes two streams by mass balance (additive flows) and energy balance\n(flow-weighted temperature mixing). No phase change or reaction.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<div class=\"math\">\n\\begin{equation*}\nF_{out} = F_1 + F_2\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\nT_{out} = \\frac{F_1 \\, T_1 + F_2 \\, T_2}{F_{out}}\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<p>None — this is a purely algebraic block.</p>\n</div>\n",
-    "params": {},
-    "inputs": [
-      "F_1",
-      "T_1",
-      "F_2",
-      "T_2"
-    ],
-    "outputs": [
-      "F_out",
-      "T_out"
-    ]
-  },
-  "Valve": {
-    "blockClass": "Valve",
-    "description": "Algebraic pressure-drop valve with standard flow equation.",
-    "docstringHtml": "<p>Algebraic pressure-drop valve with standard flow equation.</p>\n<p>Models an isenthalpic valve (no temperature change for liquids)\nwith flow proportional to the square root of the pressure drop.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<div class=\"math\">\n\\begin{equation*}\nF = C_v \\sqrt{|P_{in} - P_{out}|} \\cdot \\mathrm{sign}(P_{in} - P_{out})\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\nT_{out} = T_{in}\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>Cv <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Valve flow coefficient. Must be positive.</dd>\n</dl>\n</div>\n",
-    "params": {
-      "Cv": {
-        "type": "number",
-        "default": "1.0",
-        "description": "Valve flow coefficient. Must be positive."
-      }
-    },
-    "inputs": [
-      "P_in",
-      "P_out",
-      "T_in"
-    ],
-    "outputs": [
-      "F",
-      "T_out"
-    ]
-  },
-  "Heater": {
-    "blockClass": "Heater",
-    "description": "Algebraic duty-specified heater/cooler with no thermal mass.",
-    "docstringHtml": "<p>Algebraic duty-specified heater/cooler with no thermal mass.</p>\n<p>Raises or lowers the stream temperature by a specified heat duty.\nFlow passes through unchanged.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<div class=\"math\">\n\\begin{equation*}\nT_{out} = T_{in} + \\frac{Q}{F \\, \\rho \\, C_p}\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\nF_{out} = F_{in}\n\\end{equation*}\n</div>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>rho <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid density [kg/m³].</dd>\n<dt>Cp <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Fluid heat capacity [J/(kg·K)].</dd>\n</dl>\n</div>\n",
-    "params": {
-      "rho": {
-        "type": "number",
-        "default": "1000.0",
-        "description": "Fluid density [kg/m³]."
-      },
-      "Cp": {
-        "type": "number",
-        "default": "4184.0",
-        "description": "Fluid heat capacity [J/(kg·K)]."
-      }
-    },
-    "inputs": [
-      "F",
-      "T_in",
-      "Q"
-    ],
-    "outputs": [
-      "F_out",
-      "T_out"
-    ]
-  },
-  "PointKinetics": {
-    "blockClass": "PointKinetics",
-    "description": "Reactor point kinetics equations with delayed neutron precursors.",
-    "docstringHtml": "<p>Reactor point kinetics equations with delayed neutron precursors.</p>\n<p>Models the time-dependent neutron population in a nuclear reactor using\nthe point kinetics equations (PKE). The neutron density responds to\nreactivity changes through prompt fission and delayed neutron emission\nfrom G precursor groups.</p>\n<div class=\"section\" id=\"mathematical-formulation\">\n<h3>Mathematical Formulation</h3>\n<p>The state vector is <span class=\"math\">\\([n, C_1, C_2, \\ldots, C_G]\\)</span> where <span class=\"math\">\\(n\\)</span>\nis the neutron density (or power) and <span class=\"math\">\\(C_i\\)</span> are the delayed neutron\nprecursor concentrations.</p>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dn}{dt} = \\frac{\\rho - \\beta}{\\Lambda} \\, n\n    + \\sum_{i=1}^{G} \\lambda_i \\, C_i + S\n\\end{equation*}\n</div>\n<div class=\"math\">\n\\begin{equation*}\n\\frac{dC_i}{dt} = \\frac{\\beta_i}{\\Lambda} \\, n\n    - \\lambda_i \\, C_i \\qquad i = 1, \\ldots, G\n\\end{equation*}\n</div>\n<p>where <span class=\"math\">\\(\\beta = \\sum_i \\beta_i\\)</span> is the total delayed neutron\nfraction and <span class=\"math\">\\(\\Lambda\\)</span> is the prompt neutron generation time.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>n0 <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Initial neutron density [-]. Default 1.0 (normalized).</dd>\n<dt>Lambda <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>Prompt neutron generation time [s].</dd>\n<dt>beta <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Delayed neutron fractions per group [-].</dd>\n<dt>lam <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>Precursor decay constants per group [1/s].</dd>\n</dl>\n</div>\n",
-    "params": {
-      "n0": {
-        "type": "number",
-        "default": "1.0",
-        "description": "Initial neutron density [-]. Default 1.0 (normalized)."
-      },
-      "Lambda": {
-        "type": "number",
-        "default": "1e-05",
-        "description": "Prompt neutron generation time [s]."
-      },
-      "beta": {
-        "type": "any",
-        "default": null,
-        "description": "Delayed neutron fractions per group [-]."
-      },
-      "lam": {
-        "type": "any",
-        "default": null,
-        "description": "Precursor decay constants per group [1/s]."
-      }
-    },
-    "inputs": [
-      "rho",
-      "S"
-    ],
-    "outputs": [
-      "n"
-    ]
   }
 };
 
@@ -2100,7 +1575,6 @@ export const blockConfig: Record<string, string[]> = {
   Logic: ["GreaterThan", "LessThan", "Equal", "LogicAnd", "LogicOr", "LogicNot"],
   Mixed: ["SampleHold", "FIR", "ADC", "DAC", "Counter", "CounterUp", "CounterDown", "Relay", "Wrapper"],
   Recording: ["Scope", "Spectrum"],
-  Chemical: ["Process", "ResidenceTime", "Splitter", "Bubbler4", "GLC", "CSTR", "PFR", "HeatExchanger", "FlashDrum", "Mixer", "Valve", "Heater", "PointKinetics"],
 };
 
 export const blockImportPaths: Record<string, string> = {
@@ -2112,12 +1586,10 @@ export const blockImportPaths: Record<string, string> = {
   "AntiWindupPID": "pathsim.blocks",
   "Atan2": "pathsim.blocks",
   "Backlash": "pathsim.blocks",
-  "Bubbler4": "pathsim_chem",
   "ButterworthBandpassFilter": "pathsim.blocks",
   "ButterworthBandstopFilter": "pathsim.blocks",
   "ButterworthHighpassFilter": "pathsim.blocks",
   "ButterworthLowpassFilter": "pathsim.blocks",
-  "CSTR": "pathsim_chem",
   "ChirpPhaseNoiseSource": "pathsim.blocks",
   "Clip": "pathsim.blocks",
   "ClockSource": "pathsim.blocks",
@@ -2135,13 +1607,9 @@ export const blockImportPaths: Record<string, string> = {
   "Equal": "pathsim.blocks",
   "Exp": "pathsim.blocks",
   "FIR": "pathsim.blocks",
-  "FlashDrum": "pathsim_chem",
   "Function": "pathsim.blocks",
-  "GLC": "pathsim_chem",
   "GaussianPulseSource": "pathsim.blocks",
   "GreaterThan": "pathsim.blocks",
-  "HeatExchanger": "pathsim_chem",
-  "Heater": "pathsim_chem",
   "Integrator": "pathsim.blocks",
   "LUT": "pathsim.blocks",
   "LUT1D": "pathsim.blocks",
@@ -2152,31 +1620,25 @@ export const blockImportPaths: Record<string, string> = {
   "LogicAnd": "pathsim.blocks",
   "LogicNot": "pathsim.blocks",
   "LogicOr": "pathsim.blocks",
-  "Mixer": "pathsim_chem",
   "Mod": "pathsim.blocks",
   "Multiplier": "pathsim.blocks",
   "ODE": "pathsim.blocks",
-  "PFR": "pathsim_chem",
   "PID": "pathsim.blocks",
   "PT1": "pathsim.blocks",
   "PT2": "pathsim.blocks",
   "PinkNoise": "pathsim.blocks",
-  "PointKinetics": "pathsim_chem",
   "Pow": "pathsim.blocks",
-  "Process": "pathsim_chem",
   "PulseSource": "pathsim.blocks",
   "RandomNumberGenerator": "pathsim.blocks",
   "RateLimiter": "pathsim.blocks",
   "Relay": "pathsim.blocks",
   "Rescale": "pathsim.blocks",
-  "ResidenceTime": "pathsim_chem",
   "SampleHold": "pathsim.blocks",
   "Scope": "pathsim.blocks",
   "Sin": "pathsim.blocks",
   "SinusoidalSource": "pathsim.blocks",
   "Source": "pathsim.blocks",
   "Spectrum": "pathsim.blocks",
-  "Splitter": "pathsim_chem",
   "Sqrt": "pathsim.blocks",
   "SquareWaveSource": "pathsim.blocks",
   "StateSpace": "pathsim.blocks",
@@ -2187,7 +1649,6 @@ export const blockImportPaths: Record<string, string> = {
   "TransferFunctionNumDen": "pathsim.blocks",
   "TransferFunctionZPG": "pathsim.blocks",
   "TriangleWaveSource": "pathsim.blocks",
-  "Valve": "pathsim_chem",
   "WhiteNoise": "pathsim.blocks",
   "Wrapper": "pathsim.blocks",
 };
