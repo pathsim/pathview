@@ -62,15 +62,23 @@ function asParamType(t: string): ParamType {
 	return PARAM_TYPES.has(t as ParamType) ? (t as ParamType) : 'any';
 }
 
-const EVENT_PARAM_TYPES: ReadonlySet<EventParamType> = new Set([
-	'number',
-	'string',
-	'callable',
-	'array'
-]);
-
+/**
+ * Map a runtime-introspected param type onto the narrower `EventParamType`
+ * surface. Numeric types collapse to 'number'; everything else falls back
+ * to 'string'.
+ */
 function asEventParamType(t: string): EventParamType {
-	return EVENT_PARAM_TYPES.has(t as EventParamType) ? (t as EventParamType) : 'string';
+	if (t === 'callable' || t === 'array') return t;
+	if (t === 'number' || t === 'integer') return 'number';
+	if (t === 'string') return 'string';
+	return 'string';
+}
+
+const SHAPE_IDS = new Set(['pill', 'rect', 'circle', 'diamond', 'mixed']);
+
+function asShape(value: string | undefined): NodeShape | undefined {
+	if (!value) return undefined;
+	return SHAPE_IDS.has(value) ? (value as NodeShape) : undefined;
 }
 
 /** Build a node definition from one introspected block + the user's selection. */
@@ -96,7 +104,7 @@ function buildBlockDefinition(block: IntrospectedBlock, selection: BlockSelectio
 		outputs,
 		maxInputs,
 		maxOutputs,
-		shape: selection.override?.shape as NodeShape | undefined,
+		shape: asShape(selection.override?.shape),
 		syncPorts: selection.override?.syncPorts || undefined,
 		params
 	});

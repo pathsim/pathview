@@ -20,6 +20,21 @@ interface PersistedState {
 	seededIds: string[];
 }
 
+function isValidConfig(c: unknown): c is ToolboxConfig {
+	if (!c || typeof c !== 'object') return false;
+	const t = c as Record<string, unknown>;
+	return (
+		typeof t.id === 'string' &&
+		typeof t.displayName === 'string' &&
+		typeof t.importPath === 'string' &&
+		Array.isArray(t.blocks) &&
+		Array.isArray(t.events) &&
+		!!t.source &&
+		typeof t.source === 'object' &&
+		typeof (t.source as Record<string, unknown>).type === 'string'
+	);
+}
+
 function loadInitial(): PersistedState {
 	if (typeof localStorage === 'undefined') return { toolboxes: [], seededIds: [] };
 	const raw = localStorage.getItem(TOOLBOX_STORAGE_KEY);
@@ -29,9 +44,17 @@ function loadInitial(): PersistedState {
 		if (parsed?.version !== 1 || !Array.isArray(parsed.toolboxes)) {
 			return { toolboxes: [], seededIds: [] };
 		}
+		const toolboxes = parsed.toolboxes.filter(isValidConfig);
+		if (toolboxes.length !== parsed.toolboxes.length) {
+			console.warn(
+				`[toolbox] dropped ${parsed.toolboxes.length - toolboxes.length} malformed entries from persisted state`
+			);
+		}
 		return {
-			toolboxes: parsed.toolboxes,
-			seededIds: Array.isArray(parsed.seededIds) ? parsed.seededIds : []
+			toolboxes,
+			seededIds: Array.isArray(parsed.seededIds)
+				? parsed.seededIds.filter((s): s is string => typeof s === 'string')
+				: []
 		};
 	} catch {
 		return { toolboxes: [], seededIds: [] };
