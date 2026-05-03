@@ -823,22 +823,7 @@
 	}
 
 	.add-row {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--space-xs);
-		padding: var(--space-sm);
-		background: transparent;
-		border: 1px dashed var(--border);
-		border-radius: var(--radius-md);
-		color: var(--text-muted);
-		cursor: pointer;
-	}
-
-	.add-row:hover {
-		background: var(--surface-hover);
-		color: var(--text-muted);
-		border-color: var(--border-focus);
+		align-self: flex-start;
 	}
 
 	/* Pill tabs in the dialog header (matching plot panel pattern) */
