@@ -387,3 +387,39 @@ export const breadcrumbs = derived([rootNodes, currentPath], ([$rootNodes, $path
 
 	return crumbs;
 });
+
+/** A subsystem entry in the navigation tree */
+export interface SubsystemTreeNode {
+	id: string;
+	name: string;
+	color?: string;
+	path: string[];        // Absolute path from root to this subsystem
+	children: SubsystemTreeNode[];
+}
+
+function buildSubsystemTree(
+	nodes: Iterable<NodeInstance>,
+	parentPath: string[]
+): SubsystemTreeNode[] {
+	const result: SubsystemTreeNode[] = [];
+	for (const node of nodes) {
+		if (node.type !== NODE_TYPES.SUBSYSTEM) continue;
+		const path = [...parentPath, node.id];
+		const childNodes = node.graph?.nodes ?? [];
+		result.push({
+			id: node.id,
+			name: node.name,
+			color: node.color,
+			path,
+			children: buildSubsystemTree(childNodes, path)
+		});
+	}
+	// Stable alphabetical order so the tree doesn't reshuffle on rename
+	result.sort((a, b) => a.name.localeCompare(b.name));
+	return result;
+}
+
+/** Recursive subsystem hierarchy for the navigation tree panel */
+export const subsystemTree = derived(rootNodes, ($rootNodes) =>
+	buildSubsystemTree($rootNodes.values(), [])
+);

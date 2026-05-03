@@ -6,7 +6,7 @@
  */
 
 // Re-export types
-export type { SearchableNode } from './state';
+export type { SearchableNode, SubsystemTreeNode } from './state';
 
 // Re-export constants
 export { ANNOTATION_FONT_SIZE } from './annotations';
@@ -21,7 +21,8 @@ import {
 	nodesArray,
 	selectedNodes,
 	currentPath,
-	breadcrumbs
+	breadcrumbs,
+	subsystemTree
 } from './state';
 
 // Import all operations
@@ -48,6 +49,7 @@ export const graphStore = {
 	selectedNodes: { subscribe: selectedNodes.subscribe },
 	currentPath: { subscribe: currentPath.subscribe },
 	breadcrumbs: { subscribe: breadcrumbs.subscribe },
+	subsystemTree: { subscribe: subsystemTree.subscribe },
 
 	// ==================== NAVIGATION ====================
 	drillDown: navigation.drillDown,
