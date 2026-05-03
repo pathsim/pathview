@@ -56,15 +56,6 @@ class NodeRegistry {
 		bumpVersion();
 	}
 
-	/** Remove a single node type. Returns true if it was registered. */
-	unregister(type: string): boolean {
-		if (!this.nodes.has(type)) return false;
-		this.removeFromIndexes(type);
-		this.nodes.delete(type);
-		bumpVersion();
-		return true;
-	}
-
 	/** Remove every node registered under a given source (toolbox id). */
 	unregisterSource(source: string): string[] {
 		const ids = Array.from(this.bySource.get(source) ?? []);

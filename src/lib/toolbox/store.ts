@@ -6,7 +6,7 @@
  * this store is a passive list of declarations.
  */
 
-import { writable, get, derived, type Readable } from 'svelte/store';
+import { writable, type Readable } from 'svelte/store';
 import type { ToolboxConfig, ToolboxStorage } from './types';
 import { TOOLBOX_STORAGE_KEY } from './types';
 
@@ -29,8 +29,6 @@ function persist(list: ToolboxConfig[]): void {
 	try {
 		localStorage.setItem(TOOLBOX_STORAGE_KEY, JSON.stringify(envelope));
 	} catch (e) {
-		// Quota exceeded or similar — surface, don't crash the app.
-		// eslint-disable-next-line no-console
 		console.error('[toolbox] failed to persist:', e);
 	}
 }
@@ -39,11 +37,6 @@ const internal = writable<ToolboxConfig[]>(loadInitial());
 internal.subscribe((list) => persist(list));
 
 export const toolboxes: Readable<ToolboxConfig[]> = { subscribe: internal.subscribe };
-
-/** Find a toolbox by id. */
-export function getToolbox(id: string): ToolboxConfig | undefined {
-	return get(internal).find((t) => t.id === id);
-}
 
 /** Insert or replace a toolbox by id. */
 export function upsertToolbox(toolbox: ToolboxConfig): void {
@@ -71,11 +64,3 @@ export function removeToolbox(id: string): boolean {
 	});
 	return removed;
 }
-
-/** Replace the entire set of toolboxes (used for import/restore). */
-export function replaceToolboxes(list: ToolboxConfig[]): void {
-	internal.set(list);
-}
-
-/** Derived: just the ids, useful for cheap reactive checks. */
-export const toolboxIds: Readable<string[]> = derived(toolboxes, ($t) => $t.map((t) => t.id));

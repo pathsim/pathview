@@ -310,8 +310,7 @@
 			importPath: resolvedImportPath,
 			eventsImportPath: resolvedEventsImportPath,
 			blocks: blockSelections,
-			events: eventSelections,
-			installedAt: new Date().toISOString()
+			events: eventSelections
 		};
 		await registerToolbox(config, {
 			blocks: discoveredBlocks,

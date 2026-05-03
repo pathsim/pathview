@@ -1,8 +1,5 @@
 /**
  * Runtime toolbox subsystem.
- *
- * Public surface for the rest of the app. Internal modules (installer,
- * extractor, register) wire into this from the next phases.
  */
 
 export type {
@@ -13,16 +10,8 @@ export type {
 	EventSelection,
 	BlockOverride
 } from './types';
-export { TOOLBOX_STORAGE_KEY } from './types';
 
-export {
-	toolboxes,
-	toolboxIds,
-	getToolbox,
-	upsertToolbox,
-	removeToolbox,
-	replaceToolboxes
-} from './store';
+export { toolboxes, upsertToolbox, removeToolbox } from './store';
 
 export {
 	installPackage,
@@ -41,6 +30,6 @@ export {
 	uninstallToolbox
 } from './register';
 
-export { TOOLBOX_CATALOG, getCatalogEntry, type CatalogEntry } from './catalog';
+export { TOOLBOX_CATALOG, type CatalogEntry } from './catalog';
 
-export { bootstrapToolboxes, type BootstrapStatus } from './bootstrap';
+export { bootstrapToolboxes } from './bootstrap';

@@ -36,14 +36,6 @@ class EventRegistry {
 		bumpVersion();
 	}
 
-	unregister(type: string): boolean {
-		if (!this.events.has(type)) return false;
-		this.removeFromSourceIndex(type);
-		this.events.delete(type);
-		bumpVersion();
-		return true;
-	}
-
 	unregisterSource(source: string): string[] {
 		const ids = Array.from(this.bySource.get(source) ?? []);
 		for (const id of ids) this.events.delete(id);

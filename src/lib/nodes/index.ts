@@ -7,7 +7,7 @@
 export * from './types';
 
 // Re-export registry (initializes blocks from generated data on import)
-export { nodeRegistry, registryVersion, BUILTIN_SOURCE } from './registry';
+export { nodeRegistry, registryVersion } from './registry';
 
 // Re-export defineNode helper
 export { defineNode } from './defineNode';

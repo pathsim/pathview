@@ -64,8 +64,6 @@ export interface ToolboxConfig {
 	blocks: BlockSelection[];
 	/** Event selections + overrides. */
 	events: EventSelection[];
-	/** ISO timestamp of last successful install (for diagnostics). */
-	installedAt: string;
 }
 
 /** Versioned envelope persisted to localStorage. */

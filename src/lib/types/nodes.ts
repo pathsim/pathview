@@ -41,23 +41,9 @@ export interface ParamDefinition {
 
 /**
  * Node type category. Open-ended string so runtime-installed toolboxes can
- * introduce new categories without source edits. Built-in categories used
- * by core PathSim are listed in {@link BUILTIN_NODE_CATEGORIES}.
+ * introduce new categories without source edits.
  */
 export type NodeCategory = string;
-
-/** Built-in categories shipped with the core pathsim toolbox. */
-export const BUILTIN_NODE_CATEGORIES = [
-	'Sources',
-	'Dynamic',
-	'Algebraic',
-	'Logic',
-	'Mixed',
-	'Recording',
-	'Subsystem',
-	'Chemical'
-] as const;
-export type BuiltInNodeCategory = (typeof BUILTIN_NODE_CATEGORIES)[number];
 
 /** Node shape override (defaults based on category if not specified) */
 export type NodeShape = 'pill' | 'rect' | 'circle' | 'diamond';
