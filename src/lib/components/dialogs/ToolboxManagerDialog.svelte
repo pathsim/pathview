@@ -1100,6 +1100,10 @@
 
 	.block-name {
 		font-weight: 500;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.block-desc {
