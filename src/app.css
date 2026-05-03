@@ -266,7 +266,7 @@ input[type="checkbox"]:hover {
 }
 
 input[type="checkbox"]:checked {
-	background: var(--accent);
+	background: color-mix(in srgb, var(--accent) 18%, var(--surface-raised));
 	border-color: var(--accent);
 }
 
@@ -274,10 +274,9 @@ input[type="checkbox"]:checked::after {
 	content: "";
 	position: absolute;
 	inset: 0;
-	background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: 10px 10px;
+	background: var(--accent);
+	-webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center / 10px 10px no-repeat;
+	mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center / 10px 10px no-repeat;
 }
 
 input[type="checkbox"]:indeterminate {
