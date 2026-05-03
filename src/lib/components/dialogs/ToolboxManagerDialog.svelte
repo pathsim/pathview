@@ -617,7 +617,7 @@
 								{@const ov = getOverride(sel.className)}
 								{@const open = activeOverrideRow === sel.className}
 								{#if block}
-									<div class="block-row" role="row">
+									<div class="block-row" class:expanded={open} role="row">
 										<input
 											type="checkbox"
 											checked={sel.enabled}
@@ -1150,6 +1150,11 @@
 		gap: var(--space-sm);
 		padding: var(--space-sm) var(--space-md);
 		background: var(--surface);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.block-row.expanded {
+		border-bottom: none;
 	}
 
 	.row-override label {
