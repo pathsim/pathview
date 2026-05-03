@@ -1336,10 +1336,19 @@
 			onClose={() => showNodeLibrary = false}
 			onWidthChange={(w) => nodeLibraryWidth = Math.min(500, Math.max(280, w))}
 		>
+			{#snippet actions()}
+				<button
+					class="icon-btn ghost"
+					onclick={() => openToolboxWizard()}
+					use:tooltip={'Toolboxes'}
+					aria-label="Toolboxes"
+				>
+					<Icon name="box" size={16} />
+				</button>
+			{/snippet}
 			<NodeLibrary
 				bind:this={nodeLibraryRef}
 				onAddNode={handleAddNode}
-				onOpenToolboxWizard={openToolboxWizard}
 				focusSearch={true}
 			/>
 		</ResizablePanel>

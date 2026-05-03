@@ -2,12 +2,16 @@
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import { tooltip } from '$lib/components/Tooltip.svelte';
 	import {
 		TOOLBOX_CATALOG,
 		performInstall,
 		discoverToolbox,
 		registerToolbox,
+		uninstallToolbox,
 		upsertToolbox,
+		removeToolbox,
+		toolboxes,
 		type CatalogEntry,
 		type ToolboxConfig,
 		type ToolboxSource,
@@ -16,14 +20,13 @@
 		type IntrospectedBlock,
 		type IntrospectedEvent
 	} from '$lib/toolbox';
-	import type { NodeShape } from '$lib/types/nodes';
 
-	type Step = 'source' | 'trust' | 'install' | 'select' | 'customize';
+	type Step = 'manager' | 'source' | 'trust' | 'install' | 'select' | 'customize';
 	type SourceTab = 'catalog' | 'pypi' | 'url' | 'file';
 
 	interface Props {
 		open: boolean;
-		/** Optional existing toolbox to edit; when set, the wizard skips Source/Trust. */
+		/** Optional existing toolbox to edit; jumps straight into install/discover. */
 		editing?: ToolboxConfig | null;
 		onClose: () => void;
 		onSaved?: (toolbox: ToolboxConfig) => void;
@@ -31,8 +34,12 @@
 
 	let { open, editing = null, onClose, onSaved }: Props = $props();
 
-	let step = $state<Step>('source');
+	let step = $state<Step>('manager');
 	let tab = $state<SourceTab>('catalog');
+
+	// Reactive list of installed toolboxes (drives manager and catalog filter)
+	let installed = $state<ToolboxConfig[]>([]);
+	toolboxes.subscribe((list) => (installed = list));
 
 	// Source-step inputs
 	let pypiPkg = $state('');
@@ -44,7 +51,6 @@
 	let fileContent = $state('');
 	let displayNameInput = $state('');
 	let eventsImportPathInput = $state('');
-	let selectedCatalogId = $state<string | null>(null);
 
 	// Build artifact across the wizard
 	let resolvedSource = $state<ToolboxSource | null>(null);
@@ -61,17 +67,16 @@
 	let discoveredBlocks = $state<IntrospectedBlock[]>([]);
 	let discoveredEvents = $state<IntrospectedEvent[]>([]);
 
-	// Selection state (built from discovery + persisted in config)
+	// Selection state
 	let blockSelections = $state<BlockSelection[]>([]);
 	let eventSelections = $state<EventSelection[]>([]);
 	let categoryEdits = $state<Record<string, string>>({});
 
-	// Customize-step state (per-block UI overrides)
+	// Customize-step state
 	let activeCustomize = $state<string | null>(null);
 
 	$effect(() => {
 		if (!open) return;
-		// Reset everything when the modal opens
 		if (editing) {
 			startEdit(editing);
 		} else {
@@ -80,14 +85,13 @@
 	});
 
 	function resetFresh() {
-		step = 'source';
+		step = 'manager';
 		tab = 'catalog';
 		pypiPkg = pypiVersion = pypiImportPath = '';
 		urlValue = urlImportPath = '';
 		fileName = fileContent = '';
 		displayNameInput = '';
 		eventsImportPathInput = '';
-		selectedCatalogId = null;
 		resolvedSource = null;
 		resolvedImportPath = '';
 		resolvedDisplayName = '';
@@ -107,7 +111,6 @@
 
 	function startEdit(t: ToolboxConfig) {
 		resetFresh();
-		// Pre-fill from existing config and jump to install (re-introspect to get fresh data)
 		resolvedSource = t.source;
 		resolvedImportPath = t.importPath;
 		resolvedDisplayName = t.displayName;
@@ -115,12 +118,20 @@
 		toolboxId = t.id;
 		blockSelections = t.blocks.map((b) => ({ ...b }));
 		eventSelections = t.events.map((e) => ({ ...e }));
-		// Trigger install/re-discovery
 		runInstallAndDiscover();
 	}
 
+	function startAddToolbox() {
+		// Coming from manager → go to source picker
+		step = 'source';
+	}
+
+	async function handleManagerUninstall(t: ToolboxConfig) {
+		await uninstallToolbox(t);
+		removeToolbox(t.id);
+	}
+
 	function pickCatalog(entry: CatalogEntry) {
-		selectedCatalogId = entry.id;
 		resolvedSource = entry.source;
 		resolvedImportPath = entry.importPath;
 		resolvedDisplayName = entry.displayName;
@@ -164,7 +175,6 @@
 	function confirmFile() {
 		if (!fileName || !fileContent) return;
 		resolvedSource = { type: 'inline', filename: fileName, code: fileContent };
-		// importPath gets resolved by performInstall (inline modules get a prefix)
 		resolvedImportPath = '';
 		resolvedDisplayName = displayNameInput.trim() || fileName.replace(/\.py$/, '');
 		resolvedEventsImportPath = undefined;
@@ -192,7 +202,6 @@
 			discoveredBlocks = discovered.blocks;
 			discoveredEvents = discovered.events;
 
-			// Build initial selections (preserve existing if editing)
 			blockSelections = discovered.blocks.map((b) => {
 				const existing = blockSelections.find((s) => s.className === b.className);
 				return existing ?? { className: b.className, enabled: true };
@@ -221,7 +230,8 @@
 	}
 
 	function describeInstall(s: ToolboxSource): string {
-		if (s.type === 'pypi') return `Installing ${s.pkg}${s.version ? `==${s.version}` : ''} via micropip…`;
+		if (s.type === 'pypi')
+			return `Installing ${s.pkg}${s.version ? `==${s.version}` : ''} via micropip…`;
 		if (s.type === 'url') return `Installing wheel from ${s.url}…`;
 		if (s.type === 'inline') return `Loading ${s.filename}…`;
 		return 'Installing…';
@@ -232,17 +242,14 @@
 			s.className === className ? { ...s, enabled: !s.enabled } : s
 		);
 	}
-
 	function toggleEvent(className: string) {
 		eventSelections = eventSelections.map((s) =>
 			s.className === className ? { ...s, enabled: !s.enabled } : s
 		);
 	}
-
 	function setAllBlocks(enabled: boolean) {
 		blockSelections = blockSelections.map((s) => ({ ...s, enabled }));
 	}
-
 	const enabledBlockCount = $derived(blockSelections.filter((s) => s.enabled).length);
 
 	function applyCategoryEdit(className: string) {
@@ -254,16 +261,14 @@
 		);
 	}
 
-	function setOverride(className: string, field: 'name' | 'color' | 'shape', value: string | undefined) {
+	function setOverride(
+		className: string,
+		field: 'name' | 'color' | 'shape',
+		value: string | undefined
+	) {
 		blockSelections = blockSelections.map((s) =>
 			s.className === className
-				? {
-						...s,
-						override: {
-							...(s.override ?? {}),
-							[field]: value || undefined
-						}
-					}
+				? { ...s, override: { ...(s.override ?? {}), [field]: value || undefined } }
 				: s
 		);
 	}
@@ -274,11 +279,9 @@
 
 	async function save() {
 		if (!resolvedSource) return;
-		// Apply pending category edits
 		for (const className of Object.keys(categoryEdits)) {
 			applyCategoryEdit(className);
 		}
-
 		const config: ToolboxConfig = {
 			id: toolboxId,
 			displayName: resolvedDisplayName,
@@ -289,7 +292,6 @@
 			events: eventSelections,
 			installedAt: new Date().toISOString()
 		};
-
 		await registerToolbox(config, {
 			blocks: discoveredBlocks,
 			events: discoveredEvents,
@@ -300,14 +302,49 @@
 		onClose();
 	}
 
-	function backToSource() {
-		step = 'source';
-	}
+	// Catalog entries that aren't already installed
+	const availableCatalog = $derived.by(() => {
+		const installedIds = new Set(installed.map((t) => t.id));
+		return TOOLBOX_CATALOG.filter((e) => !installedIds.has(e.id));
+	});
+
+	// Step-specific footer actions (dot index, back target, primary)
+	type FooterPrimary = { label: string; fn: () => void; disabled?: boolean } | null;
+	const dotIndex = $derived(
+		step === 'source' ? 0 : step === 'trust' ? 1 : step === 'install' ? 2 : step === 'select' ? 3 : step === 'customize' ? 4 : -1
+	);
+
+	const backTarget = $derived.by((): Step | null => {
+		if (step === 'source') return 'manager';
+		if (step === 'trust') return 'source';
+		if (step === 'install') return installStatus === 'error' ? 'source' : null;
+		if (step === 'select') return editing ? null : 'trust';
+		if (step === 'customize') return 'select';
+		return null;
+	});
+
+	const primary = $derived.by((): FooterPrimary => {
+		if (step === 'manager') return null; // Add button is in body
+		if (step === 'source') {
+			if (tab === 'catalog') return null; // cards do the work
+			if (tab === 'pypi') return { label: 'Continue', fn: confirmPyPI, disabled: !pypiPkg.trim() };
+			if (tab === 'url')
+				return { label: 'Continue', fn: confirmUrl, disabled: !urlValue.trim() || !urlImportPath.trim() };
+			if (tab === 'file') return { label: 'Continue', fn: confirmFile, disabled: !fileName };
+		}
+		if (step === 'trust') return { label: 'I trust this, install', fn: runInstallAndDiscover };
+		if (step === 'install') {
+			if (installStatus === 'error') return { label: 'Retry', fn: runInstallAndDiscover };
+			return null;
+		}
+		if (step === 'select') return { label: 'Save', fn: save };
+		if (step === 'customize') return { label: 'Save', fn: save };
+		return null;
+	});
 
 	function handleBackdrop(e: MouseEvent) {
 		if (e.target === e.currentTarget) onClose();
 	}
-
 	function handleKeydown(e: KeyboardEvent) {
 		if (!open) return;
 		if (e.key === 'Escape') onClose();
@@ -326,7 +363,7 @@
 			aria-labelledby="wizard-title"
 		>
 			<div class="dialog-header">
-				<span id="wizard-title">{editing ? 'Edit toolbox' : 'Add toolbox'}</span>
+				<span id="wizard-title">Toolbox manager</span>
 				<div class="header-actions">
 					<button class="icon-btn" onclick={onClose} aria-label="Close">
 						<Icon name="x" size={16} />
@@ -334,26 +371,69 @@
 				</div>
 			</div>
 
-			<div class="step-indicator">
-				<span class="step-dot" class:active={step === 'source'} class:done={step !== 'source'}></span>
-				<span class="step-dot" class:active={step === 'trust'} class:done={['install','select','customize'].includes(step)}></span>
-				<span class="step-dot" class:active={step === 'install'} class:done={['select','customize'].includes(step)}></span>
-				<span class="step-dot" class:active={step === 'select'} class:done={step === 'customize'}></span>
-				<span class="step-dot" class:active={step === 'customize'}></span>
-			</div>
-
 			<div class="wizard-body">
-				{#if step === 'source'}
-					<div class="tabs">
-						<button class="tab" class:active={tab === 'catalog'} onclick={() => (tab = 'catalog')}>Catalog</button>
-						<button class="tab" class:active={tab === 'pypi'} onclick={() => (tab = 'pypi')}>PyPI</button>
-						<button class="tab" class:active={tab === 'url'} onclick={() => (tab = 'url')}>URL</button>
-						<button class="tab" class:active={tab === 'file'} onclick={() => (tab = 'file')}>File</button>
+				{#if step === 'manager'}
+					<div class="manager">
+						{#if installed.length === 0}
+							<div class="empty">
+								<span>No toolboxes installed yet</span>
+								<span class="hint">Add one to extend the block library at runtime.</span>
+							</div>
+						{:else}
+							<div class="installed-list">
+								{#each installed as t (t.id)}
+									<div class="installed-row">
+										<div class="installed-meta">
+											<div class="installed-name">{t.displayName}</div>
+											<div class="installed-source">
+												{#if t.source.type === 'pypi'}
+													pip · {t.source.pkg}{t.source.version ? `==${t.source.version}` : ''}
+												{:else if t.source.type === 'url'}
+													url · {t.source.url}
+												{:else if t.source.type === 'inline'}
+													file · {t.source.filename}
+												{:else}
+													{t.source.type}
+												{/if}
+												· {t.blocks.filter((b) => b.enabled).length} block{t.blocks.filter((b) => b.enabled).length === 1 ? '' : 's'}
+											</div>
+										</div>
+										<button
+											class="icon-btn"
+											onclick={() => startEdit(t)}
+											use:tooltip={'Edit'}
+											aria-label="Edit"
+										>
+											<Icon name="settings" size={14} />
+										</button>
+										<button
+											class="icon-btn"
+											onclick={() => handleManagerUninstall(t)}
+											use:tooltip={'Uninstall'}
+											aria-label="Uninstall"
+										>
+											<Icon name="trash" size={14} />
+										</button>
+									</div>
+								{/each}
+							</div>
+						{/if}
+						<button class="add-row" onclick={startAddToolbox}>
+							<Icon name="plus" size={14} />
+							<span>Add toolbox</span>
+						</button>
+					</div>
+				{:else if step === 'source'}
+					<div class="header-tabs">
+						<button class="header-tab" class:active={tab === 'catalog'} onclick={() => (tab = 'catalog')}>Catalog</button>
+						<button class="header-tab" class:active={tab === 'pypi'} onclick={() => (tab = 'pypi')}>PyPI</button>
+						<button class="header-tab" class:active={tab === 'url'} onclick={() => (tab = 'url')}>URL</button>
+						<button class="header-tab" class:active={tab === 'file'} onclick={() => (tab = 'file')}>File</button>
 					</div>
 
 					{#if tab === 'catalog'}
 						<div class="catalog-grid">
-							{#each TOOLBOX_CATALOG as entry (entry.id)}
+							{#each availableCatalog as entry (entry.id)}
 								<button class="catalog-card" onclick={() => pickCatalog(entry)}>
 									<div class="catalog-name">{entry.displayName}</div>
 									<div class="catalog-desc">{entry.description}</div>
@@ -363,10 +443,12 @@
 										{/each}
 									</div>
 								</button>
+							{:else}
+								<div class="empty">
+									<span>Catalog empty</span>
+									<span class="hint">Everything from the catalog is already installed.</span>
+								</div>
 							{/each}
-							{#if TOOLBOX_CATALOG.length === 0}
-								<div class="muted">No catalog entries yet.</div>
-							{/if}
 						</div>
 					{:else if tab === 'pypi'}
 						<div class="form">
@@ -390,7 +472,6 @@
 								<span>Events import path (optional)</span>
 								<input bind:value={eventsImportPathInput} placeholder="pathsim_batt.events" />
 							</label>
-							<button class="cta" disabled={!pypiPkg.trim()} onclick={confirmPyPI}>Continue</button>
 						</div>
 					{:else if tab === 'url'}
 						<div class="form">
@@ -410,7 +491,6 @@
 								<span>Events import path (optional)</span>
 								<input bind:value={eventsImportPathInput} placeholder="pathsim_x.events" />
 							</label>
-							<button class="cta" disabled={!urlValue.trim() || !urlImportPath.trim()} onclick={confirmUrl}>Continue</button>
 						</div>
 					{:else if tab === 'file'}
 						<div class="form">
@@ -422,7 +502,6 @@
 								<span>Display name (optional)</span>
 								<input bind:value={displayNameInput} placeholder="defaults to file name" />
 							</label>
-							<button class="cta" disabled={!fileName} onclick={confirmFile}>Continue</button>
 						</div>
 					{/if}
 				{:else if step === 'trust'}
@@ -430,25 +509,19 @@
 						<div class="warning-icon"><Icon name="zap" size={20} /></div>
 						<h3>You're about to run third-party code</h3>
 						<p>
-							PathView will install <strong>{resolvedDisplayName}</strong> and import it into Pyodide. The code runs in your
-							browser, sandboxed inside this tab — but it can still make network requests, read clipboard data, or
-							consume CPU/memory.
+							PathView will install <strong>{resolvedDisplayName}</strong> and import it into Pyodide. The code runs
+							in your browser, sandboxed inside this tab — but it can still make network requests, read clipboard
+							data, or consume CPU/memory.
 						</p>
 						<p>Only continue if you trust the source.</p>
 						<div class="source-recap">
 							{#if resolvedSource?.type === 'pypi'}
-								<div>Source: <code>pip install {resolvedSource.pkg}{resolvedSource.version ? `==${resolvedSource.version}` : ''}</code></div>
+								<code>pip install {resolvedSource.pkg}{resolvedSource.version ? `==${resolvedSource.version}` : ''}</code>
 							{:else if resolvedSource?.type === 'url'}
-								<div>Source: <code>{resolvedSource.url}</code></div>
+								<code>{resolvedSource.url}</code>
 							{:else if resolvedSource?.type === 'inline'}
-								<div>Source: local file <code>{resolvedSource.filename}</code> ({resolvedSource.code.length.toLocaleString()} chars)</div>
-							{:else if resolvedSource?.type === 'curated'}
-								<div>Source: curated catalog entry</div>
+								local file <code>{resolvedSource.filename}</code> ({resolvedSource.code.length.toLocaleString()} chars)
 							{/if}
-						</div>
-						<div class="dialog-actions">
-							<button class="ghost" onclick={backToSource}>Back</button>
-							<button class="cta" onclick={runInstallAndDiscover}>I trust this, install</button>
 						</div>
 					</div>
 				{:else if step === 'install'}
@@ -457,10 +530,6 @@
 							<div class="error">
 								<div class="error-title">Installation failed</div>
 								<pre>{installError}</pre>
-								<div class="dialog-actions">
-									<button class="ghost" onclick={backToSource}>Back</button>
-									<button class="cta" onclick={runInstallAndDiscover}>Retry</button>
-								</div>
 							</div>
 						{:else}
 							<div class="spinner-row">
@@ -476,6 +545,7 @@
 							<div class="row-toolbar-actions">
 								<button class="ghost" onclick={() => setAllBlocks(true)}>Select all</button>
 								<button class="ghost" onclick={() => setAllBlocks(false)}>None</button>
+								<button class="ghost" onclick={() => (step = 'customize')}>Customize…</button>
 							</div>
 						</div>
 						<div class="block-table" role="table">
@@ -514,12 +584,6 @@
 								{/each}
 							</div>
 						{/if}
-
-						<div class="dialog-actions">
-							<button class="ghost" onclick={() => (step = editing ? 'install' : 'trust')}>Back</button>
-							<button class="ghost" onclick={() => (step = 'customize')}>Customize…</button>
-							<button class="cta" onclick={save}>Save</button>
-						</div>
 					</div>
 				{:else if step === 'customize'}
 					<div class="customize-step">
@@ -576,12 +640,26 @@
 								{/if}
 							</div>
 						{/each}
-						<div class="dialog-actions">
-							<button class="ghost" onclick={() => (step = 'select')}>Back</button>
-							<button class="cta" onclick={save}>Save</button>
-						</div>
 					</div>
 				{/if}
+			</div>
+
+			<div class="wizard-footer">
+				<div class="step-dots">
+					{#if dotIndex >= 0}
+						{#each Array(5) as _, i}
+							<span class="step-dot" class:active={i === dotIndex} class:done={i < dotIndex}></span>
+						{/each}
+					{/if}
+				</div>
+				<div class="footer-actions">
+					{#if backTarget}
+						<button class="ghost" onclick={() => (step = backTarget!)}>Back</button>
+					{/if}
+					{#if primary}
+						<button onclick={primary.fn} disabled={primary.disabled}>{primary.label}</button>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -593,35 +671,11 @@
 
 	.wizard {
 		width: 90%;
-		max-width: 720px;
+		max-width: 560px;
 		max-height: 80vh;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-	}
-
-	.step-indicator {
-		display: flex;
-		justify-content: center;
-		gap: var(--space-sm);
-		padding: var(--space-sm) 0;
-		background: var(--surface-raised);
-		border-bottom: 1px solid var(--border);
-	}
-
-	.step-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: var(--border);
-	}
-
-	.step-dot.active {
-		background: var(--accent);
-	}
-
-	.step-dot.done {
-		background: color-mix(in srgb, var(--accent) 50%, transparent);
 	}
 
 	.wizard-body {
@@ -634,36 +688,147 @@
 		gap: var(--space-md);
 	}
 
-	.tabs {
+	.wizard-footer {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-sm) var(--space-md);
+		background: var(--surface-raised);
+		border-top: 1px solid var(--border);
+	}
+
+	.step-dots {
 		display: flex;
 		gap: var(--space-xs);
-		border-bottom: 1px solid var(--border);
+		align-items: center;
 	}
 
-	.tab {
-		background: transparent;
-		border: none;
-		border-radius: 0;
+	.step-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--border);
+	}
+
+	.step-dot.active {
+		background: var(--accent);
+	}
+
+	.step-dot.done {
+		background: color-mix(in srgb, var(--accent) 50%, transparent);
+	}
+
+	.footer-actions {
+		display: flex;
+		gap: var(--space-sm);
+	}
+
+	/* Manager view */
+	.manager {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+	}
+
+	.installed-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+	}
+
+	.installed-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
 		padding: var(--space-sm) var(--space-md);
-		color: var(--text-muted);
-		font-size: var(--font-md);
-		cursor: pointer;
-		border-bottom: 2px solid transparent;
+		background: var(--surface-raised);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
 	}
 
-	.tab:hover {
-		background: transparent;
+	.installed-row:hover {
+		border-color: var(--border-focus);
+	}
+
+	.installed-meta {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.installed-name {
+		font-size: var(--font-md);
+		font-weight: 600;
 		color: var(--text);
 	}
 
-	.tab.active {
+	.installed-source {
+		font-size: var(--font-sm);
+		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.add-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-xs);
+		padding: var(--space-sm);
+		background: transparent;
+		border: 1px dashed var(--border);
+		border-radius: var(--radius-md);
+		color: var(--text-muted);
+		cursor: pointer;
+	}
+
+	.add-row:hover {
+		background: var(--surface-hover);
+		color: var(--text);
+		border-color: var(--border-focus);
+	}
+
+	/* Pill tabs (matching plot panel header-tab pattern) */
+	.header-tabs {
+		display: flex;
+		gap: var(--space-xs);
+		flex-wrap: wrap;
+	}
+
+	.header-tab {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 24px;
+		padding: 0 10px;
+		font-size: var(--font-sm);
+		font-weight: 500;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		color: var(--text-muted);
+		cursor: pointer;
+	}
+
+	.header-tab:hover {
+		background: var(--surface-hover);
+		border-color: var(--border-focus);
+		color: var(--text);
+	}
+
+	.header-tab.active {
+		background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+		border-color: var(--accent);
 		color: var(--accent);
-		border-bottom-color: var(--accent);
 	}
 
 	.catalog-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		grid-template-columns: 1fr;
 		gap: var(--space-sm);
 	}
 
@@ -714,7 +879,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-sm);
-		max-width: 480px;
 	}
 
 	.form label {
@@ -746,15 +910,25 @@
 		font-size: var(--font-base);
 	}
 
-	.cta {
-		align-self: flex-start;
+	.empty {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+		padding: var(--space-xl);
+		text-align: center;
+		color: var(--text-muted);
+		font-size: var(--font-md);
+	}
+
+	.empty .hint {
+		font-size: var(--font-sm);
+		color: var(--text-disabled);
 	}
 
 	.trust {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-md);
-		max-width: 540px;
 	}
 
 	.trust h3 {
@@ -793,13 +967,6 @@
 	.source-recap code {
 		font-family: var(--font-mono);
 		color: var(--text);
-	}
-
-	.dialog-actions {
-		display: flex;
-		gap: var(--space-sm);
-		justify-content: flex-end;
-		margin-top: var(--space-sm);
 	}
 
 	.spinner-row {
@@ -855,6 +1022,8 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		gap: var(--space-sm);
+		flex-wrap: wrap;
 	}
 
 	.row-toolbar-actions {
@@ -873,7 +1042,7 @@
 
 	.block-row {
 		display: grid;
-		grid-template-columns: 28px 140px 1fr 140px;
+		grid-template-columns: 24px minmax(90px, 130px) 1fr 120px;
 		gap: var(--space-sm);
 		align-items: center;
 		padding: var(--space-xs) var(--space-sm);
@@ -895,7 +1064,7 @@
 	}
 
 	.block-row.event-row {
-		grid-template-columns: 28px 140px 1fr 0;
+		grid-template-columns: 24px minmax(90px, 130px) 1fr 0;
 	}
 
 	.block-name {
@@ -933,6 +1102,7 @@
 	.custom-head {
 		display: flex;
 		justify-content: space-between;
+		gap: var(--space-sm);
 		width: 100%;
 		padding: var(--space-sm) var(--space-md);
 		background: var(--surface-raised);

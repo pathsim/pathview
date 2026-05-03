@@ -4,24 +4,17 @@
 	import NodePreview from '$lib/components/nodes/NodePreview.svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { tooltip } from '$lib/components/Tooltip.svelte';
-	import { toolboxes, removeToolbox, uninstallToolbox, type ToolboxConfig } from '$lib/toolbox';
-
 	interface Props {
 		onAddNode?: (type: string) => void;
-		onOpenToolboxWizard?: (editing?: ToolboxConfig | null) => void;
 		focusSearch?: boolean;
 	}
 
-	let { onAddNode, onOpenToolboxWizard, focusSearch = false }: Props = $props();
+	let { onAddNode, focusSearch = false }: Props = $props();
 
 	// Registry change counter — read it inside derived blocks so they re-run
 	// whenever a toolbox install/uninstall mutates the registry.
 	let registryTick = $state(0);
 	registryVersion.subscribe((v) => (registryTick = v));
-
-	// Installed runtime toolboxes (for the management section at the bottom)
-	let installedToolboxes = $state<ToolboxConfig[]>([]);
-	toolboxes.subscribe((list) => (installedToolboxes = list));
 
 	// Search query
 	let searchQuery = $state('');
@@ -87,11 +80,6 @@
 		for (const cat of remaining) ordered.set(cat, groups.get(cat)!);
 		return ordered;
 	});
-
-	async function handleUninstall(t: ToolboxConfig) {
-		await uninstallToolbox(t);
-		removeToolbox(t.id);
-	}
 
 	// Flat list for keyboard navigation
 	const flatNodes = $derived(() => {
@@ -211,14 +199,6 @@
 		{#if searchQuery}
 			<button class="clear-btn" onclick={() => (searchQuery = '')}><Icon name="x" size={12} /></button>
 		{/if}
-		<button
-			class="header-action"
-			onclick={() => onOpenToolboxWizard?.(null)}
-			use:tooltip={'Add toolbox'}
-			aria-label="Add toolbox"
-		>
-			<Icon name="plus" size={14} />
-		</button>
 	</div>
 
 	<div class="node-grid-container">
@@ -255,33 +235,6 @@
 				<span class="hint">Try "gain", "source", or "plot"</span>
 			</div>
 		{/each}
-
-		{#if installedToolboxes.length > 0}
-			<div class="toolbox-list">
-				<div class="toolbox-list-header">Toolboxes</div>
-				{#each installedToolboxes as t (t.id)}
-					<div class="toolbox-row">
-						<span class="toolbox-name" title={t.id}>{t.displayName}</span>
-						<button
-							class="toolbox-action"
-							onclick={() => onOpenToolboxWizard?.(t)}
-							use:tooltip={'Edit'}
-							aria-label="Edit toolbox"
-						>
-							<Icon name="settings" size={12} />
-						</button>
-						<button
-							class="toolbox-action"
-							onclick={() => handleUninstall(t)}
-							use:tooltip={'Uninstall'}
-							aria-label="Uninstall toolbox"
-						>
-							<Icon name="trash" size={12} />
-						</button>
-					</div>
-				{/each}
-			</div>
-		{/if}
 	</div>
 
 	<div class="footer">
@@ -336,80 +289,6 @@
 
 	.search-input::placeholder {
 		color: var(--text-muted);
-	}
-
-	.header-action {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: transparent;
-		border: 1px solid var(--border);
-		color: var(--text-muted);
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-	}
-
-	.header-action:hover {
-		background: var(--surface-hover);
-		color: var(--text);
-		border-color: var(--border-focus);
-	}
-
-	.toolbox-list {
-		margin-top: var(--space-md);
-		padding-top: var(--space-md);
-		border-top: 1px solid var(--border);
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.toolbox-list-header {
-		font-size: var(--font-sm);
-		font-weight: 600;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin-bottom: var(--space-xs);
-	}
-
-	.toolbox-row {
-		display: flex;
-		align-items: center;
-		gap: var(--space-xs);
-		padding: var(--space-xs) 0;
-		font-size: var(--font-md);
-		color: var(--text-muted);
-	}
-
-	.toolbox-name {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.toolbox-action {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		padding: 0;
-		background: transparent;
-		border: none;
-		color: var(--text-muted);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-	}
-
-	.toolbox-action:hover {
-		background: var(--surface-hover);
-		color: var(--text);
 	}
 
 	.clear-btn {
