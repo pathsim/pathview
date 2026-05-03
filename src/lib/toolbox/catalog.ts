@@ -26,6 +26,11 @@ export interface CatalogEntry {
 	defaultCategory?: string;
 	/** Per-class category override (takes precedence over defaultCategory). */
 	categoryByClass?: Record<string, string>;
+	/**
+	 * Seed this entry into the toolbox store on first launch so it's
+	 * preinstalled. The user can still uninstall it; the choice persists.
+	 */
+	preloaded?: boolean;
 }
 
 export const TOOLBOX_CATALOG: CatalogEntry[] = [
@@ -34,7 +39,8 @@ export const TOOLBOX_CATALOG: CatalogEntry[] = [
 		displayName: 'pathsim-chem',
 		source: { type: 'pypi', pkg: 'pathsim-chem' },
 		importPath: 'pathsim_chem',
-		defaultCategory: 'Chemical'
+		defaultCategory: 'Chemical',
+		preloaded: true
 	}
 ];
 

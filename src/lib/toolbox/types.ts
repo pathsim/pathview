@@ -62,10 +62,15 @@ export interface ToolboxConfig {
 	importPath: string;
 	/** Optional events submodule (e.g. `pathsim_batt.events`). */
 	eventsImportPath?: string;
-	/** Block selections + overrides. */
-	blocks: BlockSelection[];
-	/** Event selections + overrides. */
-	events: EventSelection[];
+	/**
+	 * Per-block selections + overrides. Optional: `undefined` means "all
+	 * blocks enabled with default settings" (used by preloaded catalog
+	 * entries the user hasn't customised). An empty array means "zero
+	 * blocks" — explicit opt-out.
+	 */
+	blocks?: BlockSelection[];
+	/** Per-event selections + overrides. Same semantics as `blocks`. */
+	events?: EventSelection[];
 }
 
 /** Versioned envelope persisted to localStorage. */

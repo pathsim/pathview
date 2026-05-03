@@ -208,7 +208,15 @@ export async function registerToolbox(
 	const blocksByClass = new Map(options.blocks.map((b) => [b.className, b]));
 	const eventsByClass = new Map(options.events.map((e) => [e.className, e]));
 
-	for (const sel of config.blocks) {
+	// `undefined` blocks ⇒ register all discovered blocks with defaults.
+	const blockSelections: BlockSelection[] =
+		config.blocks ??
+		options.blocks.map((b) => ({ className: b.className, enabled: true }));
+	const eventSelections: EventSelection[] =
+		config.events ??
+		options.events.map((e) => ({ className: e.className, enabled: true }));
+
+	for (const sel of blockSelections) {
 		if (!sel.enabled) continue;
 		const block = blocksByClass.get(sel.className);
 		if (!block || block.error) continue;
@@ -220,7 +228,7 @@ export async function registerToolbox(
 		nodeRegistry.register(def, config.id);
 	}
 
-	for (const sel of config.events) {
+	for (const sel of eventSelections) {
 		if (!sel.enabled) continue;
 		const event = eventsByClass.get(sel.className);
 		if (!event) continue;

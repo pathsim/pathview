@@ -16,8 +16,7 @@
 	import EventsPanel from '$lib/components/panels/EventsPanel.svelte';
 	import SubsystemTree from '$lib/components/panels/SubsystemTree.svelte';
 	import ToolboxManagerDialog from '$lib/components/dialogs/ToolboxManagerDialog.svelte';
-	import { bootstrapToolboxes, toolboxes as toolboxStore, type ToolboxConfig } from '$lib/toolbox';
-	import { get } from 'svelte/store';
+	import { bootstrapToolboxes, type ToolboxConfig } from '$lib/toolbox';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import { buildContextMenuItems, type ContextMenuCallbacks } from '$lib/components/contextMenuBuilders';
 	import ExportDialog from '$lib/components/dialogs/ExportDialog.svelte';
@@ -506,19 +505,16 @@
 		// Auto-detect same-origin Flask backend (pip package mode), then check URL params
 		autoDetectBackend().then(() => initBackendFromUrl());
 
-		// If the user has persisted runtime toolboxes from a previous session,
-		// boot Pyodide eagerly and re-install them so the blocks are available
-		// before they try to use them. Skipped when no toolboxes are saved.
-		if (get(toolboxStore).length > 0) {
-			(async () => {
-				try {
-					await initPyodide();
-					await bootstrapToolboxes();
-				} catch (e) {
-					console.error('[toolbox bootstrap]', e);
-				}
-			})();
-		}
+		// Re-install runtime toolboxes from previous sessions and seed any
+		// preloaded catalog entries on first launch. Internally short-circuits
+		// when there's no work to do, so we can call it unconditionally.
+		(async () => {
+			try {
+				await bootstrapToolboxes();
+			} catch (e) {
+				console.error('[toolbox bootstrap]', e);
+			}
+		})();
 
 		// Subscribe to stores (with cleanup)
 		const unsubPinnedPreviews = pinnedPreviewsStore.subscribe((pinned) => {

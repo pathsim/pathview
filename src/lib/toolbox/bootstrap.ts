@@ -6,7 +6,7 @@
  */
 
 import { get } from 'svelte/store';
-import { toolboxes } from './store';
+import { toolboxes, seedPreloadedToolboxes } from './store';
 import { performInstall, discoverToolbox, registerToolbox } from './register';
 import { getCatalogEntry } from './catalog';
 import type { ToolboxConfig } from './types';
@@ -16,6 +16,10 @@ let bootstrapped = false;
 export async function bootstrapToolboxes(): Promise<void> {
 	if (bootstrapped) return;
 	bootstrapped = true;
+
+	// First-launch seed: drop any preloaded catalog entries into the store
+	// (idempotent — guarded by a localStorage flag so an uninstall sticks).
+	seedPreloadedToolboxes();
 
 	const list = get(toolboxes);
 	if (list.length === 0) return;
