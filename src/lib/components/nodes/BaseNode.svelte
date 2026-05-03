@@ -461,6 +461,7 @@
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
 	class:show-labels={showPortLabels}
+	class:missing-type={!typeDef && data.type !== NODE_TYPES.SUBSYSTEM && data.type !== NODE_TYPES.INTERFACE}
 	data-rotation={rotation}
 	style="width: {nodeDimensions.width}px; height: {nodeDimensions.height}px; --node-color: {nodeColor};"
 	ondblclick={handleDoubleClick}
@@ -520,6 +521,8 @@
 				{/if}
 				{#if typeDef}
 					<span class="node-type">{typeDef.name}</span>
+				{:else if data.type !== NODE_TYPES.SUBSYSTEM && data.type !== NODE_TYPES.INTERFACE}
+					<span class="node-type missing">{data.type} (missing)</span>
 				{/if}
 			</div>
 
@@ -756,6 +759,22 @@
 		font-size: 8px;
 		color: var(--text-muted);
 		margin-top: 2px;
+	}
+
+	.node-type.missing {
+		color: var(--warning);
+	}
+
+	/* Visual marker for nodes whose block type isn't registered (e.g. file
+	   loaded with a toolbox dependency the user hasn't installed). */
+	.node.missing-type {
+		--node-color: var(--warning);
+		opacity: 0.85;
+	}
+
+	.node.missing-type .node-content,
+	.node.missing-type :global(.node-shape) {
+		border-style: dashed;
 	}
 
 	/* Pinned parameters - rectangular, clipped by node-clip's overflow:hidden */
