@@ -989,7 +989,7 @@
 	.trust h3 {
 		margin: 0;
 		font-size: var(--font-md);
-		font-weight: 500;
+		font-weight: normal;
 		color: var(--text-muted);
 	}
 
