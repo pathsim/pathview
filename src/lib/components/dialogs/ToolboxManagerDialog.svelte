@@ -22,7 +22,7 @@
 		type IntrospectedEvent
 	} from '$lib/toolbox';
 
-	type Step = 'manager' | 'source' | 'trust' | 'install' | 'select' | 'customize';
+	type Step = 'manager' | 'source' | 'trust' | 'install' | 'select';
 	type SourceTab = 'catalog' | 'pypi' | 'url' | 'file';
 
 	interface Props {
@@ -93,8 +93,9 @@
 	let eventSelections = $state<EventSelection[]>([]);
 	let categoryEdits = $state<Record<string, string>>({});
 
-	// Customize-step state
-	let activeCustomize = $state<string | null>(null);
+	// Per-row expanded override editor
+	let activeOverrideRow = $state<string | null>(null);
+	const SHAPES = ['pill', 'rect', 'circle', 'diamond'] as const;
 
 	$effect(() => {
 		if (!open) return;
@@ -127,7 +128,7 @@
 		blockSelections = [];
 		eventSelections = [];
 		categoryEdits = {};
-		activeCustomize = null;
+		activeOverrideRow = null;
 	}
 
 	function startEdit(t: ToolboxConfig) {
@@ -284,7 +285,7 @@
 
 	function setOverride(
 		className: string,
-		field: 'name' | 'color' | 'shape',
+		field: 'name' | 'shape',
 		value: string | undefined
 	) {
 		blockSelections = blockSelections.map((s) =>
@@ -337,8 +338,16 @@
 
 	// Dot index across the add-toolbox flow (manager view = no progress dots)
 	const dotIndex = $derived(
-		step === 'source' ? 0 : step === 'trust' ? 1 : step === 'install' ? 2 : step === 'select' ? 3 : step === 'customize' ? 4 : -1
+		step === 'source' ? 0 : step === 'trust' ? 1 : step === 'install' ? 2 : step === 'select' ? 3 : -1
 	);
+	const totalSteps = 4;
+
+	function toggleAllBlocks() {
+		const allOn = blockSelections.length > 0 && blockSelections.every((s) => s.enabled);
+		setAllBlocks(!allOn);
+	}
+	const allBlocksOn = $derived(blockSelections.length > 0 && blockSelections.every((s) => s.enabled));
+	const someBlocksOn = $derived(blockSelections.some((s) => s.enabled));
 
 	function handleBackdrop(e: MouseEvent) {
 		if (e.target === e.currentTarget) onClose();
@@ -568,20 +577,38 @@
 					<div class="select-step">
 						<div class="row-toolbar">
 							<div class="muted">{enabledBlockCount} of {blockSelections.length} blocks selected</div>
-							<div class="row-toolbar-actions">
-								<button onclick={() => setAllBlocks(true)}>Select all</button>
-								<button onclick={() => setAllBlocks(false)}>None</button>
-							</div>
 						</div>
 						<div class="block-table" role="table">
 							<div class="block-row block-head" role="row">
-								<span></span><span>Block</span><span>Description</span><span>Category</span>
+								<button
+									class="head-check"
+									onclick={toggleAllBlocks}
+									aria-label={allBlocksOn ? 'Deselect all' : 'Select all'}
+								>
+									<span class="checkbox" class:checked={allBlocksOn} class:indeterminate={someBlocksOn && !allBlocksOn}>
+										{#if allBlocksOn}<Icon name="check" size={10} />{/if}
+									</span>
+								</button>
+								<span>Block</span>
+								<span>Description</span>
+								<span>Category</span>
+								<span></span>
 							</div>
 							{#each blockSelections as sel (sel.className)}
 								{@const block = discoveredBlocks.find((b) => b.className === sel.className)}
+								{@const ov = getOverride(sel.className)}
+								{@const open = activeOverrideRow === sel.className}
 								{#if block}
 									<div class="block-row" role="row">
-										<input type="checkbox" checked={sel.enabled} onchange={() => toggleBlock(sel.className)} />
+										<button
+											class="head-check"
+											onclick={() => toggleBlock(sel.className)}
+											aria-label={sel.enabled ? 'Deselect' : 'Select'}
+										>
+											<span class="checkbox" class:checked={sel.enabled}>
+												{#if sel.enabled}<Icon name="check" size={10} />{/if}
+											</span>
+										</button>
 										<span class="block-name">{sel.className}</span>
 										<span class="block-desc">{block.description.split('\n')[0]}</span>
 										<input
@@ -589,7 +616,46 @@
 											bind:value={categoryEdits[sel.className]}
 											onblur={() => applyCategoryEdit(sel.className)}
 										/>
+										<button
+											class="row-expand"
+											onclick={() => (activeOverrideRow = open ? null : sel.className)}
+											aria-label={open ? 'Hide overrides' : 'Edit overrides'}
+										>
+											<Icon name={open ? 'chevron-up' : 'chevron-down'} size={12} />
+										</button>
 									</div>
+									{#if open}
+										<div class="row-override">
+											<label>
+												<span>Display name</span>
+												<input
+													value={ov.name ?? ''}
+													oninput={(e) => setOverride(sel.className, 'name', (e.target as HTMLInputElement).value)}
+													placeholder={sel.className}
+												/>
+											</label>
+											<label>
+												<span>Shape</span>
+												<div class="shape-segmented">
+													<button
+														class="shape-option"
+														class:active={!ov.shape}
+														onclick={() => setOverride(sel.className, 'shape', undefined)}
+													>default</button>
+													{#each SHAPES as s}
+														<button
+															class="shape-option"
+															class:active={ov.shape === s}
+															onclick={() => setOverride(sel.className, 'shape', s)}
+														>
+															<span class="shape-preview" data-shape={s}></span>
+															<span>{s}</span>
+														</button>
+													{/each}
+												</div>
+											</label>
+										</div>
+									{/if}
 								{/if}
 							{/each}
 						</div>
@@ -599,11 +665,20 @@
 							<div class="block-table" role="table">
 								{#each eventSelections as sel (sel.className)}
 									<div class="block-row event-row" role="row">
-										<input type="checkbox" checked={sel.enabled} onchange={() => toggleEvent(sel.className)} />
+										<button
+											class="head-check"
+											onclick={() => toggleEvent(sel.className)}
+											aria-label={sel.enabled ? 'Deselect' : 'Select'}
+										>
+											<span class="checkbox" class:checked={sel.enabled}>
+												{#if sel.enabled}<Icon name="check" size={10} />{/if}
+											</span>
+										</button>
 										<span class="block-name">{sel.className}</span>
 										<span class="block-desc">
 											{discoveredEvents.find((e) => e.className === sel.className)?.description.split('\n')[0] ?? ''}
 										</span>
+										<span></span>
 										<span></span>
 									</div>
 								{/each}
@@ -613,67 +688,6 @@
 							{#if !editing}
 								<button onclick={() => (step = 'trust')}>Back</button>
 							{/if}
-							<button onclick={() => (step = 'customize')}>Customize…</button>
-							<button onclick={save}>Save</button>
-						</div>
-					</div>
-				{:else if step === 'customize'}
-					<div class="customize-step">
-						<p class="muted">
-							Optional UI overrides. Anything left blank uses the default from the Python class or the catalog.
-						</p>
-						{#each blockSelections.filter((s) => s.enabled) as sel (sel.className)}
-							{@const ov = getOverride(sel.className)}
-							<div class="custom-row">
-								<button
-									class="custom-head"
-									onclick={() => (activeCustomize = activeCustomize === sel.className ? null : sel.className)}
-								>
-									<span>{sel.className}</span>
-									<span class="muted">
-										{[ov.name && `name: ${ov.name}`, ov.category && `cat: ${ov.category}`, ov.color && `color`, ov.shape && `shape: ${ov.shape}`]
-											.filter(Boolean)
-											.join(' · ') || 'no overrides'}
-									</span>
-								</button>
-								{#if activeCustomize === sel.className}
-									<div class="custom-body">
-										<label>
-											<span>Display name</span>
-											<input
-												value={ov.name ?? ''}
-												oninput={(e) => setOverride(sel.className, 'name', (e.target as HTMLInputElement).value)}
-												placeholder={sel.className}
-											/>
-										</label>
-										<label>
-											<span>Color</span>
-											<input
-												type="color"
-												value={ov.color ?? '#0070C0'}
-												oninput={(e) => setOverride(sel.className, 'color', (e.target as HTMLInputElement).value)}
-											/>
-										</label>
-										<label>
-											<span>Shape</span>
-											<select
-												value={ov.shape ?? ''}
-												onchange={(e) =>
-													setOverride(sel.className, 'shape', (e.target as HTMLSelectElement).value || undefined)}
-											>
-												<option value="">default</option>
-												<option value="pill">pill</option>
-												<option value="rect">rect</option>
-												<option value="circle">circle</option>
-												<option value="diamond">diamond</option>
-											</select>
-										</label>
-									</div>
-								{/if}
-							</div>
-						{/each}
-						<div class="step-actions">
-							<button onclick={() => (step = 'select')}>Back</button>
 							<button onclick={save}>Save</button>
 						</div>
 					</div>
@@ -683,7 +697,7 @@
 			{#if dotIndex >= 0}
 				<div class="manager-footer">
 					<div class="step-dots">
-						{#each Array(5) as _, i}
+						{#each Array(totalSteps) as _, i}
 							<span class="step-dot" class:active={i === dotIndex} class:done={i < dotIndex}></span>
 						{/each}
 					</div>
@@ -1026,15 +1040,8 @@
 
 	.row-toolbar {
 		display: flex;
-		justify-content: space-between;
+		justify-content: flex-end;
 		align-items: center;
-		gap: var(--space-sm);
-		flex-wrap: wrap;
-	}
-
-	.row-toolbar-actions {
-		display: flex;
-		gap: var(--space-xs);
 	}
 
 	.block-table {
@@ -1048,7 +1055,7 @@
 
 	.block-row {
 		display: grid;
-		grid-template-columns: 24px minmax(90px, 130px) 1fr 120px;
+		grid-template-columns: 28px minmax(90px, 130px) 1fr 110px 24px;
 		gap: var(--space-sm);
 		align-items: center;
 		padding: var(--space-xs) var(--space-sm);
@@ -1070,7 +1077,7 @@
 	}
 
 	.block-row.event-row {
-		grid-template-columns: 24px minmax(90px, 130px) 1fr 0;
+		grid-template-columns: 28px minmax(90px, 130px) 1fr 110px 24px;
 	}
 
 	.block-name {
@@ -1089,49 +1096,80 @@
 		padding: var(--space-xs) var(--space-sm);
 	}
 
-	h4 {
-		margin: var(--space-sm) 0 0;
-		font-size: var(--font-sm);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		color: var(--text-muted);
-		font-weight: 600;
-	}
-
-	.custom-row {
-		border: 1px solid var(--border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-		background: var(--surface);
-	}
-
-	.custom-head {
-		display: flex;
-		justify-content: space-between;
-		gap: var(--space-sm);
-		width: 100%;
-		padding: var(--space-sm) var(--space-md);
-		background: var(--surface-raised);
+	/* Custom checkbox matching pathview design */
+	.head-check {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		background: transparent;
 		border: none;
-		border-radius: 0;
-		text-align: left;
-		font-size: var(--font-md);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+
+	.head-check:hover {
+		background: var(--surface-hover);
+	}
+
+	.checkbox {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 14px;
+		height: 14px;
+		border-radius: 3px;
+		border: 1px solid var(--border-focus);
+		background: var(--surface-raised);
+		color: var(--surface);
+		transition: background var(--transition-fast), border-color var(--transition-fast);
+	}
+
+	.checkbox.checked {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--surface);
+	}
+
+	.checkbox.indeterminate::after {
+		content: '';
+		width: 8px;
+		height: 2px;
+		background: var(--accent);
+		border-radius: 1px;
+	}
+
+	.row-expand {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-sm);
 		color: var(--text-muted);
 		cursor: pointer;
 	}
 
-	.custom-head:hover {
+	.row-expand:hover {
 		background: var(--surface-hover);
+		color: var(--text-muted);
 	}
 
-	.custom-body {
+	.row-override {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-sm);
 		padding: var(--space-sm) var(--space-md);
+		border-bottom: 1px solid var(--border);
+		background: var(--surface-raised);
 	}
 
-	.custom-body label {
+	.row-override label {
 		display: grid;
 		grid-template-columns: 100px 1fr;
 		align-items: center;
@@ -1140,10 +1178,74 @@
 		color: var(--text-muted);
 	}
 
-	input[type='color'] {
-		width: 40px;
-		height: 28px;
-		padding: 2px;
+	.shape-segmented {
+		display: inline-flex;
+		gap: var(--space-xs);
+		flex-wrap: wrap;
+	}
+
+	.shape-option {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		height: 26px;
+		padding: 0 10px;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 13px;
+		color: var(--text-muted);
+		font-size: var(--font-base);
 		cursor: pointer;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+
+	.shape-option:hover {
+		background: var(--surface-hover);
+		border-color: var(--border-focus);
+	}
+
+	.shape-option.active {
+		background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+
+	.shape-preview {
+		width: 14px;
+		height: 10px;
+		display: inline-block;
+		border: 1.25px solid currentColor;
+		background: transparent;
+	}
+
+	.shape-preview[data-shape='pill'] {
+		border-radius: 999px;
+	}
+
+	.shape-preview[data-shape='rect'] {
+		border-radius: 2px;
+	}
+
+	.shape-preview[data-shape='circle'] {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+	}
+
+	.shape-preview[data-shape='diamond'] {
+		width: 12px;
+		height: 12px;
+		transform: rotate(45deg);
+		border-radius: 1px;
+	}
+
+	h4 {
+		margin: var(--space-sm) 0 0;
+		font-size: var(--font-sm);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		color: var(--text-muted);
+		font-weight: 600;
 	}
 </style>

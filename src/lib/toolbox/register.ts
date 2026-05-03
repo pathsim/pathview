@@ -72,7 +72,7 @@ function buildBlockDefinition(block: IntrospectedBlock, selection: BlockSelectio
 		params[p.name] = { type: asParamType(p.type), default: p.default };
 	}
 
-	const definition = defineNode({
+	return defineNode({
 		name: selection.override?.name ?? block.className,
 		category: selection.override?.category ?? fallbackCategory,
 		blockClass: block.className,
@@ -84,13 +84,6 @@ function buildBlockDefinition(block: IntrospectedBlock, selection: BlockSelectio
 		shape: selection.override?.shape,
 		params
 	});
-
-	// Apply optional default color (used when instantiating fresh nodes).
-	if (selection.override?.color) {
-		(definition as unknown as { defaultColor?: string }).defaultColor = selection.override.color;
-	}
-
-	return definition;
 }
 
 function buildEventDefinition(event: IntrospectedEvent, selection: EventSelection, importPath: string): EventTypeDefinition {

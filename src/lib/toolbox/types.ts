@@ -24,8 +24,6 @@ export interface BlockOverride {
 	name?: string;
 	/** Category override (defaults to the toolbox-config category). */
 	category?: string;
-	/** Custom default color for new instances. */
-	color?: string;
 	/** Custom shape (pill/rect/circle/diamond). */
 	shape?: NodeShape;
 }
