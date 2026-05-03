@@ -20,7 +20,7 @@ export interface CatalogEntry {
 	eventsImportPath?: string;
 	/**
 	 * Default category assigned to every block from this toolbox unless
-	 * overridden by `categoryByClass` or by the user in the wizard.
+	 * overridden by `categoryByClass` or by the user in the manager.
 	 * Falls back to the toolbox display name if not set.
 	 */
 	defaultCategory?: string;
