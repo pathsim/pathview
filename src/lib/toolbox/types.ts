@@ -62,21 +62,21 @@ export interface ToolboxConfig {
 	importPath: string;
 	/** Optional events submodule (e.g. `pathsim_batt.events`). */
 	eventsImportPath?: string;
-	/**
-	 * Per-block selections + overrides. Optional: `undefined` means "all
-	 * blocks enabled with default settings" (used by preloaded catalog
-	 * entries the user hasn't customised). An empty array means "zero
-	 * blocks" — explicit opt-out.
-	 */
-	blocks?: BlockSelection[];
-	/** Per-event selections + overrides. Same semantics as `blocks`. */
-	events?: EventSelection[];
+	/** Per-block selections + overrides. */
+	blocks: BlockSelection[];
+	/** Per-event selections + overrides. */
+	events: EventSelection[];
 }
 
 /** Versioned envelope persisted to localStorage. */
 export interface ToolboxStorage {
 	version: 1;
 	toolboxes: ToolboxConfig[];
+	/**
+	 * Catalog entry ids that have been seeded at least once. Lets a user
+	 * uninstall a preloaded toolbox without re-seeding on next launch.
+	 */
+	seededIds?: string[];
 }
 
 export const TOOLBOX_STORAGE_KEY = 'pathview.toolboxes.v1';

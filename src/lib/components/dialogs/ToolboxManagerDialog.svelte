@@ -140,8 +140,8 @@
 		resolvedDisplayName = t.displayName;
 		resolvedEventsImportPath = t.eventsImportPath;
 		toolboxId = t.id;
-		blockSelections = (t.blocks ?? []).map((b) => ({ ...b }));
-		eventSelections = (t.events ?? []).map((e) => ({ ...e }));
+		blockSelections = t.blocks.map((b) => ({ ...b }));
+		eventSelections = t.events.map((e) => ({ ...e }));
 		runInstallAndDiscover();
 	}
 
@@ -438,11 +438,7 @@
 												{:else}
 													{t.source.type}
 												{/if}
-												{#if t.blocks}
-													· {t.blocks.filter((b) => b.enabled).length} block{t.blocks.filter((b) => b.enabled).length === 1 ? '' : 's'}
-												{:else}
-													· all blocks
-												{/if}
+												· {t.blocks.filter((b) => b.enabled).length} block{t.blocks.filter((b) => b.enabled).length === 1 ? '' : 's'}
 											</div>
 										</div>
 										<button
