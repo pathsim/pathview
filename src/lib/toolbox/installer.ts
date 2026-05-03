@@ -51,7 +51,28 @@ async function ensureHelpers(): Promise<void> {
 	if (!present) {
 		await exec(TOOLBOX_PYTHON_HELPERS);
 	}
+	await ensureDocutils();
 	helpersLoaded = true;
+}
+
+/**
+ * Install docutils if it isn't importable. Pyodide doesn't ship it, but
+ * we need it for RST→HTML conversion of block docstrings. Best-effort:
+ * a failed install just leaves the docstring HTML empty.
+ */
+async function ensureDocutils(): Promise<void> {
+	try {
+		const ok = await evaluate<boolean>(`_pv_already_installed("docutils")`);
+		if (ok) return;
+		const backend = getBackendType();
+		if (backend === 'pyodide') {
+			await exec(`await _pv_install_micropip("docutils")`);
+		} else {
+			await exec(`_pv_install_pip("docutils")`);
+		}
+	} catch (e) {
+		console.warn('[toolbox] could not install docutils:', e);
+	}
 }
 
 /** Escape a string so it can be embedded as a Python literal. */

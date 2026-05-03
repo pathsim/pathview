@@ -1,27 +1,27 @@
 /**
- * Block Docstrings
+ * Block docstring lookup.
  *
- * Extracts docstrings from generated blocks.ts - no separate file needed.
+ * Resolves to the build-time generated `extractedBlocks` first, then falls
+ * back to the live `nodeRegistry` so runtime-installed toolbox blocks also
+ * surface their RST→HTML documentation in the BlockProperties dialog.
  */
 
 import { extractedBlocks } from './generated/blocks';
+import { nodeRegistry } from './registry';
 
-/**
- * Get docstring for a specific block type
- */
 export function getDocstring(blockType: string): string | undefined {
-	return extractedBlocks[blockType]?.docstringHtml;
+	const fromBundle = extractedBlocks[blockType]?.docstringHtml;
+	if (fromBundle) return fromBundle;
+	return nodeRegistry.get(blockType)?.docstring;
 }
 
-/**
- * Get all docstrings as a record
- */
 export function getAllDocstrings(): Record<string, string> {
-	const docstrings: Record<string, string> = {};
+	const out: Record<string, string> = {};
 	for (const [name, block] of Object.entries(extractedBlocks)) {
-		if (block.docstringHtml) {
-			docstrings[name] = block.docstringHtml;
-		}
+		if (block.docstringHtml) out[name] = block.docstringHtml;
 	}
-	return docstrings;
+	for (const def of nodeRegistry.getAll()) {
+		if (def.docstring && !out[def.type]) out[def.type] = def.docstring;
+	}
+	return out;
 }
