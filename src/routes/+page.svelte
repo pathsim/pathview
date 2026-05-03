@@ -502,17 +502,18 @@
 	const continueTooltip = { text: "Continue", shortcut: "Shift+Enter" };
 
 	onMount(() => {
-		// Auto-detect same-origin Flask backend (pip package mode), then check URL params
-		autoDetectBackend().then(() => initBackendFromUrl());
-
-		// Re-install runtime toolboxes from previous sessions and seed any
-		// preloaded catalog entries on first launch. Internally short-circuits
-		// when there's no work to do, so we can call it unconditionally.
+		// Bring up the Python backend the moment the page loads so the
+		// runtime is ready by the time the user clicks Run. Order matters:
+		// detect the active backend first, then initialise it, then run
+		// the toolbox bootstrap on top.
 		(async () => {
 			try {
+				await autoDetectBackend();
+				await initBackendFromUrl();
+				await initPyodide();
 				await bootstrapToolboxes();
 			} catch (e) {
-				console.error('[toolbox bootstrap]', e);
+				console.error('[startup]', e);
 			}
 		})();
 
