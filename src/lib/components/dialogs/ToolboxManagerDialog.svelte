@@ -1117,7 +1117,7 @@
 		gap: var(--space-sm);
 		padding: var(--space-sm) var(--space-md);
 		border-bottom: 1px solid var(--border);
-		background: var(--surface-raised);
+		background: var(--surface);
 	}
 
 	.row-override label {
