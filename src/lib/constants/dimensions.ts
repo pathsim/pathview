@@ -130,11 +130,14 @@ export function calculateNodeDimensions(
 	// Type label width estimate (8px font, ~5px per char)
 	const typeWidth = typeName ? typeName.length * 5 + 20 : 0;
 
-	// Name width: use measured if available, otherwise estimate (10px font, ~6px per char)
-	// Add 24px for horizontal padding in .node-content (12px each side)
+	// Name width: use measured if available, otherwise estimate.
+	// Standard mode: 10px font, ~6px per char + 24px padding.
+	// Icon mode: 9px font weight 500, ~5px per char.
+	const charWidth = showIcon ? 5 : 6;
+	const namePadding = showIcon ? 14 : 20;
 	const nameWidth = measuredName
 		? snapTo2G(measuredName.width + 24)
-		: name.length * 6 + 20;
+		: name.length * charWidth + namePadding;
 
 	// Content width (without port labels) — type label is replaced by the
 	// icon in icon-mode, so it must not contribute to the block width.
