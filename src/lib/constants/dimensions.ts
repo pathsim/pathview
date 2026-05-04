@@ -95,6 +95,10 @@ export function getPortPositionCalc(index: number, total: number): string {
 /** Baseline text height for comparing math rendering (approximate) */
 const BASELINE_TEXT_HEIGHT = 14;
 
+/** Icon-mode block content size (name above icon) */
+const ICON_CONTENT_WIDTH = G.px(7); // 70
+const ICON_CONTENT_HEIGHT = G.px(6); // 60
+
 /**
  * Calculate node dimensions from node data.
  * Used by both SvelteFlow (for bounds) and BaseNode (for CSS).
@@ -112,7 +116,8 @@ export function calculateNodeDimensions(
 	typeName?: string,
 	hasVisibleInputLabels?: boolean,
 	hasVisibleOutputLabels?: boolean,
-	measuredName?: { width: number; height: number } | null
+	measuredName?: { width: number; height: number } | null,
+	showIcon?: boolean
 ): { width: number; height: number } {
 	const isVertical = rotation === 1 || rotation === 3;
 	const maxPortsOnSide = Math.max(inputCount, outputCount);
@@ -125,24 +130,32 @@ export function calculateNodeDimensions(
 	// Type label width estimate (8px font, ~5px per char)
 	const typeWidth = typeName ? typeName.length * 5 + 20 : 0;
 
-	// Name width: use measured if available, otherwise estimate (10px font, ~6px per char)
-	// Add 24px for horizontal padding in .node-content (12px each side)
+	// Name width: use measured if available, otherwise estimate.
+	// Standard mode: 10px font, ~6px per char + 24px padding.
+	// Icon mode: 9px font weight 500, ~5px per char.
+	const charWidth = showIcon ? 5 : 6;
+	const namePadding = showIcon ? 14 : 20;
 	const nameWidth = measuredName
 		? snapTo2G(measuredName.width + 24)
-		: name.length * 6 + 20;
+		: name.length * charWidth + namePadding;
 
-	// Content width (without port labels)
+	// Content width (without port labels) — type label is replaced by the
+	// icon in icon-mode, so it must not contribute to the block width.
 	let contentWidth = snapTo2G(Math.max(
 		NODE.baseWidth,
 		nameWidth,
-		typeWidth,
+		showIcon ? 0 : typeWidth,
 		pinnedParamsWidth,
+		showIcon ? ICON_CONTENT_WIDTH : 0,
 		isVertical ? minPortDimension : 0
 	));
 
 	// Content height: check if math is significantly taller than baseline text
 	let contentHeight: number;
-	if (measuredName && measuredName.height > BASELINE_TEXT_HEIGHT * 1.2) {
+	if (showIcon) {
+		// Icon mode: name above icon, fixed content height
+		contentHeight = ICON_CONTENT_HEIGHT + pinnedParamsHeight;
+	} else if (measuredName && measuredName.height > BASELINE_TEXT_HEIGHT * 1.2) {
 		// Math is tall (e.g., \displaystyle fractions) - use measured height + type label + padding
 		contentHeight = measuredName.height + 24 + pinnedParamsHeight;
 	} else {

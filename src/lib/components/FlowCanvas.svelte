@@ -414,6 +414,36 @@
 		});
 	});
 
+	// Reroute connections when a block's measured size changes (icon-mode toggle,
+	// pinned-params, name-length, port-label visibility, …). The initial
+	// measurement after mount is recorded silently — only later changes trigger
+	// a recalculation.
+	const lastMeasuredDims = new Map<string, { w: number; h: number }>();
+	$effect(() => {
+		const changed = new Set<string>();
+		for (const node of nodes) {
+			if (node.type !== 'pathview') continue;
+			const w = node.measured?.width;
+			const h = node.measured?.height;
+			if (w === undefined || h === undefined) continue;
+			const last = lastMeasuredDims.get(node.id);
+			if (!last || last.w !== w || last.h !== h) {
+				if (last) changed.add(node.id);
+				lastMeasuredDims.set(node.id, { w, h });
+				routingStore.updateNodeBounds(node.id, {
+					x: node.position.x - w / 2,
+					y: node.position.y - h / 2,
+					width: w,
+					height: h
+				});
+			}
+		}
+		if (changed.size > 0) {
+			const connections = get(graphStore.connections);
+			routingStore.recalculateRoutesForNodes(changed, connections, getPortInfo);
+		}
+	});
+
 	// Track if we're currently syncing to prevent loops
 	let isSyncing = false;
 

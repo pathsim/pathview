@@ -9,8 +9,6 @@
 	let { node }: Props = $props();
 
 	const isSubsystemType = $derived(node.category === 'Subsystem');
-
-	// Get shape class from unified shapes utility
 	const shapeClass = $derived(() => getShapeCssClass(node));
 </script>
 
@@ -31,34 +29,13 @@
 		transition: all 0.15s ease;
 	}
 
-	.shape-pill {
-		border-radius: 20px;
-	}
-
-	.shape-rect {
-		border-radius: 4px;
-	}
-
-	.shape-circle {
-		border-radius: 16px;
-	}
-
-	.shape-diamond {
-		border-radius: 4px;
-		transform: rotate(45deg);
-	}
-
-	.shape-diamond .node-name {
-		transform: rotate(-45deg);
-	}
-
-	.shape-mixed {
-		border-radius: 12px 4px 12px 4px;
-	}
-
-	.shape-default {
-		border-radius: 8px;
-	}
+	.shape-pill { border-radius: 20px; }
+	.shape-rect { border-radius: 4px; }
+	.shape-circle { border-radius: 16px; }
+	.shape-diamond { border-radius: 4px; transform: rotate(45deg); }
+	.shape-diamond .node-name { transform: rotate(-45deg); }
+	.shape-mixed { border-radius: 12px 4px 12px 4px; }
+	.shape-default { border-radius: 8px; }
 
 	.subsystem-type {
 		border-style: dashed;

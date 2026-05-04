@@ -26,7 +26,10 @@ import { exportToSVG, exportToPDF } from '$lib/export/svg';
 import { downloadSvg } from '$lib/utils/download';
 import { plotSettingsStore, DEFAULT_BLOCK_SETTINGS } from '$lib/stores/plotSettings';
 import { portLabelsStore } from '$lib/stores/portLabels';
+import { iconModeStore } from '$lib/stores/iconMode';
 import { getEffectivePortLabelVisibility } from '$lib/utils/portLabels';
+import { hasBlockIcon } from '$lib/components/icons/BlockIcon.svelte';
+import { nodeRegistry } from '$lib/nodes';
 import type { NodeInstance } from '$lib/types/nodes';
 
 /** Divider menu item */
@@ -61,6 +64,27 @@ function buildPortLabelItems(nodeId: string, node: NodeInstance): MenuItemType[]
 		});
 	}
 	return items;
+}
+
+/** Build icon-mode toggle menu item for a node, only when an icon exists */
+function buildIconModeItem(nodeId: string, node: NodeInstance): MenuItemType[] {
+	const typeDef = nodeRegistry.get(node.type);
+	const blockKey = typeDef?.blockClass ?? typeDef?.type;
+	if (!hasBlockIcon(blockKey)) return [];
+
+	const globalIconMode = get(iconModeStore);
+	const override = node.params?.['_iconMode'] as boolean | undefined;
+	const effective = override ?? globalIconMode;
+
+	return [
+		{
+			label: effective ? 'Show as Text' : 'Show as Icon',
+			icon: 'image',
+			action: () => historyStore.mutate(() =>
+				graphStore.updateNodeParams(nodeId, { _iconMode: !effective })
+			)
+		}
+	];
 }
 
 /** Show block code in preview dialog */
@@ -211,6 +235,7 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 	];
 
 	items.push(...buildPortLabelItems(nodeId, node));
+	items.push(...buildIconModeItem(nodeId, node));
 
 	items.push(
 		DIVIDER,

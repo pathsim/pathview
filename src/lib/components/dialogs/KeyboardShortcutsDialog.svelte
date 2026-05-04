@@ -59,6 +59,7 @@
 				{ keys: ['+'], description: 'Zoom in' },
 				{ keys: ['-'], description: 'Zoom out' },
 				{ keys: ['L'], description: 'Port labels' },
+				{ keys: ['I'], description: 'Block icons' },
 				{ keys: ['T'], description: 'Theme' }
 			]
 		},

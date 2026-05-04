@@ -14,6 +14,10 @@
 	import { importFile } from '$lib/schema/fileOps';
 	import { ALL_COMPONENT_EXTENSIONS } from '$lib/types/component';
 	import { GRID_SIZE } from '$lib/constants/grid';
+	import { pinnedPreviewsStore } from '$lib/stores/pinnedPreviews';
+	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
+	import { previewSideForRotation, extendBoundsForPreview } from '$lib/utils/previewBounds';
+	import type { NodeInstance } from '$lib/types/nodes';
 
 	interface Props {
 		pendingUpdates: string[];
@@ -33,6 +37,9 @@
 			return;
 		}
 
+		const previewsPinned = get(pinnedPreviewsStore);
+		const plotState = get(plotDataStore);
+
 		// Calculate bounding box of all nodes, accounting for origin
 		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 		for (const node of nodes) {
@@ -42,10 +49,19 @@
 			const origin = (node.origin as [number, number]) ?? [0.5, 0.5];
 			const left = node.position.x - width * origin[0];
 			const top = node.position.y - height * origin[1];
-			minX = Math.min(minX, left);
-			minY = Math.min(minY, top);
-			maxX = Math.max(maxX, left + width);
-			maxY = Math.max(maxY, top + height);
+			let bounds = { left, top, right: left + width, bottom: top + height };
+
+			// Extend bounds for pinned plot previews on recording blocks (Scope/Spectrum)
+			if (previewsPinned && node.type === 'pathview' && plotState.plots.has(node.id)) {
+				const data = node.data as NodeInstance;
+				const rotation = (data.params?.['_rotation'] as number) || 0;
+				bounds = extendBoundsForPreview(bounds, previewSideForRotation(rotation));
+			}
+
+			minX = Math.min(minX, bounds.left);
+			minY = Math.min(minY, bounds.top);
+			maxX = Math.max(maxX, bounds.right);
+			maxY = Math.max(maxY, bounds.bottom);
 		}
 
 		// Add some padding around the nodes themselves
