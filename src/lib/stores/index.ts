@@ -20,6 +20,7 @@ export { nodeUpdatesStore } from './nodeUpdates';
 export { pinnedPreviewsStore } from './pinnedPreviews';
 export { hoveredHandle, selectedNodeHighlight } from './hoveredHandle';
 export { portLabelsStore } from './portLabels';
+export { iconModeStore } from './iconMode';
 
 // View actions (re-exports triggers and utils)
 export * from './viewActions';
