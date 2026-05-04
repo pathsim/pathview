@@ -156,37 +156,50 @@ export function chirpSamples(f0 = 1, f1 = 6, n = 120): Sample[] {
 	return out;
 }
 
-export function whiteNoiseSamples(n = 22, seed = 1): Sample[] {
+/** White noise — Gaussian-distributed samples (Box-Muller), normalised to ±1. */
+export function whiteNoiseSamples(n = 28, seed = 5): Sample[] {
 	let s = seed;
 	const rand = () => {
 		s = (s * 9301 + 49297) % 233280;
 		return s / 233280;
 	};
-	const out: Sample[] = [];
+	const trace: number[] = [];
 	for (let i = 0; i < n; i++) {
-		const t = i / (n - 1);
-		out.push([t, rand() * 2 - 1]);
+		const u1 = Math.max(1e-6, rand());
+		const u2 = rand();
+		trace.push(Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2));
 	}
-	return out;
+	const max = Math.max(...trace.map(Math.abs));
+	return trace.map((v, i) => [i / (n - 1), (v / max) * 0.95] as Sample);
 }
 
-/** Pink-noise approximation: random walk with small high-freq overlay → drifty + amplitude up to ~1. */
-export function pinkNoiseSamples(n = 28, seed = 7): Sample[] {
+/** Pink-noise approximation via Voss-McCartney: sum of independent octaves,
+ *  each updated at half the rate of the previous one — gives true 1/f-style
+ *  noise with a visible LF trend plus HF detail. */
+export function pinkNoiseSamples(n = 35, seed = 11): Sample[] {
 	let s = seed;
 	const rand = () => {
 		s = (s * 9301 + 49297) % 233280;
 		return s / 233280 - 0.5;
 	};
-	const walk: number[] = [];
-	let v = 0;
+	const octaves = 5;
+	const values = new Array(octaves).fill(0);
+	const counters = new Array(octaves).fill(0);
+	const trace: number[] = [];
 	for (let i = 0; i < n; i++) {
-		v += rand() * 0.55;
-		v *= 0.95; // slight mean reversion
-		walk.push(v);
+		let total = 0;
+		for (let o = 0; o < octaves; o++) {
+			if (counters[o] === 0) {
+				values[o] = rand();
+				counters[o] = 1 << o;
+			}
+			counters[o]--;
+			total += values[o];
+		}
+		trace.push(total);
 	}
-	const noisy = walk.map((d) => d + rand() * 0.25);
-	const max = Math.max(...noisy.map(Math.abs));
-	return noisy.map((value, i) => [i / (n - 1), (value / max) * 0.95] as Sample);
+	const max = Math.max(...trace.map(Math.abs));
+	return trace.map((value, i) => [i / (n - 1), (value / max) * 0.9] as Sample);
 }
 
 export function constantSamples(value = 1): Sample[] {
@@ -624,7 +637,21 @@ export function backlashSamples(): Sample[] {
 
 /* --- Scope-style display signals --------------------------------------- */
 
-/** Growing cosine — second oscilloscope channel (start at peak, amplitude grows) */
+/** Superposition of three sin/cos components — visually rich oscilloscope trace */
+export function superposedSignal(n = 220): Sample[] {
+	const out: Sample[] = [];
+	for (let i = 0; i < n; i++) {
+		const t = i / (n - 1);
+		const v =
+			0.55 * Math.sin(2 * Math.PI * 1.2 * t) +
+			0.4 * Math.sin(2 * Math.PI * 5.2 * t + 0.4) +
+			0.08 * Math.cos(2 * Math.PI * 11 * t);
+		out.push([t, v]);
+	}
+	return out;
+}
+
+/** Growing cosine — secondary oscilloscope channel (start at peak, amplitude grows) */
 export function growingCosine(growth = 0.01, cycles = 4.5, n = 140): Sample[] {
 	const out: Sample[] = [];
 	for (let i = 0; i < n; i++) {

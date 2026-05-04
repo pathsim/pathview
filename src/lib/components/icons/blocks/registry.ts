@@ -116,8 +116,7 @@ export const iconRegistry: Record<string, IconDef> = {
 	Subsystem: { kind: 'svg', name: 'Subsystem' },
 	Scope: {
 		kind: 'scope',
-		samples: () => C.dampedOscillation(),
-		samples2: () => C.growingCosine(0.008).map(([t, v]) => [t, v * 0.65]),
+		samples: () => C.superposedSignal(),
 		yRange: [-1.05, 1.05],
 		gridX: 0,
 		gridY: 0
