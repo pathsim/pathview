@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
-	import { scale, fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { PATHVIEW_VERSION, EXTRACTED_VERSIONS } from '$lib/constants/dependencies';
@@ -61,14 +61,41 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()} role="presentation">
-	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-	<div class="modal glass-panel" transition:scale={{ start: 0.95, duration: 200, easing: cubicOut }} onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
+<div
+	class="welcome-backdrop"
+	transition:fade={{ duration: 200 }}
+	onclick={onClose}
+	role="presentation"
+></div>
+
+<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+<aside
+	class="welcome-banner"
+	transition:fly={{ x: -900, duration: 320, easing: cubicOut, opacity: 1 }}
+	role="dialog"
+	aria-label="Welcome"
+	tabindex="-1"
+>
+	<svg class="banner-edge" preserveAspectRatio="none" viewBox="0 0 110 100" aria-hidden="true">
+		<line
+			x1="0"
+			y1="0"
+			x2="110"
+			y2="100"
+			stroke="currentColor"
+			stroke-width="2.5"
+			vector-effect="non-scaling-stroke"
+		/>
+	</svg>
+
+	<div class="banner-content">
 		<div class="version-info">
 			PathView {PATHVIEW_VERSION} · {Object.entries(EXTRACTED_VERSIONS).map(([pkg, ver]) => `${pkg.replace('_', '-')} ${ver}`).join(' · ')}
 		</div>
+
 		<div class="header">
 			<img src="{base}/pathview_logo.png" alt="PathView" class="logo" />
+			<p class="tagline">Visual block-diagram editor for the PathSim simulation framework</p>
 		</div>
 
 		<div class="actions">
@@ -108,7 +135,12 @@
 		<div class="examples-section">
 			<div class="examples-grid">
 				{#each examples as example}
-					<a class="example-card" href="?model={base}/examples/{example.filename}">
+					<a
+					class="example-card"
+					href="?model={base}/examples/{example.filename}"
+					data-sveltekit-reload
+					onclick={onClose}
+				>
 						<div class="example-info">
 							<div class="example-name">{example.name}</div>
 							<div class="example-description">{example.description}</div>
@@ -125,38 +157,76 @@
 			</div>
 		</div>
 	</div>
-</div>
+</aside>
 
 <style>
-	/* Uses global .dialog-backdrop from app.css */
+	.welcome-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.18);
+		backdrop-filter: blur(5px);
+		z-index: var(--z-modal);
+	}
 
-	.modal {
-		position: relative;
-		width: 90%;
-		max-width: 780px;
-		padding: 24px;
+	.welcome-banner {
+		position: fixed;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		width: 58vw;
+		max-width: 760px;
+		min-width: 460px;
+		background: var(--surface);
+		box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+		z-index: calc(var(--z-modal) + 1);
+		clip-path: polygon(0 0, calc(100% - 110px) 0, 100% 100%, 0 100%);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.banner-edge {
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 110px;
+		height: 100%;
+		color: var(--border);
+		pointer-events: none;
+	}
+
+	.banner-content {
+		flex: 1;
+		min-height: 0;
+		padding: 28px 150px 28px 32px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		background: var(--surface);
-		overflow: hidden;
+		overflow-y: auto;
 	}
 
 	.version-info {
 		position: absolute;
-		top: 8px;
-		right: 12px;
+		top: 10px;
+		left: 16px;
 		font-size: 9px;
 		color: var(--text-disabled);
 	}
 
 	.header {
 		text-align: center;
-		padding: 24px 0;
+		padding: 20px 0 8px;
 	}
 
 	.logo {
-		height: 100px;
+		height: 92px;
+	}
+
+	.tagline {
+		margin: 10px 0 0;
+		font-size: 13px;
+		color: var(--text-muted);
+		letter-spacing: 0.2px;
 	}
 
 	.actions {
@@ -170,7 +240,7 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 6px;
-		padding: 6px 12px;
+		padding: 6px 8px;
 		background: transparent;
 		border: none;
 		border-radius: var(--radius-md);
@@ -197,7 +267,7 @@
 	.separator {
 		height: 1px;
 		background: var(--border);
-		margin: 0 -24px;
+		margin: 4px -150px 4px -32px;
 	}
 
 	.examples-section {
@@ -205,7 +275,6 @@
 		flex-direction: column;
 		min-height: 0;
 		flex: 1;
-		margin: -16px -24px -24px -24px;
 	}
 
 	.examples-grid {
@@ -214,9 +283,6 @@
 		grid-auto-rows: min-content;
 		align-items: start;
 		gap: 10px;
-		overflow-y: auto;
-		max-height: 420px;
-		padding: 16px;
 	}
 
 	.example-card {
@@ -282,7 +348,7 @@
 	.example-preview {
 		background: var(--surface);
 		width: 100%;
-		padding-top: 28px; /* Space for the header */
+		padding-top: 28px;
 	}
 
 	.example-preview img {
@@ -291,19 +357,37 @@
 		height: auto;
 	}
 
+	@media (max-width: 900px) {
+		.welcome-banner {
+			width: 78vw;
+			min-width: 0;
+		}
+	}
+
 	@media (max-width: 700px) {
+		.welcome-banner {
+			width: 95vw;
+			clip-path: polygon(0 0, calc(100% - 60px) 0, 100% 100%, 0 100%);
+		}
+
+		.banner-edge {
+			width: 60px;
+		}
+
+		.banner-content {
+			padding-right: 90px;
+		}
+
 		.examples-grid {
 			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 
-	@media (max-width: 600px) {
+	@media (max-width: 500px) {
 		.actions {
 			grid-template-columns: repeat(3, 1fr);
 		}
-	}
 
-	@media (max-width: 500px) {
 		.examples-grid {
 			grid-template-columns: 1fr;
 		}
