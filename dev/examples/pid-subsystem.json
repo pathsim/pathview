@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "metadata": {
-    "created": "2026-01-25T00:43:37.789Z",
-    "modified": "2026-01-25T00:43:37.789Z",
+    "created": "2026-05-05T11:37:27.297Z",
+    "modified": "2026-05-05T11:37:27.297Z",
     "name": "pid-subsystem"
   },
   "graph": {
@@ -393,7 +393,8 @@
         "sourceNodeId": "pid",
         "sourcePortIndex": 0,
         "targetNodeId": "4674b251-a882-45b9-baf1-01db4d0f7a22",
-        "targetPortIndex": 0
+        "targetPortIndex": 0,
+        "waypoints": []
       },
       {
         "id": "09fb7ca4-d71c-46dd-b4bf-95d7275f74b2",
@@ -412,8 +413,8 @@
           {
             "id": "4d19383a-86fe-4605-82d4-405f83b4cb27",
             "position": {
-              "x": 1060,
-              "y": 350
+              "x": 1070,
+              "y": 360
             },
             "isUserWaypoint": true
           }
@@ -445,8 +446,8 @@
     "atol": "1e-8",
     "rtol": "1e-5",
     "ftol": "1e-9",
-    "dt_min": "",
-    "dt_max": "",
+    "dt_min": null,
+    "dt_max": null,
     "ghostTraces": 6,
     "plotResults": true
   }

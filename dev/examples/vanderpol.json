@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "metadata": {
-    "created": "2026-01-25T00:35:40.025Z",
-    "modified": "2026-01-25T00:35:40.025Z",
+    "created": "2026-05-05T11:35:51.117Z",
+    "modified": "2026-05-05T11:35:51.117Z",
     "name": "vanderpol"
   },
   "graph": {
@@ -37,8 +37,7 @@
         ],
         "params": {
           "initial_value": "x20"
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "440919f7-c63c-40d7-8f78-67871a0f89f6",
@@ -70,8 +69,7 @@
         ],
         "params": {
           "initial_value": "x10"
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "03d10f15-3f0e-48f4-881b-281485faefd6",
@@ -112,8 +110,7 @@
         "params": {
           "operations": "\"-+\"",
           "_rotation": 2
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "9e7d89cc-bd31-4615-b34b-1b7a11850be3",
@@ -146,8 +143,7 @@
         "params": {
           "exponent": "2",
           "_rotation": 0
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "8db3f239-5418-4068-b92c-18ee1d42c427",
@@ -180,8 +176,7 @@
         "params": {
           "gain": "mu",
           "_rotation": 0
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "3c9f84cd-ee77-4232-9596-aaf057dd0254",
@@ -205,8 +200,7 @@
         "params": {
           "value": "1",
           "_rotation": 2
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "f94de1eb-7d85-42ab-8af5-69e0bd3cbf7d",
@@ -246,8 +240,7 @@
         ],
         "params": {
           "_rotation": 2
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "ee2391d1-5c61-45de-859b-ff98ad13f4a4",
@@ -288,8 +281,7 @@
         "params": {
           "operations": "\"+-\"",
           "_rotation": 0
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "34e172de-4aa4-4f33-9844-f78184aa1a19",
@@ -312,8 +304,7 @@
         "outputs": [],
         "params": {
           "_rotation": 3
-        },
-        "color": "#E57373"
+        }
       },
       {
         "id": "b2b48c31-985f-4917-bef9-6dcecdc2e928",
@@ -336,8 +327,7 @@
         "outputs": [],
         "params": {
           "_rotation": 3
-        },
-        "color": "#E57373"
+        }
       }
     ],
     "connections": [
@@ -436,8 +426,7 @@
         },
         "content": "# Van der Pol\n\nThis is the Van der Pol system \n\n$$ \\ddot{x} - \\mu (1 - x^2) \\dot{x} + x = 0$$\n\nmodeled as discrete components.\n",
         "width": 200,
-        "height": 120,
-        "color": "#E57373"
+        "height": 120
       }
     ]
   },
@@ -447,14 +436,14 @@
   },
   "simulationSettings": {
     "duration": "3*mu",
-    "dt": "",
+    "dt": null,
     "solver": "GEAR52A",
     "adaptive": true,
     "atol": "1e-6",
     "rtol": "1e-4",
     "ftol": "1e-8",
-    "dt_min": "",
-    "dt_max": "",
+    "dt_min": null,
+    "dt_max": null,
     "ghostTraces": 0,
     "plotResults": true
   }

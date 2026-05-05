@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "metadata": {
-    "created": "2026-01-25T00:49:57.129Z",
-    "modified": "2026-01-25T00:49:57.130Z",
+    "created": "2026-05-05T11:33:21.201Z",
+    "modified": "2026-05-05T11:33:21.201Z",
     "name": "squarewave-lpf"
   },
   "graph": {
@@ -12,7 +12,7 @@
         "type": "SquareWaveSource",
         "name": "Signal",
         "position": {
-          "x": 710,
+          "x": 640,
           "y": 260
         },
         "inputs": [],
@@ -36,7 +36,7 @@
         "type": "ButterworthLowpassFilter",
         "name": "LPF",
         "position": {
-          "x": 880,
+          "x": 890,
           "y": 260
         },
         "inputs": [
@@ -70,7 +70,7 @@
         "type": "Scope",
         "name": "Result",
         "position": {
-          "x": 1040,
+          "x": 1100,
           "y": 250
         },
         "inputs": [
@@ -125,8 +125,8 @@
       {
         "id": "34f0e638-760e-421b-9d4a-6fc606387a87",
         "position": {
-          "x": 650,
-          "y": 110
+          "x": 580,
+          "y": 60
         },
         "content": "Filtering the high frequency contents out of a square wave with a low pass filter. \n\nParameters can be pinned, see block property dialog (double click).\n\nHover over **Scope** blocks to see plot preview. Or just pin all previews (P).",
         "width": 440,
@@ -140,15 +140,15 @@
     "code": ""
   },
   "simulationSettings": {
-    "duration": "",
-    "dt": "",
+    "duration": null,
+    "dt": null,
     "solver": "SSPRK22",
     "adaptive": true,
-    "atol": "",
+    "atol": null,
     "rtol": "1e-2",
-    "ftol": "",
-    "dt_min": "",
-    "dt_max": "",
+    "ftol": null,
+    "dt_min": null,
+    "dt_max": null,
     "ghostTraces": 0,
     "plotResults": true
   }
