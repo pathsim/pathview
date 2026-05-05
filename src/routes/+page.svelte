@@ -58,6 +58,8 @@
 	import { clipboardStore } from '$lib/stores/clipboard';
 	import Tooltip, { tooltip } from '$lib/components/Tooltip.svelte';
 	import { isInputFocused } from '$lib/utils/focus';
+	import { isTourActive } from '$lib/tours/inputMode';
+	import { searchDialogStore } from '$lib/stores/searchDialog';
 
 	// Theme toggle button ref for radial transition origin
 	let themeToggleBtn: HTMLButtonElement;
@@ -416,7 +418,6 @@
 		toolboxManagerEditing = editing;
 		toolboxManagerOpen = true;
 	}
-	let showSearchDialog = $state(false);
 	let showPlotOptionsDialog = $state(false);
 
 	// Context menu state
@@ -656,6 +657,8 @@
 
 	// Keyboard shortcuts
 	function handleKeydown(event: KeyboardEvent) {
+		// While a guided tour runs, driver.js owns the keyboard.
+		if (isTourActive()) return;
 		const inputFocused = isInputFocused(event);
 
 		// Shift+Enter for continue simulation
@@ -688,7 +691,7 @@
 					return;
 				case 'f':
 					event.preventDefault();
-					showSearchDialog = true;
+					searchDialogStore.open();
 					return;
 				case 'd':
 					event.preventDefault();
@@ -1098,7 +1101,7 @@
 
 <div class="app">
 	<!-- Logo overlay in top left -->
-	<button class="logo-overlay" onclick={() => showWelcomeModal = true} use:tooltip={"Welcome"} aria-label="Welcome">
+	<button class="logo-overlay" onclick={() => showWelcomeModal = true} use:tooltip={"Welcome"} aria-label="Welcome" data-tour="welcome-banner-logo">
 		<img src="{base}/pathview_logo.png" alt="PathView" />
 	</button>
 
@@ -1131,6 +1134,7 @@
 						disabled={pyodideLoading}
 						use:tooltip={{ text: pyodideReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
 						aria-label="Run"
+						data-tour="toolbar-run"
 					>
 						{#if pyodideLoading}
 							<span class="loading-status">{statusText}</span>
@@ -1165,7 +1169,7 @@
 		</div>
 
 		<!-- File operations -->
-		<div class="toolbar-group">
+		<div class="toolbar-group" data-tour="toolbar-files">
 			<button class="toolbar-btn" onclick={handleNew} use:tooltip={"New"} aria-label="New">
 				<Icon name="new-canvas" size={16} />
 			</button>
@@ -1188,7 +1192,7 @@
 			>
 				<Icon name={saveFlash === 'save-as' ? 'check' : 'upload-plus'} size={16} />
 			</button>
-			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code">
+			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code" data-tour="toolbar-export-python">
 				<Icon name="braces" size={16} />
 			</button>
 			<button class="toolbar-btn" onclick={handleSendToCodegen} use:tooltip={"Send to Codegen"} aria-label="Send to Codegen">
@@ -1204,6 +1208,7 @@
 				onclick={() => pinnedPreviewsStore.toggle()}
 				use:tooltip={{ text: "Pin Previews", shortcut: "P" }}
 				aria-label="Pin Previews"
+				data-tour="toolbar-pin-previews"
 			>
 				<Icon name={showPinnedPreviews ? "pin-filled" : "pin"} size={16} />
 			</button>
@@ -1213,10 +1218,11 @@
 				onclick={(e) => toggleThemeWithTransition(e)}
 				use:tooltip={{ text: currentTheme === 'dark' ? 'Light mode' : 'Dark mode', shortcut: "T" }}
 				aria-label="Toggle theme"
+				data-tour="toolbar-theme"
 			>
 				<Icon name={currentTheme === 'dark' ? 'sun' : 'moon'} size={16} />
 			</button>
-			<button class="toolbar-btn" onclick={() => showKeyboardShortcuts = true} use:tooltip={{ text: "Shortcuts", shortcut: "?" }} aria-label="Keyboard shortcuts">
+			<button class="toolbar-btn" onclick={() => showKeyboardShortcuts = true} use:tooltip={{ text: "Shortcuts", shortcut: "?" }} aria-label="Keyboard shortcuts" data-tour="toolbar-shortcuts">
 				<Icon name="keyboard" size={16} />
 			</button>
 		</div>
@@ -1234,6 +1240,7 @@
 				onclick={toggleNodeLibrary}
 				use:tooltip={{ text: "Blocks", shortcut: "B", position: "right" }}
 				aria-label="Blocks"
+				data-tour="panel-toggle-blocks"
 			>
 				<Icon name="grid" size={18} />
 			</button>
@@ -1243,6 +1250,7 @@
 				onclick={toggleEventsPanel}
 				use:tooltip={{ text: "Events", shortcut: "N", position: "right" }}
 				aria-label="Events"
+				data-tour="panel-toggle-events"
 			>
 				<Icon name="zap" size={18} />
 			</button>
@@ -1252,6 +1260,7 @@
 				onclick={toggleCodeEditor}
 				use:tooltip={{ text: "Editor", shortcut: "E", position: "right" }}
 				aria-label="Editor"
+				data-tour="panel-toggle-editor"
 			>
 				<Icon name="code" size={18} />
 			</button>
@@ -1266,6 +1275,7 @@
 					onclick={toggleSubsystemTree}
 					use:tooltip={{ text: "Subsystems", shortcut: "R", position: "right" }}
 					aria-label="Subsystems"
+					data-tour="panel-toggle-subsystems"
 				>
 					<Icon name="layers" size={18} />
 				</button>
@@ -1280,6 +1290,7 @@
 				onclick={() => showPlot = !showPlot}
 				use:tooltip={{ text: "Results", shortcut: "V", position: "right" }}
 				aria-label="Results"
+				data-tour="panel-toggle-results"
 			>
 				<Icon name="bar-chart" size={18} />
 			</button>
@@ -1289,6 +1300,7 @@
 				onclick={() => showConsole = !showConsole}
 				use:tooltip={{ text: "Console", shortcut: "C", position: "right" }}
 				aria-label="Console"
+				data-tour="panel-toggle-console"
 			>
 				<Icon name="terminal" size={18} />
 			</button>
@@ -1302,6 +1314,7 @@
 				onclick={toggleProperties}
 				use:tooltip={{ text: "Simulation", shortcut: "S", position: "right" }}
 				aria-label="Simulation"
+				data-tour="panel-toggle-simulation"
 			>
 				<Icon name="settings" size={18} />
 			</button>
@@ -1344,6 +1357,7 @@
 					onclick={() => openToolboxManager()}
 					use:tooltip={'Toolboxes'}
 					aria-label="Toolboxes"
+					data-tour="open-toolbox-manager"
 				>
 					<Icon name="box" size={16} />
 				</button>
@@ -1407,6 +1421,7 @@
 	<!-- Plot Panel (floating bottom) -->
 	{#if showPlot}
 		<ResizablePanel
+			title="Results"
 			position={showConsole ? 'bottom-right' : 'bottom'}
 			initialHeight={280}
 			minHeight={150}
@@ -1470,6 +1485,7 @@
 	<!-- Console Panel (floating bottom-left) -->
 	{#if showConsole}
 		<ResizablePanel
+			title="Console"
 			position={showPlot ? 'bottom-left' : 'bottom'}
 			initialHeight={280}
 			minHeight={150}
@@ -1514,7 +1530,7 @@
 		editing={toolboxManagerEditing}
 		onClose={() => { toolboxManagerOpen = false; toolboxManagerEditing = null; }}
 	/>
-	<SearchDialog open={showSearchDialog} onClose={() => showSearchDialog = false} />
+	<SearchDialog open={$searchDialogStore} onClose={() => searchDialogStore.close()} />
 	<PlotOptionsDialog open={showPlotOptionsDialog} onClose={() => showPlotOptionsDialog = false} traces={resultTraces} />
 
 	<!-- Block Properties Dialog -->

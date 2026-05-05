@@ -249,7 +249,7 @@
 
 {#if nodeId && node && typeDef}
 	<div class="dialog-backdrop" onclick={handleBackdropClick} transition:fade={{ duration: 150 }} role="presentation">
-		<div class="properties-dialog glass-panel" style="--node-color: {currentColor}" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
+		<div class="properties-dialog glass-panel" data-tour="dialog-properties" style="--node-color: {currentColor}" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
 			<div class="dialog-header">
 				{#if showCode}
 					<span id="dialog-title">Python Code</span>
@@ -258,6 +258,7 @@
 						<input
 							id="dialog-title"
 							class="node-name-input"
+							data-tour="block-name-input"
 							type="text"
 							value={node.name}
 							oninput={(e) => handleNameChange(e.currentTarget.value)}
@@ -377,6 +378,7 @@
 											<button
 												class="pin-btn"
 												class:pinned
+												data-tour="block-pin-btn"
 												onclick={() => togglePinParam(param.name)}
 												use:tooltip={pinned ? "Unpin from node" : "Pin to node"}
 												aria-label={pinned ? "Unpin from node" : "Pin to node"}

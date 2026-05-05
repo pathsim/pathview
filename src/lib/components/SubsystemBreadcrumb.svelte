@@ -27,7 +27,7 @@
 </script>
 
 {#if !isAtRoot}
-	<nav class="breadcrumb glass-panel" transition:fly={{ y: -10, duration: 150 }}>
+	<nav class="breadcrumb glass-panel" data-tour="breadcrumb" transition:fly={{ y: -10, duration: 150 }}>
 		{#each breadcrumbs as crumb, i}
 			<button
 				class="crumb-pill"

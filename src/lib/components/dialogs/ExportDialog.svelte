@@ -135,7 +135,7 @@
 
 {#if open}
 	<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={handleBackdropClick} role="presentation">
-		<div class="dialog glass-panel" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
+		<div class="dialog glass-panel" data-tour="dialog-python-export" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
 			<div class="dialog-header">
 				<span id="dialog-title">Export Python Code</span>
 				<div class="header-actions">

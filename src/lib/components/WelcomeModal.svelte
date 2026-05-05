@@ -5,7 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { PATHVIEW_VERSION, EXTRACTED_VERSIONS } from '$lib/constants/dependencies';
-	import { startGuidedTour, type TourId } from '$lib/utils/guidedTour';
+	import { startGuidedTour, type TourId } from '$lib/tours';
 
 	interface Example {
 		name: string;
@@ -145,17 +145,17 @@
 				<span>Step-by-step walkthroughs that highlight the editor's main areas in turn so you know what each does.</span>
 			</div>
 			<div class="tour-buttons">
-				<button class="action-card" onclick={() => handleStartTour('ui')}>
-					<Icon name="arrow-right" size={20} />
+				<button class="action-card" onclick={() => handleStartTour('start')}>
+					<Icon name="compass" size={20} />
 					<span class="action-label">Start</span>
 				</button>
-				<button class="action-card" onclick={() => handleStartTour('simulation')}>
-					<Icon name="arrow-right" size={20} />
-					<span class="action-label">Simulation</span>
-				</button>
-				<button class="action-card" onclick={() => handleStartTour('customization')}>
-					<Icon name="arrow-right" size={20} />
+				<button class="action-card" onclick={() => handleStartTour('modeling')}>
+					<Icon name="shapes" size={20} />
 					<span class="action-label">Modeling</span>
+				</button>
+				<button class="action-card" onclick={() => handleStartTour('simulation')}>
+					<Icon name="play-circle" size={20} />
+					<span class="action-label">Simulation</span>
 				</button>
 			</div>
 		</div>
