@@ -47,7 +47,7 @@
 
 <svelte:window onclick={handleClickOutside} />
 
-<div class="color-picker-wrapper">
+<div class="color-picker-wrapper" data-tour="block-color-picker">
 	<button class="picker-btn" class:ghost={variant === 'ghost'} onclick={toggle} aria-label="Change color" use:tooltip={{ text: 'Color', position: tooltipPosition }}>
 		<svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={iconColor || 'currentColor'} stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 			<circle cx="12" cy="12" r="10"/>

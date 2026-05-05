@@ -349,6 +349,7 @@
 	<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={handleBackdrop} role="presentation">
 		<div
 			class="dialog glass-panel manager-modal"
+			data-tour="dialog-toolbox-manager"
 			transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }}
 			role="dialog"
 			aria-modal="true"

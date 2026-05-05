@@ -443,6 +443,22 @@
 		<text x="2" y="18" font-size="11" font-weight="700" font-family="system-ui, sans-serif">A</text>
 		<text x="10" y="18" font-size="11" font-weight="700" font-family="system-ui, sans-serif">a</text>
 	</svg>
+{:else if name === 'compass'}
+	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<circle cx="12" cy="12" r="10"/>
+		<polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+	</svg>
+{:else if name === 'shapes'}
+	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<circle cx="6" cy="18" r="3.5"/>
+		<rect x="13" y="13" width="8" height="8" rx="1"/>
+		<polygon points="12 1 18 10 6 10"/>
+	</svg>
+{:else if name === 'play-circle'}
+	<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<circle cx="12" cy="12" r="10"/>
+		<polygon points="10 8 16 12 10 16 10 8"/>
+	</svg>
 {:else}
 	<span class="text-icon">{name}</span>
 {/if}

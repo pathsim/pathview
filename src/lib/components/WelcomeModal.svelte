@@ -5,6 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { PATHVIEW_VERSION, EXTRACTED_VERSIONS } from '$lib/constants/dependencies';
+	import { startGuidedTour, type TourId } from '$lib/tours';
 
 	interface Example {
 		name: string;
@@ -49,6 +50,12 @@
 	function handleNew() {
 		onNew();
 		onClose();
+	}
+
+	function handleStartTour(id: TourId) {
+		onClose();
+		// Wait for the banner's slide-out so highlights aren't covered
+		setTimeout(() => startGuidedTour(id), 350);
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -128,6 +135,29 @@
 				<Icon name="activity" size={20} />
 				<span class="action-label">Consulting</span>
 			</a>
+		</div>
+
+		<div class="separator"></div>
+
+		<div class="tour-section">
+			<div class="tour-text">
+				<strong>Guided Tours</strong>
+				<span>Step-by-step walkthroughs that highlight the editor's main areas in turn so you know what each does.</span>
+			</div>
+			<div class="tour-buttons">
+				<button class="action-card" onclick={() => handleStartTour('start')}>
+					<Icon name="compass" size={20} />
+					<span class="action-label">Start</span>
+				</button>
+				<button class="action-card" onclick={() => handleStartTour('modeling')}>
+					<Icon name="shapes" size={20} />
+					<span class="action-label">Modeling</span>
+				</button>
+				<button class="action-card" onclick={() => handleStartTour('simulation')}>
+					<Icon name="play-circle" size={20} />
+					<span class="action-label">Simulation</span>
+				</button>
+			</div>
 		</div>
 
 		<div class="separator"></div>
@@ -228,6 +258,43 @@
 		letter-spacing: 0.2px;
 	}
 
+	.tour-section {
+		display: grid;
+		grid-template-columns: repeat(6, 1fr);
+		gap: 8px;
+		align-items: center;
+	}
+
+	.tour-text {
+		grid-column: 1 / 4;
+	}
+
+	.tour-buttons {
+		grid-column: 4 / -1;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 8px;
+	}
+
+	.tour-text {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		line-height: 1.35;
+		color: var(--text-muted);
+	}
+
+	.tour-text strong {
+		font-size: 10px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.tour-text span {
+		font-size: 11px;
+	}
+
 	.actions {
 		display: grid;
 		grid-template-columns: repeat(6, 1fr);
@@ -278,7 +345,7 @@
 
 	.examples-grid {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(2, 1fr);
 		grid-auto-rows: min-content;
 		align-items: start;
 		gap: 10px;
@@ -382,10 +449,6 @@
 
 		.banner-content {
 			padding-right: 90px;
-		}
-
-		.examples-grid {
-			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 

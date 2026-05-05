@@ -14,6 +14,7 @@
 	import '@xyflow/svelte/dist/style.css';
 
 	import { isInputFocused } from '$lib/utils/focus';
+	import { isTourActive } from '$lib/tours/inputMode';
 	import BaseNode from './nodes/BaseNode.svelte';
 	import EventNode from './nodes/EventNode.svelte';
 	import AnnotationNode from './nodes/AnnotationNode.svelte';
@@ -31,6 +32,7 @@
 	import { dropTargetBridge } from '$lib/stores/dropTargetBridge';
 	import { contextMenuStore } from '$lib/stores/contextMenu';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
+	import { assemblyAnimationTrigger } from '$lib/animation/assemblyAnimation';
 		import { nodeRegistry } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { GRID_SIZE, SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
@@ -74,6 +76,8 @@
 
 	// Keyboard shortcuts for node manipulation
 	function handleKeydown(event: KeyboardEvent) {
+		// While a guided tour runs, driver.js owns the keyboard.
+		if (isTourActive()) return;
 		if (isInputFocused(event)) return;
 
 		// Handle Delete key (SvelteFlow's deleteKeyCode doesn't work reliably for 'Delete')
@@ -443,6 +447,19 @@
 			routingStore.recalculateRoutesForNodes(changed, connections, getPortInfo);
 		}
 	});
+
+	// On model load, the initial routing pass runs with fallback 80×40
+	// dimensions because nodes haven't been measured yet, and the per-node
+	// $effect above silently records first measurements without rerouting.
+	// Trigger a full reroute once measurements have settled.
+	let lastAssemblyTrigger = 0;
+	const unsubAssembly = assemblyAnimationTrigger.subscribe((v) => {
+		if (v > lastAssemblyTrigger) {
+			lastAssemblyTrigger = v;
+			setTimeout(() => updateRoutingContext(), 400);
+		}
+	});
+	onDestroy(() => unsubAssembly());
 
 	// Track if we're currently syncing to prevent loops
 	let isSyncing = false;
