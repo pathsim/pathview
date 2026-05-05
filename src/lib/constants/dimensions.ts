@@ -42,14 +42,6 @@ export const EVENT = {
 /** Export padding: 4 grid units = 40px */
 export const EXPORT_PADDING = G.x4;
 
-/** Port label dimensions (when labels are shown) */
-export const PORT_LABEL = {
-	/** Width of label column for horizontal ports: 4 grid units = 40px */
-	columnWidth: G.x4,
-	/** Height of label row for vertical ports: 4 grid units = 40px (same as column width) */
-	rowHeight: G.x4
-} as const;
-
 /**
  * Round up to next 2G (20px) boundary.
  * This ensures nodes expand by 1G in each direction (symmetric from center).
@@ -103,8 +95,9 @@ const ICON_CONTENT_HEIGHT = G.px(6); // 60
  * Calculate node dimensions from node data.
  * Used by both SvelteFlow (for bounds) and BaseNode (for CSS).
  *
- * @param hasVisibleInputLabels - True if input labels are visible (setting ON and inputs exist)
- * @param hasVisibleOutputLabels - True if output labels are visible (setting ON and outputs exist)
+ * Port labels render outside the block (no dimension impact), so the
+ * label-toggle no longer enters this calculation.
+ *
  * @param measuredName - Optional measured dimensions for math-rendered names
  */
 export function calculateNodeDimensions(
@@ -114,8 +107,6 @@ export function calculateNodeDimensions(
 	pinnedParamCount: number,
 	rotation: number,
 	typeName?: string,
-	hasVisibleInputLabels?: boolean,
-	hasVisibleOutputLabels?: boolean,
 	measuredName?: { width: number; height: number } | null,
 	showIcon?: boolean
 ): { width: number; height: number } {
@@ -163,20 +154,10 @@ export function calculateNodeDimensions(
 		contentHeight = NODE.baseHeight + pinnedParamsHeight;
 	}
 
-	// Final dimensions accounting for port space
-	let width = contentWidth;
-	let height = isVertical
+	const width = contentWidth;
+	const height = isVertical
 		? snapTo2G(contentHeight)
 		: snapTo2G(Math.max(contentHeight, minPortDimension));
-
-	// Add space for port labels if visible
-	if (isVertical) {
-		if (hasVisibleInputLabels) height += PORT_LABEL.rowHeight;
-		if (hasVisibleOutputLabels) height += PORT_LABEL.rowHeight;
-	} else {
-		if (hasVisibleInputLabels) width += PORT_LABEL.columnWidth;
-		if (hasVisibleOutputLabels) width += PORT_LABEL.columnWidth;
-	}
 
 	return { width, height };
 }

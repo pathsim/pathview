@@ -16,7 +16,7 @@
 	import { showTooltip, hideTooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
-	import { PORT_LABEL, getPortPositionCalc, calculateNodeDimensions } from '$lib/constants/dimensions';
+	import { getPortPositionCalc, calculateNodeDimensions } from '$lib/constants/dimensions';
 	import { truncatePortLabel } from '$lib/utils/portLabels';
 	import { containsMath, renderInlineMath, renderInlineMathSync, measureRenderedMath } from '$lib/utils/inlineMathRenderer';
 	import { getKatexCssUrl } from '$lib/utils/katexLoader';
@@ -93,8 +93,6 @@
 	const hasVisibleInputLabels = $derived(showInputLabels && data.inputs.length > 0);
 	const hasVisibleOutputLabels = $derived(showOutputLabels && data.outputs.length > 0);
 
-	// For CSS class (show-labels when any labels are actually displayed)
-	const showPortLabels = $derived(hasVisibleInputLabels || hasVisibleOutputLabels);
 
 	// Re-measure node when port labels toggle changes
 	$effect(() => {
@@ -229,7 +227,9 @@
 			: null
 	);
 
-	// Node dimensions - calculated from shared utility (same as SvelteFlow bounds)
+	// Node dimensions - calculated from shared utility (same as SvelteFlow bounds).
+	// Port-label visibility no longer enters the calculation; labels render
+	// outside the block bounds and don't affect layout.
 	const nodeDimensions = $derived(calculateNodeDimensions(
 		data.name,
 		data.inputs.length,
@@ -237,100 +237,49 @@
 		pinnedCount,
 		rotation,
 		typeDef?.name,
-		hasVisibleInputLabels,
-		hasVisibleOutputLabels,
 		measuredName,
 		showIcon
 	));
 
-	// Grid layout for port labels (computed in JS, replaces CSS grid-placement selectors)
-	const gridLayout = $derived(() => {
-		if (!showPortLabels) {
-			return {
-				columns: undefined, rows: undefined,
-				inputStyle: '', innerStyle: '', outputStyle: ''
-			};
+	/** Inline style for a port label, positioning it outside the block edge
+	 *  next to its handle. The handle/wire is always *below* the label from
+	 *  the label's perspective — i.e. the anchor point sits at the label's
+	 *  bottom-left or bottom-right corner.
+	 *
+	 *  Horizontal block: text horizontal, label sits just above the wire stub.
+	 *  Vertical block: `writing-mode: sideways-{lr|rl}` rotates the text
+	 *    parallel to the wire (no transform tricks needed for positioning,
+	 *    so the perpendicular offset works in screen-space directly). Top
+	 *    edge reads bottom-to-top, bottom edge top-to-bottom — both read
+	 *    *outward* from the block. */
+	function portLabelStyle(isInput: boolean, portIndex: number, total: number): string {
+		const pos = getPortPositionCalc(portIndex, total);
+		const GAP = 10; // distance from block edge along the wire
+		const PERP = 5; // perpendicular offset off the wire path
+
+		// Map (rotation, isInput) → which block edge hosts the port.
+		let edge: 'left' | 'right' | 'top' | 'bottom';
+		if (rotation === 0) edge = isInput ? 'left' : 'right';
+		else if (rotation === 2) edge = isInput ? 'right' : 'left';
+		else if (rotation === 1) edge = isInput ? 'top' : 'bottom';
+		else edge = isInput ? 'bottom' : 'top';
+
+		switch (edge) {
+			case 'left':
+				// Anchor (port) at label bottom-right.
+				return `right: 100%; margin-right: ${GAP}px; top: ${pos}; transform: translateY(calc(-100% - ${PERP}px)); text-align: right;`;
+			case 'right':
+				// Anchor at label bottom-left.
+				return `left: 100%; margin-left: ${GAP}px; top: ${pos}; transform: translateY(calc(-100% - ${PERP}px)); text-align: left;`;
+			case 'top':
+				// Reads bottom-to-top, label LEFT of wire. Anchor at bottom-right.
+				return `bottom: 100%; margin-bottom: ${GAP}px; left: ${pos}; writing-mode: sideways-lr; transform: translateX(calc(-100% - ${PERP}px)); text-align: end;`;
+			case 'bottom':
+				// Reads top-to-bottom, label RIGHT of wire. Anchor at top-left
+				// (= label's bottom-left if you tilt your head left to read).
+				return `top: 100%; margin-top: ${GAP}px; left: ${pos}; writing-mode: sideways-rl; transform: translateX(${PERP}px); text-align: start;`;
 		}
-
-		const labelSize = `${PORT_LABEL.columnWidth}px`;
-		let columns: string | undefined;
-		let rows: string | undefined;
-		let inputStyle = '';
-		let innerStyle = '';
-		let outputStyle = '';
-
-		if (isVertical) {
-			// Vertical: rows for labels, single column
-			const inputBorder = rotation === 1 ? 'border-bottom' : 'border-top';
-			const outputBorder = rotation === 1 ? 'border-top' : 'border-bottom';
-			const colStyle = 'grid-column: 1;';
-
-			if (hasVisibleInputLabels && hasVisibleOutputLabels) {
-				// rotation 1: input(row1) content(row2) output(row3)
-				// rotation 3: output(row1) content(row2) input(row3)
-				rows = `${labelSize} 1fr ${labelSize}`;
-				if (rotation === 1) {
-					inputStyle = `${colStyle} grid-row: 1; ${inputBorder}: 1px solid var(--border);`;
-					innerStyle = `${colStyle} grid-row: 2;`;
-					outputStyle = `${colStyle} grid-row: 3; ${outputBorder}: 1px solid var(--border);`;
-				} else {
-					outputStyle = `${colStyle} grid-row: 1; ${outputBorder}: 1px solid var(--border);`;
-					innerStyle = `${colStyle} grid-row: 2;`;
-					inputStyle = `${colStyle} grid-row: 3; ${inputBorder}: 1px solid var(--border);`;
-				}
-			} else if (hasVisibleInputLabels) {
-				rows = rotation === 1 ? `${labelSize} 1fr` : `1fr ${labelSize}`;
-				const inputRow = rotation === 1 ? 1 : 2;
-				const innerRow = rotation === 1 ? 2 : 1;
-				inputStyle = `${colStyle} grid-row: ${inputRow}; ${inputBorder}: 1px solid var(--border);`;
-				innerStyle = `${colStyle} grid-row: ${innerRow};`;
-			} else if (hasVisibleOutputLabels) {
-				rows = rotation === 1 ? `1fr ${labelSize}` : `${labelSize} 1fr`;
-				const outputRow = rotation === 1 ? 2 : 1;
-				const innerRow = rotation === 1 ? 1 : 2;
-				outputStyle = `${colStyle} grid-row: ${outputRow}; ${outputBorder}: 1px solid var(--border);`;
-				innerStyle = `${colStyle} grid-row: ${innerRow};`;
-			}
-		} else {
-			// Horizontal: columns for labels, single row
-			const rowStyle = 'grid-row: 1;';
-			// rotation 0: inputs left (border-right), outputs right (border-left)
-			// rotation 2: inputs right (border-left), outputs left (border-right)
-			const inputBorder = rotation === 0 ? 'border-right' : 'border-left';
-			const outputBorder = rotation === 0 ? 'border-left' : 'border-right';
-
-			if (hasVisibleInputLabels && hasVisibleOutputLabels) {
-				columns = `${labelSize} 1fr ${labelSize}`;
-				if (rotation === 0) {
-					// input(col1) content(col2) output(col3)
-					inputStyle = `${rowStyle} grid-column: 1; ${inputBorder}: 1px solid var(--border);`;
-					innerStyle = `${rowStyle} grid-column: 2;`;
-					outputStyle = `${rowStyle} grid-column: 3; ${outputBorder}: 1px solid var(--border);`;
-				} else {
-					// output(col1) content(col2) input(col3)
-					outputStyle = `${rowStyle} grid-column: 1; ${outputBorder}: 1px solid var(--border);`;
-					innerStyle = `${rowStyle} grid-column: 2;`;
-					inputStyle = `${rowStyle} grid-column: 3; ${inputBorder}: 1px solid var(--border);`;
-				}
-			} else if (hasVisibleInputLabels) {
-				// rotation 0: input(col1) content(col2) | rotation 2: content(col1) input(col2)
-				columns = rotation === 0 ? `${labelSize} 1fr` : `1fr ${labelSize}`;
-				const inputCol = rotation === 0 ? 1 : 2;
-				const innerCol = rotation === 0 ? 2 : 1;
-				inputStyle = `${rowStyle} grid-column: ${inputCol}; ${inputBorder}: 1px solid var(--border);`;
-				innerStyle = `${rowStyle} grid-column: ${innerCol};`;
-			} else if (hasVisibleOutputLabels) {
-				// rotation 0: content(col1) output(col2) | rotation 2: output(col1) content(col2)
-				columns = rotation === 0 ? `1fr ${labelSize}` : `${labelSize} 1fr`;
-				const outputCol = rotation === 0 ? 2 : 1;
-				const innerCol = rotation === 0 ? 1 : 2;
-				outputStyle = `${rowStyle} grid-column: ${outputCol}; ${outputBorder}: 1px solid var(--border);`;
-				innerStyle = `${rowStyle} grid-column: ${innerCol};`;
-			}
-		}
-
-		return { columns, rows, inputStyle, innerStyle, outputStyle };
-	});
+	}
 
 	// Check if this is a Subsystem or Interface node (using shapes utility)
 	const isSubsystemNode = $derived(isSubsystem(data));
@@ -425,13 +374,17 @@
 		}
 	}
 
-	// Handle mouse events for input handles
+	// Handle mouse events for input handles. The hover tooltip is suppressed
+	// when port labels are already shown — the label IS the name, no point
+	// also popping a tooltip on top of it.
 	function handleInputMouseEnter(event: MouseEvent, port: { id: string; name: string }) {
 		hoveredHandle.set({ nodeId: id, handleId: port.id, color: nodeColor });
-		showTooltip(port.name, event.currentTarget as HTMLElement, getInputTooltipPosition());
+		if (!hasVisibleInputLabels) {
+			showTooltip(port.name, event.currentTarget as HTMLElement, getInputTooltipPosition());
+		}
 	}
 
-	function handleInputMouseLeave(port: { id: string }) {
+	function handleInputMouseLeave(_port: { id: string }) {
 		hoveredHandle.set(null);
 		hideTooltip();
 	}
@@ -439,10 +392,12 @@
 	// Handle mouse events for output handles
 	function handleOutputMouseEnter(event: MouseEvent, port: { id: string; name: string }) {
 		hoveredHandle.set({ nodeId: id, handleId: port.id, color: nodeColor });
-		showTooltip(port.name, event.currentTarget as HTMLElement, getOutputTooltipPosition());
+		if (!hasVisibleOutputLabels) {
+			showTooltip(port.name, event.currentTarget as HTMLElement, getOutputTooltipPosition());
+		}
 	}
 
-	function handleOutputMouseLeave(port: { id: string }) {
+	function handleOutputMouseLeave(_port: { id: string }) {
 		hoveredHandle.set(null);
 		hideTooltip();
 	}
@@ -472,7 +427,6 @@
 	class:vertical={isVertical}
 	class:preview-hovered={showPreview}
 	class:subsystem-type={isSubsystemType}
-	class:show-labels={showPortLabels}
 	class:missing-type={!typeDef && data.type !== NODE_TYPES.SUBSYSTEM && data.type !== NODE_TYPES.INTERFACE}
 	data-rotation={rotation}
 	style="width: {nodeDimensions.width}px; height: {nodeDimensions.height}px; --node-color: {nodeColor}; --preview-gap: {PREVIEW_GAP}px;"
@@ -496,99 +450,76 @@
 	{/if}
 
 	<!-- Clip wrapper - contains all visible content, clips to rounded corners -->
-	<div
-		class="node-clip"
-		style:grid-template-columns={gridLayout().columns}
-		style:grid-template-rows={gridLayout().rows}
-	>
-		<!-- Input port labels -->
-		{#if hasVisibleInputLabels}
-			{#if isVertical}
-				<div class="port-labels port-labels-input port-labels-row" style={gridLayout().inputStyle}>
-					{#each data.inputs as port, i}
-						<span class="port-label" style="left: {getPortPositionCalc(i, data.inputs.length)};">
-							{truncatePortLabel(port.name)}
-						</span>
-					{/each}
-				</div>
+	<div class="node-clip">
+		<!-- Node content -->
+		<div class="node-content" class:has-icon={showIcon}>
+			{#if renderedNameHtml}
+				<span class="node-name">{@html renderedNameHtml}</span>
 			{:else}
-				<div class="port-labels port-labels-input" style={gridLayout().inputStyle}>
-					{#each data.inputs as port, i}
-						<span class="port-label" style="top: {getPortPositionCalc(i, data.inputs.length)};">
-							{truncatePortLabel(port.name)}
-						</span>
-					{/each}
-				</div>
+				<span class="node-name">{data.name}</span>
 			{/if}
-		{/if}
-
-		<!-- Inner wrapper for content -->
-		<div class="node-inner" style={gridLayout().innerStyle}>
-			<!-- Node content -->
-			<div class="node-content" class:has-icon={showIcon}>
-				{#if renderedNameHtml}
-					<span class="node-name">{@html renderedNameHtml}</span>
-				{:else}
-					<span class="node-name">{data.name}</span>
-				{/if}
-				{#if showIcon}
-					<div class="node-icon">
-						<BlockIcon blockClass={blockIconKey} title={typeDef?.name} />
-					</div>
-				{:else if typeDef}
-					<span class="node-type">{typeDef.name}</span>
-				{:else if data.type !== NODE_TYPES.SUBSYSTEM && data.type !== NODE_TYPES.INTERFACE}
-					<span class="node-type missing">{data.type} (missing)</span>
-				{/if}
-			</div>
-
-			<!-- Pinned parameters -->
-			{#if validPinnedParams().length > 0 && typeDef}
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<div class="pinned-params" onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}>
-					{#each validPinnedParams() as paramName}
-						{@const paramDef = typeDef.params.find(p => p.name === paramName)}
-						{#if paramDef}
-							<div class="pinned-param">
-								<label for="pinned-{id}-{paramName}">{paramName}</label>
-								<input
-									id="pinned-{id}-{paramName}"
-									type="text"
-									value={formatParamValue(data.params[paramName])}
-									placeholder={formatDefault(paramDef.default)}
-									oninput={(e) => handlePinnedParamChange(paramName, e.currentTarget.value)}
-									onmousedown={(e) => e.stopPropagation()}
-									onfocus={(e) => e.stopPropagation()}
-									use:paramInput
-								/>
-							</div>
-						{/if}
-					{/each}
+			{#if showIcon}
+				<div class="node-icon">
+					<BlockIcon blockClass={blockIconKey} title={typeDef?.name} />
 				</div>
+			{:else if typeDef}
+				<span class="node-type">{typeDef.name}</span>
+			{:else if data.type !== NODE_TYPES.SUBSYSTEM && data.type !== NODE_TYPES.INTERFACE}
+				<span class="node-type missing">{data.type} (missing)</span>
 			{/if}
 		</div>
 
-		<!-- Output port labels -->
-		{#if hasVisibleOutputLabels}
-			{#if isVertical}
-				<div class="port-labels port-labels-output port-labels-row" style={gridLayout().outputStyle}>
-					{#each data.outputs as port, i}
-						<span class="port-label" style="left: {getPortPositionCalc(i, data.outputs.length)};">
-							{truncatePortLabel(port.name)}
-						</span>
-					{/each}
-				</div>
-			{:else}
-				<div class="port-labels port-labels-output" style={gridLayout().outputStyle}>
-					{#each data.outputs as port, i}
-						<span class="port-label" style="top: {getPortPositionCalc(i, data.outputs.length)};">
-							{truncatePortLabel(port.name)}
-						</span>
-					{/each}
-				</div>
-			{/if}
+		<!-- Pinned parameters -->
+		{#if validPinnedParams().length > 0 && typeDef}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<div class="pinned-params" onclick={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}>
+				{#each validPinnedParams() as paramName}
+					{@const paramDef = typeDef.params.find(p => p.name === paramName)}
+					{#if paramDef}
+						<div class="pinned-param">
+							<label for="pinned-{id}-{paramName}">{paramName}</label>
+							<input
+								id="pinned-{id}-{paramName}"
+								type="text"
+								value={formatParamValue(data.params[paramName])}
+								placeholder={formatDefault(paramDef.default)}
+								oninput={(e) => handlePinnedParamChange(paramName, e.currentTarget.value)}
+								onmousedown={(e) => e.stopPropagation()}
+								onfocus={(e) => e.stopPropagation()}
+								use:paramInput
+							/>
+						</div>
+					{/if}
+				{/each}
+			</div>
 		{/if}
 	</div>
+
+	<!-- Port labels: rendered outside the block bounds so the block size
+	     stays the same whether labels are shown or not. The matching label
+	     for the currently-hovered handle picks up the node accent color. -->
+	{#if hasVisibleInputLabels}
+		{#each data.inputs as port, i}
+			<span
+				class="port-label"
+				class:hovered={$hoveredHandle?.handleId === port.id}
+				style={portLabelStyle(true, i, data.inputs.length)}
+			>
+				{truncatePortLabel(port.name)}
+			</span>
+		{/each}
+	{/if}
+	{#if hasVisibleOutputLabels}
+		{#each data.outputs as port, i}
+			<span
+				class="port-label"
+				class:hovered={$hoveredHandle?.handleId === port.id}
+				style={portLabelStyle(false, i, data.outputs.length)}
+			>
+				{truncatePortLabel(port.name)}
+			</span>
+		{/each}
+	{/if}
 
 	<!-- Port controls for dynamic inputs (only show when selected) -->
 	{#if allowsDynamicInputs && selected}
@@ -713,15 +644,6 @@
 		border-radius: max(0px, calc(var(--node-radius, 8px) - 1px));
 		display: flex;
 		flex-direction: column;
-	}
-
-	/* Inner wrapper for content */
-	.node-inner {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-		min-height: 0;
 	}
 
 	/* Content - centered in available space */
@@ -1081,93 +1003,30 @@
 		}
 	}
 
-	/* Port labels - grid layout when labels are shown */
-	/* Grid template columns/rows are set via inline style from JS */
-	.node.show-labels .node-clip {
-		display: grid;
-	}
-
-	/* Label containers */
-	.port-labels {
-		position: relative;
-		min-width: 0;
-		min-height: 0;
-		overflow: visible;
-	}
-
-	/* Individual port labels (absolute positioning for horizontal) */
+	/* Port labels: rendered as absolutely-positioned spans on the .node
+	 * container, sitting just outside the block edge next to their handle.
+	 * Position math (which edge, perpendicular offset, text-align) is set
+	 * inline by portLabelStyle() — only typography lives in CSS. */
 	.port-label {
 		position: absolute;
 		font-size: 8px;
+		line-height: 1;
 		color: var(--text-muted);
 		white-space: nowrap;
-		transform: translateY(-50%);
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 36px;
-		line-height: 1;
+		max-width: 64px;
+		pointer-events: none;
+		transition: color 0.12s;
 	}
 
-	/* Input labels: align right (near separator), away from handle edge */
-	.port-labels-input .port-label {
-		right: 6px;
-		text-align: right;
-	}
-
-	/* Output labels: align left (near separator), away from handle edge */
-	.port-labels-output .port-label {
-		left: 6px;
-		text-align: left;
-	}
-
-	/* Rotation 2: swap alignment */
-	.node[data-rotation="2"] .port-labels-input .port-label {
-		right: auto;
-		left: 6px;
-		text-align: left;
-	}
-	.node[data-rotation="2"] .port-labels-output .port-label {
-		left: auto;
-		right: 6px;
-		text-align: right;
-	}
-
-	/* Vertical rotation - row of labels with 90deg rotation */
-	.port-labels-row {
-		position: relative;
-	}
-
-	/* Reset horizontal-specific styles for vertical labels */
-	.port-labels-row .port-label {
-		position: absolute;
-		width: auto;
-		max-width: none;
-		right: auto;
-		/* Use center origin for simpler positioning */
-		transform-origin: center center;
-		/* text-align: left = text starts at original left edge = visual bottom after -90deg rotation */
-		text-align: left;
-	}
-
-	/* Input labels at top row: center vertically, shift toward bottom separator */
-	.node.show-labels.vertical .port-labels-input .port-label {
-		top: 50%;
-		bottom: auto;
-		transform: translateX(-50%) translateY(calc(-50% + 6px)) rotate(-90deg);
-	}
-
-	/* Output labels at bottom row: center vertically, shift toward top separator */
-	.node.show-labels.vertical .port-labels-output .port-label {
-		top: 50%;
-		bottom: auto;
-		transform: translateX(-50%) translateY(calc(-50% - 6px)) rotate(-90deg);
-	}
-
-	/* Rotation 3: swap the vertical shifts */
-	.node.show-labels.vertical[data-rotation="3"] .port-labels-input .port-label {
-		transform: translateX(-50%) translateY(calc(-50% - 6px)) rotate(-90deg);
-	}
-	.node.show-labels.vertical[data-rotation="3"] .port-labels-output .port-label {
-		transform: translateX(-50%) translateY(calc(-50% + 6px)) rotate(-90deg);
+	/* Highlight labels in the node accent color when either:
+	 *  - the block is selected, or
+	 *  - a port handle is hovered (only that single label).
+	 * The colour comes from --node-color set on the parent .node. */
+	.node.selected .port-label,
+	.port-label.hovered {
+		color: var(--node-color, var(--accent));
+		font-weight: 500;
 	}
 </style>

@@ -5,6 +5,7 @@
 import { get } from 'svelte/store';
 import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
+import { applyPortLabelSync } from './ports';
 import {
 	rootNodes,
 	rootConnections,
@@ -37,13 +38,34 @@ export function toJSON(): { nodes: NodeInstance[]; connections: Connection[]; an
 }
 
 /**
+ * Walk a node list (recursing into Subsystem.graph) and apply port-label
+ * sync to every label-driven block (Scope, Spectrum, Adder, …) so port
+ * names match the loaded `labels` / `operations` params. Without this,
+ * nodes loaded from disk keep whatever names happened to be saved and
+ * only re-sync after the next param edit.
+ */
+function syncPortLabelsRecursively(nodes: NodeInstance[]): NodeInstance[] {
+	return nodes.map((node) => {
+		const synced = applyPortLabelSync(node);
+		if (synced.graph) {
+			return {
+				...synced,
+				graph: { ...synced.graph, nodes: syncPortLabelsRecursively(synced.graph.nodes) }
+			};
+		}
+		return synced;
+	});
+}
+
+/**
  * Load state from JSON
  */
 export function fromJSON(nodeList: NodeInstance[], connectionList: Connection[], annotationList?: Annotation[]): void {
 	if (!nodeList || !Array.isArray(nodeList)) {
 		rootNodes.set(new Map());
 	} else {
-		rootNodes.set(new Map(nodeList.map(n => [n.id, n])));
+		const synced = syncPortLabelsRecursively(nodeList);
+		rootNodes.set(new Map(synced.map(n => [n.id, n])));
 	}
 	rootConnections.set(connectionList || []);
 	rootAnnotations.set(new Map((annotationList || []).map(a => [a.id, a])));

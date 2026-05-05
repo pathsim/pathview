@@ -31,12 +31,15 @@ export function getEffectivePortLabelVisibility(
 }
 
 /**
- * Truncate port label for display.
+ * Truncate port label for display. The on-canvas labels are also clipped
+ * by CSS `text-overflow: ellipsis`, but this provides a hard limit for the
+ * SVG export path (where ellipsis isn't trivially available) and avoids
+ * overly long inline strings in the DOM.
  *
  * @param name - Port name
- * @param maxChars - Maximum characters (default: 5)
+ * @param maxChars - Maximum characters (default: 8)
  * @returns Truncated name
  */
-export function truncatePortLabel(name: string, maxChars: number = 5): string {
+export function truncatePortLabel(name: string, maxChars: number = 8): string {
 	return name.length > maxChars ? name.slice(0, maxChars) : name;
 }

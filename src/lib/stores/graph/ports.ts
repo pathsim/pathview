@@ -5,6 +5,7 @@
 import { get } from 'svelte/store';
 import type { NodeInstance, PortInstance } from '$lib/nodes/types';
 import { nodeRegistry } from '$lib/nodes/registry';
+import { getPortLabelConfigs } from '$lib/nodes/uiConfig';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import { PORT_COLORS } from '$lib/utils/colors';
 import { PORT_NAME, HANDLE_ID } from '$lib/constants/handles';
@@ -284,38 +285,49 @@ function parsePythonList(value: unknown): string[] | null {
 }
 
 /**
- * Sync port names from a labels parameter value
- * Updates port names to match labels, keeps generic names for extras
+ * Pure helper: return a node with port names synced to its label-driven
+ * params (Scope.labels, Adder.operations, …). Used by both the live
+ * updateNodeParams path (via syncPortNamesFromLabels) and the model-load
+ * path (which walks the loaded node tree and applies it recursively
+ * before nodes hit the store). Returns the same node reference if no
+ * changes were needed so callers can short-circuit.
+ */
+export function applyPortLabelSync(node: NodeInstance): NodeInstance {
+	let result = node;
+	for (const config of getPortLabelConfigs(node.type)) {
+		const portsKey = config.direction === 'input' ? 'inputs' : 'outputs';
+		const defaultName = config.direction === 'input' ? 'in' : 'out';
+		const labels = (config.parser ?? parsePythonList)(result.params?.[config.param]);
+		if (!labels) continue;
+
+		const currentPorts = result[portsKey] as PortInstance[];
+		const newPorts = currentPorts.map((port, index) => {
+			const name = index < labels.length ? labels[index] : `${defaultName} ${index}`;
+			return port.name === name ? port : { ...port, name };
+		});
+		const changed = newPorts.some((p, i) => p.name !== currentPorts[i].name);
+		if (changed) {
+			result = { ...result, [portsKey]: newPorts };
+		}
+	}
+	return result;
+}
+
+/**
+ * Sync port names from a labels parameter value (live path: writes back to
+ * the store). Used by updateNodeParams when a label-driven param changes.
  */
 export function syncPortNamesFromLabels(
 	nodeId: string,
-	labelsValue: unknown,
-	direction: 'input' | 'output',
-	parser?: (value: unknown) => string[] | null
+	_labelsValue: unknown,
+	_direction: 'input' | 'output',
+	_parser?: (value: unknown) => string[] | null
 ): void {
 	const currentGraph = getCurrentGraph();
 	const node = currentGraph.nodes.get(nodeId);
 	if (!node) return;
-
-	const labels = parser ? parser(labelsValue) : parsePythonList(labelsValue);
-	const config = getPortConfig(direction);
-	const currentPorts = node[config.portsKey] as PortInstance[];
-
-	// Build new port names: use label if available, else generic name
-	const newPorts = currentPorts.map((port, index) => {
-		const label = labels && index < labels.length ? labels[index] : `${config.defaultName} ${index}`;
-		if (port.name === label) {
-			return port; // No change needed
-		}
-		return { ...port, name: label };
-	});
-
-	// Only update if something changed
-	const hasChanges = newPorts.some((p, i) => p.name !== currentPorts[i].name);
-	if (!hasChanges) return;
-
-	updateNodeById(nodeId, n => ({
-		...n,
-		[config.portsKey]: newPorts
-	}));
+	const updated = applyPortLabelSync(node);
+	if (updated !== node) {
+		updateNodeById(nodeId, () => updated);
+	}
 }
