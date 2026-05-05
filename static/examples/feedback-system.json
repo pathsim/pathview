@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "metadata": {
-    "created": "2026-01-25T00:44:51.546Z",
-    "modified": "2026-01-25T00:44:51.546Z",
+    "created": "2026-05-05T11:54:54.306Z",
+    "modified": "2026-05-05T11:54:54.306Z",
     "name": "feedback-system"
   },
   "graph": {
@@ -53,7 +53,7 @@
         "name": "Feedback",
         "position": {
           "x": 910,
-          "y": 460
+          "y": 480
         },
         "inputs": [
           {
@@ -238,7 +238,7 @@
     "atol": "1e-6",
     "rtol": "1e-4",
     "ftol": "1e-9",
-    "dt_min": "",
+    "dt_min": null,
     "dt_max": "0.1",
     "ghostTraces": 6,
     "plotResults": true
