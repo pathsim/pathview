@@ -345,7 +345,7 @@
 
 	.examples-grid {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(2, 1fr);
 		grid-auto-rows: min-content;
 		align-items: start;
 		gap: 10px;
@@ -449,10 +449,6 @@
 
 		.banner-content {
 			padding-right: 90px;
-		}
-
-		.examples-grid {
-			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 
