@@ -31,7 +31,7 @@
 		<div class="section-title">
 			<span class="title-text">{node.name}</span>
 			{#if toolboxLabel}
-				<span class="title-meta">{toolboxLabel}</span>
+				<span class="title-meta">({toolboxLabel})</span>
 			{/if}
 		</div>
 		<div class="detail-preview">
@@ -80,12 +80,8 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-family: var(--font-mono);
-		font-size: 9px;
 		font-weight: 400;
 		color: var(--text-disabled);
-		text-transform: none;
-		letter-spacing: 0;
 	}
 
 	.detail-preview {
