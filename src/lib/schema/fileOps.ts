@@ -23,11 +23,7 @@ import { simulationState, resetSimulation } from '$lib/pyodide/bridge';
 import {
 	collectRequiredToolboxes,
 	findMissingRequirements,
-	performInstall,
-	discoverToolbox,
-	registerToolbox,
-	upsertToolbox,
-	getCatalogEntry
+	installAndRegisterToolbox
 } from '$lib/toolbox';
 import { getCachedPathsimVersion } from '$lib/toolbox/pathsimVersion';
 import type { ToolboxRequirement } from '$lib/types/schema';
@@ -197,33 +193,13 @@ async function installRequiredToolboxes(reqs: ToolboxRequirement[]): Promise<voi
 
 	for (const req of missing) {
 		try {
-			const installResult = await performInstall(req.source, req.importPath || undefined);
-			const updated: ToolboxRequirement = {
-				...req,
-				importPath: installResult.importPath
-			};
-			const discovered = await discoverToolbox({
-				importPath: updated.importPath,
-				eventsImportPath: updated.eventsImportPath
-			});
-			const catalog = getCatalogEntry(req.id);
-			const config = {
+			await installAndRegisterToolbox({
 				id: req.id,
 				displayName: req.displayName,
 				source: req.source,
-				importPath: updated.importPath,
-				eventsImportPath: updated.eventsImportPath,
-				installedVersion: installResult.installedVersion,
-				blocks: discovered.blocks.map((b) => ({ className: b.className, enabled: true })),
-				events: discovered.events.map((e) => ({ className: e.className, enabled: true }))
-			};
-			registerToolbox(config, {
-				blocks: discovered.blocks,
-				events: discovered.events,
-				defaultCategory: catalog?.defaultCategory,
-				categoryByClass: catalog?.categoryByClass
+				importPath: req.importPath || undefined,
+				eventsImportPath: req.eventsImportPath
 			});
-			upsertToolbox(config);
 			consoleStore.info(`[toolbox] installed ${req.displayName}`);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
