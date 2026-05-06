@@ -12,11 +12,9 @@
  */
 
 import { get } from 'svelte/store';
-import { toolboxes, upsertToolbox, seedPreloadedToolboxes } from './store';
-import { performInstall, discoverToolbox, registerToolbox } from './register';
-import { getCatalogEntry } from './catalog';
+import { toolboxes, seedPreloadedToolboxes } from './store';
+import { installAndRegisterToolbox } from './installFlow';
 import { primePathsimVersion } from './pathsimVersion';
-import type { ToolboxConfig } from './types';
 
 let bootstrapped = false;
 
@@ -35,45 +33,13 @@ export async function bootstrapToolboxes(): Promise<void> {
 
 	for (const config of list) {
 		try {
-			const installResult = await performInstall(config.source, config.importPath || undefined);
-			const discovered = await discoverToolbox({
-				importPath: installResult.importPath,
+			await installAndRegisterToolbox({
+				id: config.id,
+				displayName: config.displayName,
+				source: config.source,
+				importPath: config.importPath || undefined,
 				eventsImportPath: config.eventsImportPath
 			});
-
-			// Reconcile selections against current discovery: preserves the
-			// user's enabled/override choices, adds new classes the upstream
-			// package introduced (enabled by default), and drops entries
-			// whose classes no longer exist.
-			const reconciled: ToolboxConfig = {
-				...config,
-				importPath: installResult.importPath,
-				installedVersion: installResult.installedVersion,
-				blocks: discovered.blocks.map(
-					(b) =>
-						config.blocks.find((s) => s.className === b.className) ?? {
-							className: b.className,
-							enabled: true
-						}
-				),
-				events: discovered.events.map(
-					(e) =>
-						config.events.find((s) => s.className === e.className) ?? {
-							className: e.className,
-							enabled: true
-						}
-				)
-			};
-
-			const catalog = getCatalogEntry(config.id);
-			registerToolbox(reconciled, {
-				blocks: discovered.blocks,
-				events: discovered.events,
-				defaultCategory: catalog?.defaultCategory,
-				categoryByClass: catalog?.categoryByClass
-			});
-
-			upsertToolbox(reconciled);
 		} catch (e) {
 			console.error(`[toolbox] bootstrap failed for "${config.id}":`, e);
 		}

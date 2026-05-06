@@ -34,4 +34,8 @@ export { TOOLBOX_CATALOG, getCatalogEntry, type CatalogEntry } from './catalog';
 
 export { bootstrapToolboxes } from './bootstrap';
 
+export { installAndRegisterToolbox, type InstallSpec } from './installFlow';
+
+export { seedPreloadedToolboxes } from './store';
+
 export { collectRequiredToolboxes, findMissingRequirements } from './dependencies';

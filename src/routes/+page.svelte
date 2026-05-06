@@ -18,7 +18,7 @@
 	import EventDetail from '$lib/components/panels/library-detail/EventDetail.svelte';
 	import SubsystemTree from '$lib/components/panels/SubsystemTree.svelte';
 	import ToolboxManagerDialog from '$lib/components/dialogs/ToolboxManagerDialog.svelte';
-	import { bootstrapToolboxes, type ToolboxConfig } from '$lib/toolbox';
+	import { bootstrapToolboxes, seedPreloadedToolboxes, type ToolboxConfig } from '$lib/toolbox';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import { buildContextMenuItems, type ContextMenuCallbacks } from '$lib/components/contextMenuBuilders';
 	import ExportDialog from '$lib/components/dialogs/ExportDialog.svelte';
@@ -524,24 +524,37 @@
 	const continueTooltip = { text: "Continue", shortcut: "Shift+Enter" };
 
 	onMount(() => {
-		// Bring up the Python backend the moment the page loads so the
-		// runtime is ready by the time the user clicks Run. Order matters:
-		// detect the active backend first, then initialise it, then run
-		// the toolbox bootstrap on top. The URL-param model load runs at
-		// the end so toolbox blocks are registered in nodeRegistry by the
-		// time BaseNode tries to resolve them — otherwise blocks from
-		// installed-but-not-yet-bootstrapped toolboxes render as (missing).
-		(async () => {
+		// The URL-param model load runs *parallel* to backend startup: fetch,
+		// parse, and graphStore.fromJSON happen immediately so the user sees
+		// the model right away. The toolbox install step inside loadGraphFile
+		// is deferred and waits on `backendReady` before touching Pyodide.
+		// `seedPreloadedToolboxes()` runs first synchronously so the store
+		// has all preloaded entries before `findMissingRequirements` runs;
+		// `installAndRegisterToolbox` deduplicates by id, so bootstrap and
+		// the deferred required-install can overlap safely. BaseNode reacts
+		// to `registryVersion` bumps, so any (missing) placeholders upgrade
+		// themselves as soon as their toolbox registers.
+		seedPreloadedToolboxes();
+		const backendReady = (async () => {
 			try {
 				await autoDetectBackend();
 				await initBackendFromUrl();
 				await initPyodide();
 				await bootstrapToolboxes();
-				await loadFromUrlParam();
 			} catch (e) {
-				console.error('[startup]', e);
+				console.error('[startup] backend init failed', e);
+				throw e;
 			}
 		})();
+		void loadFromUrlParam(backendReady).catch((e) => {
+			console.error('[startup] URL-param model load failed', e);
+		});
+		void backendReady.catch(() => {
+			// Already logged above. Swallow here so the unhandled rejection
+			// from this branch (independent of the loadFromUrlParam branch)
+			// doesn't trip console noise — loadFromUrlParam awaits the same
+			// promise and surfaces install errors via consoleStore.
+		});
 
 		// Subscribe to stores (with cleanup)
 		const unsubPinnedPreviews = pinnedPreviewsStore.subscribe((pinned) => {
@@ -1053,7 +1066,7 @@
 	/**
 	 * Load model from URL parameter on page load
 	 */
-	async function loadFromUrlParam(): Promise<void> {
+	async function loadFromUrlParam(backendReady: Promise<unknown>): Promise<void> {
 		if (!urlModelConfig) return;
 
 		let url: string;
@@ -1068,7 +1081,13 @@
 			return;
 		}
 
-		const result = await importFromUrl(url);
+		// Defer the toolbox install step so the graph appears as soon as
+		// the file is fetched and parsed, even if Pyodide is still loading.
+		// `backendReady` gates the install step inside loadGraphFile.
+		const result = await importFromUrl(url, {
+			deferToolboxInstall: true,
+			backendReady
+		});
 		if (result.success) {
 			setTimeout(() => triggerFitView(), 100);
 		} else if (result.error) {
