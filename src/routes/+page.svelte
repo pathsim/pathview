@@ -14,6 +14,8 @@
 	import CodeEditor from '$lib/components/panels/CodeEditor.svelte';
 	import NodeLibrary from '$lib/components/panels/NodeLibrary.svelte';
 	import EventsPanel from '$lib/components/panels/EventsPanel.svelte';
+	import NodeBlockDetail from '$lib/components/panels/library-detail/NodeBlockDetail.svelte';
+	import EventDetail from '$lib/components/panels/library-detail/EventDetail.svelte';
 	import SubsystemTree from '$lib/components/panels/SubsystemTree.svelte';
 	import ToolboxManagerDialog from '$lib/components/dialogs/ToolboxManagerDialog.svelte';
 	import { bootstrapToolboxes, type ToolboxConfig } from '$lib/toolbox';
@@ -209,6 +211,15 @@
 	let subsystemTreeWidth = $state(260);
 	let codeEditorWidth = $state(400);
 	const propertiesPanelWidth = 310; // Fixed width, not resizable
+
+	// Library detail-column hover state. When the user hovers a tile, the
+	// library panel grows by DETAIL_COLUMN_WIDTH and renders a detail view
+	// of the hovered block.
+	const DETAIL_COLUMN_WIDTH = 320;
+	let nodeLibraryDetailVisible = $state(false);
+	let eventsPanelDetailVisible = $state(false);
+	let nodeLibraryHoveredItem = $state<import('$lib/nodes/types').NodeTypeDefinition | null>(null);
+	let eventsPanelHoveredItem = $state<import('$lib/events/types').EventTypeDefinition | null>(null);
 
 	// Track window size for fitView padding calculation
 	let windowWidth = $state(typeof window !== 'undefined' ? window.innerWidth : 1920);
@@ -407,7 +418,16 @@
 
 	// References for focus management
 	let nodeLibraryRef = $state<NodeLibrary | undefined>(undefined);
+	let eventsPanelRef = $state<EventsPanel | undefined>(undefined);
 	let codeEditorRef = $state<CodeEditor | undefined>(undefined);
+
+	// Effective width = base width + detail-column when expanded.
+	const nodeLibraryEffectiveWidth = $derived(
+		nodeLibraryDetailVisible ? nodeLibraryWidth + DETAIL_COLUMN_WIDTH : nodeLibraryWidth
+	);
+	const eventsPanelEffectiveWidth = $derived(
+		eventsPanelDetailVisible ? eventsPanelWidth + DETAIL_COLUMN_WIDTH : eventsPanelWidth
+	);
 
 	let exportDialogOpen = $state(false);
 	let showKeyboardShortcuts = $state(false);
@@ -1344,13 +1364,17 @@
 	{#if showNodeLibrary}
 		<ResizablePanel
 			position="left"
-			width={nodeLibraryWidth}
+			width={nodeLibraryEffectiveWidth}
 			minWidth={280}
-			maxWidth={500}
+			maxWidth={500 + DETAIL_COLUMN_WIDTH}
 			bottomOffset={leftPanelBottomOffset()}
 			title="Blocks"
 			onClose={() => showNodeLibrary = false}
-			onWidthChange={(w) => nodeLibraryWidth = Math.min(500, Math.max(280, w))}
+			onWidthChange={(w) =>
+				(nodeLibraryWidth = Math.min(
+					500,
+					Math.max(280, w - (nodeLibraryDetailVisible ? DETAIL_COLUMN_WIDTH : 0))
+				))}
 		>
 			{#snippet actions()}
 				<button
@@ -1363,10 +1387,24 @@
 					<Icon name="box" size={16} />
 				</button>
 			{/snippet}
+			{#snippet rightColumn()}
+				{#if nodeLibraryHoveredItem}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="detail-hover-wrap"
+						onmouseenter={() => nodeLibraryRef?.keepDetailAlive()}
+						onmouseleave={() => nodeLibraryRef?.dismissDetail()}
+					>
+						<NodeBlockDetail node={nodeLibraryHoveredItem} />
+					</div>
+				{/if}
+			{/snippet}
 			<NodeLibrary
 				bind:this={nodeLibraryRef}
 				onAddNode={handleAddNode}
 				focusSearch={true}
+				ondetailvisible={(v) => (nodeLibraryDetailVisible = v)}
+				onhoveritem={(item) => (nodeLibraryHoveredItem = item)}
 			/>
 		</ResizablePanel>
 	{/if}
@@ -1773,6 +1811,15 @@
 	/* Panel content padding */
 	.panel-padding {
 		padding: var(--space-md);
+	}
+
+	/* Wraps the library detail-column content so a single mouseenter /
+	 * mouseleave pair manages the hover lifecycle from the parent. */
+	.detail-hover-wrap {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
 	}
 
 	/* Header tabs for results panel - pill style matching breadcrumb */
