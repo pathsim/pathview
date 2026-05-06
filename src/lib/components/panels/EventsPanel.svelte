@@ -5,14 +5,15 @@
 	import { graphStore } from '$lib/stores/graph';
 	import { historyStore } from '$lib/stores/history';
 	import { screenToFlow } from '$lib/stores/viewActions';
-	import { tooltip } from '$lib/components/Tooltip.svelte';
 	import EventPreview from '$lib/components/nodes/EventPreview.svelte';
 
 	interface Props {
 		onAddEvent?: (type: string) => void;
+		ondetailvisible?: (visible: boolean) => void;
+		onhoveritem?: (item: EventTypeDefinition | null) => void;
 	}
 
-	let { onAddEvent }: Props = $props();
+	let { onAddEvent, ondetailvisible, onhoveritem }: Props = $props();
 
 	// Re-derive event types whenever the registry changes (runtime install/uninstall)
 	let registryTick = $state(0);
@@ -30,6 +31,77 @@
 
 	// Track drag state to prevent click after drag
 	let isDragging = $state(false);
+
+	// Hover-detail state — same pattern as NodeLibrary.
+	const HOVER_OPEN_DELAY = 250;
+	const HOVER_CLOSE_DELAY = 120;
+	let hoveredItem = $state<EventTypeDefinition | null>(null);
+	let hoverOpenTimer: ReturnType<typeof setTimeout> | null = null;
+	let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function handleMouseEnter(item: EventTypeDefinition) {
+		if (hoverCloseTimer !== null) {
+			clearTimeout(hoverCloseTimer);
+			hoverCloseTimer = null;
+		}
+		if (hoveredItem !== null) {
+			if (hoveredItem !== item) {
+				hoveredItem = item;
+				onhoveritem?.(item);
+			}
+			return;
+		}
+		if (hoverOpenTimer !== null) clearTimeout(hoverOpenTimer);
+		hoverOpenTimer = setTimeout(() => {
+			hoverOpenTimer = null;
+			hoveredItem = item;
+			onhoveritem?.(item);
+			ondetailvisible?.(true);
+		}, HOVER_OPEN_DELAY);
+	}
+
+	function handleMouseLeave() {
+		if (hoverOpenTimer !== null) {
+			clearTimeout(hoverOpenTimer);
+			hoverOpenTimer = null;
+		}
+		if (hoveredItem === null) return;
+		if (hoverCloseTimer !== null) clearTimeout(hoverCloseTimer);
+		hoverCloseTimer = setTimeout(() => {
+			hoverCloseTimer = null;
+			hoveredItem = null;
+			onhoveritem?.(null);
+			ondetailvisible?.(false);
+		}, HOVER_CLOSE_DELAY);
+	}
+
+	function hideDetailNow() {
+		if (hoverOpenTimer !== null) {
+			clearTimeout(hoverOpenTimer);
+			hoverOpenTimer = null;
+		}
+		if (hoverCloseTimer !== null) {
+			clearTimeout(hoverCloseTimer);
+			hoverCloseTimer = null;
+		}
+		const wasShown = hoveredItem !== null;
+		hoveredItem = null;
+		if (wasShown) {
+			onhoveritem?.(null);
+			ondetailvisible?.(false);
+		}
+	}
+
+	export function keepDetailAlive() {
+		if (hoverCloseTimer !== null) {
+			clearTimeout(hoverCloseTimer);
+			hoverCloseTimer = null;
+		}
+	}
+
+	export function dismissDetail() {
+		handleMouseLeave();
+	}
 
 	/**
 	 * Add an event at the current level (root or subsystem)
@@ -58,6 +130,7 @@
 
 	// Handle drag start
 	function handleDragStart(event: DragEvent, eventType: EventTypeDefinition) {
+		hideDetailNow();
 		isDragging = true;
 		if (event.dataTransfer) {
 			event.dataTransfer.setData('application/pathview-event', eventType.type);
@@ -75,6 +148,7 @@
 	// Handle click to add event
 	function handleEventClick(eventType: EventTypeDefinition) {
 		if (isDragging) return;
+		hideDetailNow();
 		if (onAddEvent) {
 			onAddEvent(eventType.type);
 		} else {
@@ -92,10 +166,11 @@
 				<button
 					class="event-tile"
 					draggable={true}
+					onmouseenter={() => handleMouseEnter(eventType)}
+					onmouseleave={handleMouseLeave}
 					ondragstart={(e) => handleDragStart(e, eventType)}
 					ondragend={handleDragEnd}
 					onclick={() => handleEventClick(eventType)}
-					use:tooltip={eventType.description}
 				>
 					<EventPreview event={eventType} />
 				</button>

@@ -1413,15 +1413,35 @@
 	{#if showEventsPanel}
 		<ResizablePanel
 			position="left"
-			width={eventsPanelWidth}
+			width={eventsPanelEffectiveWidth}
 			minWidth={200}
-			maxWidth={400}
+			maxWidth={400 + DETAIL_COLUMN_WIDTH}
 			bottomOffset={leftPanelBottomOffset()}
 			title="Events"
 			onClose={() => showEventsPanel = false}
-			onWidthChange={(w) => eventsPanelWidth = Math.min(400, Math.max(200, w))}
+			onWidthChange={(w) =>
+				(eventsPanelWidth = Math.min(
+					400,
+					Math.max(200, w - (eventsPanelDetailVisible ? DETAIL_COLUMN_WIDTH : 0))
+				))}
 		>
-			<EventsPanel />
+			{#snippet rightColumn()}
+				{#if eventsPanelHoveredItem}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="detail-hover-wrap"
+						onmouseenter={() => eventsPanelRef?.keepDetailAlive()}
+						onmouseleave={() => eventsPanelRef?.dismissDetail()}
+					>
+						<EventDetail event={eventsPanelHoveredItem} />
+					</div>
+				{/if}
+			{/snippet}
+			<EventsPanel
+				bind:this={eventsPanelRef}
+				ondetailvisible={(v) => (eventsPanelDetailVisible = v)}
+				onhoveritem={(item) => (eventsPanelHoveredItem = item)}
+			/>
 		</ResizablePanel>
 	{/if}
 
