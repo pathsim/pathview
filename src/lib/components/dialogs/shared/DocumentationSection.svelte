@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import {
 		renderDocstring,
 		transformDefinitionListsToTables,
@@ -17,11 +17,16 @@
 		docstring?: string | undefined;
 		// Pre-rendered HTML (display directly)
 		docstringHtml?: string | undefined;
+		// When true, render the docs immediately and hide the toggle button.
+		alwaysExpanded?: boolean;
 	}
 
-	let { docstring, docstringHtml }: Props = $props();
+	let { docstring, docstringHtml, alwaysExpanded = false }: Props = $props();
 
-	let expanded = $state(false);
+	// alwaysExpanded is a static prop in practice; capture once for the
+	// initial expanded state. Subsequent changes are handled by the reset
+	// effect below.
+	let expanded = $state(untrack(() => alwaysExpanded));
 	let renderedDocs = $state<string>('');
 	let loading = $state(false);
 	let container: HTMLDivElement | undefined = $state();
@@ -29,25 +34,32 @@
 	// Check if we have any documentation to show
 	const hasDocumentation = $derived(!!docstring || !!docstringHtml);
 
+	// Generation counter: each loadDocs invocation gets a unique id; if a
+	// newer load starts while an older one is still in flight, the older
+	// resolution must not overwrite the newer's result.
+	let loadGen = 0;
+
+	async function loadDocs() {
+		if (renderedDocs) return;
+		const html = docstringHtml || docstring;
+		if (!html) return;
+		const gen = ++loadGen;
+		loading = true;
+		try {
+			const result = await renderDocstring(html);
+			if (gen !== loadGen) return; // superseded by a newer load
+			renderedDocs = result;
+		} catch (e) {
+			if (gen !== loadGen) return;
+			console.error('Failed to render docstring:', e);
+			renderedDocs = '<p class="docs-error">Failed to render documentation.</p>';
+		}
+		if (gen === loadGen) loading = false;
+	}
+
 	async function toggle() {
 		expanded = !expanded;
-
-		// Load and render if expanding and not already loaded
-		if (expanded && !renderedDocs) {
-			const html = docstringHtml || docstring;
-			if (!html) return;
-
-			loading = true;
-			try {
-				// renderDocstring handles both raw docstrings and pre-rendered HTML
-				// It applies KaTeX rendering to any .math elements
-				renderedDocs = await renderDocstring(html);
-			} catch (e) {
-				console.error('Failed to render docstring:', e);
-				renderedDocs = '<p class="docs-error">Failed to render documentation.</p>';
-			}
-			loading = false;
-		}
+		if (expanded) await loadDocs();
 	}
 
 	// Apply DOM transformations after rendered HTML is inserted
@@ -69,15 +81,21 @@
 		}
 	});
 
-	// Reset state when docstring changes
+	// Reset state when docstring changes. In alwaysExpanded mode the toggle
+	// state stays true and we re-load the new content. The loadDocs call
+	// must be untracked — it reads renderedDocs internally, and without
+	// untrack the subsequent write to renderedDocs would re-trigger this
+	// effect in an infinite loop.
 	$effect(() => {
-		// Track both props
 		const _ = docstring || docstringHtml;
 		if (_) {
-			// Reset when content changes
 			cleanupCodeBlocks();
 			renderedDocs = '';
-			expanded = false;
+			if (alwaysExpanded) {
+				untrack(() => loadDocs());
+			} else {
+				expanded = false;
+			}
 		}
 	});
 
@@ -92,21 +110,33 @@
 </svelte:head>
 
 {#if hasDocumentation}
-	<div class="docs-section">
-		<button class="docs-toggle" onclick={toggle}>
-			<span class="toggle-icon" class:expanded>
-				<Icon name="chevron-right" size={12} />
-			</span>
-			Documentation
-		</button>
+	<div class="docs-section" class:always-expanded={alwaysExpanded}>
+		{#if !alwaysExpanded}
+			<button class="docs-toggle" onclick={toggle}>
+				<span class="toggle-icon" class:expanded>
+					<Icon name="chevron-right" size={12} />
+				</span>
+				Documentation
+			</button>
+		{/if}
 		{#if expanded}
-			<div class="docs-content" transition:slide={{ duration: 200 }} bind:this={container}>
-				{#if loading}
-					<div class="docs-loading">Loading documentation...</div>
-				{:else}
-					{@html renderedDocs}
-				{/if}
-			</div>
+			{#if alwaysExpanded}
+				<div class="docs-content" bind:this={container}>
+					{#if loading}
+						<div class="docs-loading">Loading documentation...</div>
+					{:else}
+						{@html renderedDocs}
+					{/if}
+				</div>
+			{:else}
+				<div class="docs-content" transition:slide={{ duration: 200 }} bind:this={container}>
+					{#if loading}
+						<div class="docs-loading">Loading documentation...</div>
+					{:else}
+						{@html renderedDocs}
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	</div>
 {/if}
@@ -120,6 +150,14 @@
 		margin-right: calc(-1 * var(--space-md));
 		padding-left: var(--space-md);
 		padding-right: var(--space-md);
+	}
+
+	/* Always-expanded uses no border / no negative margins so it can sit
+	 * inside the detail column without bleeding past container edges. */
+	.docs-section.always-expanded {
+		border-top: none;
+		padding: 0;
+		margin: 0;
 	}
 
 	.docs-toggle {

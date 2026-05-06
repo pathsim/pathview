@@ -26,6 +26,17 @@
 		toolbar?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 		children?: import('svelte').Snippet;
+		/** Optional second column rendered next to the main content. When set
+		 *  AND `rightColumnActive` is true, the panel body splits into two
+		 *  columns; otherwise the panel layout is unchanged. */
+		rightColumn?: import('svelte').Snippet;
+		/** Controls whether the right column is currently rendered. Lets the
+		 *  parent define the snippet up front but defer the layout split until
+		 *  there's something to show (so the column doesn't eat panel width
+		 *  while empty). Defaults to true when a `rightColumn` is supplied. */
+		rightColumnActive?: boolean;
+		/** Width of the right column in px. */
+		rightColumnWidth?: number;
 	}
 
 	let {
@@ -46,8 +57,13 @@
 		actions,
 		toolbar,
 		footer,
-		children
+		children,
+		rightColumn,
+		rightColumnActive = true,
+		rightColumnWidth = 320
 	}: Props = $props();
+
+	const showRightColumn = $derived(!!rightColumn && rightColumnActive);
 
 	// Calculate dynamic max height for bottom panels (viewport - nav bar - gaps)
 	function getEffectiveMaxHeight(): number {
@@ -228,8 +244,15 @@
 			{@render toolbar()}
 		</div>
 	{/if}
-	<div class="panel-content">
-		{@render children?.()}
+	<div class="panel-body" class:split={showRightColumn}>
+		<div class="panel-content">
+			{@render children?.()}
+		</div>
+		{#if showRightColumn}
+			<div class="panel-right" style="width: {rightColumnWidth}px;">
+				{@render rightColumn!()}
+			</div>
+		{/if}
 	</div>
 	{#if footer}
 		<div class="panel-footer">
@@ -342,12 +365,41 @@
 		border-bottom: 1px solid var(--border);
 	}
 
+	/* When the panel has no second column, panel-body is layout-transparent,
+	 * so children sit in resizable-panel's column flex exactly like before. */
+	.panel-body {
+		display: contents;
+	}
+
+	.panel-body.split {
+		display: flex;
+		flex-direction: row;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+	}
+
 	.panel-content {
 		display: flex;
 		flex-direction: column;
 		flex: 1;
 		overflow: auto;
 		min-height: 0;
+	}
+
+	.panel-body.split .panel-content {
+		min-width: 0;
+	}
+
+	.panel-right {
+		flex-shrink: 0;
+		width: 320px;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border-left: 1px solid var(--border);
+		background: var(--surface);
 	}
 
 	.panel-footer {

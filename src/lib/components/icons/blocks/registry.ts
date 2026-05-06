@@ -18,7 +18,7 @@ export type IconDef =
 	| { kind: 'plot'; samples: () => Sample[]; xRange?: [number, number]; yRange?: [number, number]; axes?: AxesMode; markers?: boolean; decoration?: 'arrow-up' | 'arrow-down' }
 	| { kind: 'scope'; samples: () => Sample[]; samples2?: () => Sample[]; yRange?: [number, number]; gridX?: number; gridY?: number }
 	| { kind: 'surface'; fn?: (u: number, v: number) => number; rows?: number; cols?: number }
-	| { kind: 'math'; latex: string; fit?: number }
+	| { kind: 'math'; latex: string }
 	| { kind: 'glyph'; text: string; size?: number }
 	| { kind: 'svg'; name: string };
 

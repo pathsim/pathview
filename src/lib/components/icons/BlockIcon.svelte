@@ -57,7 +57,7 @@
 		{:else if def.kind === 'surface'}
 			<IconSurface fn={def.fn} rows={def.rows} cols={def.cols} />
 		{:else if def.kind === 'math'}
-			<IconMath latex={def.latex} fit={def.fit} />
+			<IconMath latex={def.latex} />
 		{:else if def.kind === 'glyph'}
 			<IconGlyph text={def.text} size={def.size} />
 		{:else if def.kind === 'svg' && svgRaw}

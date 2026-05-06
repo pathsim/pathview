@@ -79,6 +79,7 @@ export const simulationTour: TourScript = {
 					<li><strong>Schedule</strong> — fire at fixed times</li>
 					<li><strong>ZeroCrossing</strong> — trigger when a signal crosses a threshold</li>
 					<li><strong>Condition</strong> — trigger when a Python expression turns true</li>
+					<li>Hover any event for a detail panel with preview and full documentation</li>
 				</ul>
 				<p>Each event can modify block parameters or call user code. The bouncing-ball demo uses an event for the floor collision.</p>
 			`

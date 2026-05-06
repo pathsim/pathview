@@ -50,7 +50,7 @@ export const startTour: TourScript = {
 				<ul>
 					<li>Search by name across all categories</li>
 					<li>Drag onto canvas, or click to add at center</li>
-					<li>Hover any block for a preview tooltip</li>
+					<li>Hover any block for a detail panel with preview and full documentation</li>
 					<li>Categories collapse for cleaner navigation</li>
 				</ul>
 			`,
