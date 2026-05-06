@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { nodeRegistry, blockConfig, registryVersion, type NodeCategory, type NodeTypeDefinition } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import NodePreview from '$lib/components/nodes/NodePreview.svelte';
@@ -62,6 +63,8 @@
 			hoverCloseTimer = null;
 		}
 	}
+
+	onDestroy(clearHoverTimers);
 
 	// Collapsed categories
 	let collapsedCategories = $state<Set<string>>(new Set());

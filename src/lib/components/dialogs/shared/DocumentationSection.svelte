@@ -34,18 +34,27 @@
 	// Check if we have any documentation to show
 	const hasDocumentation = $derived(!!docstring || !!docstringHtml);
 
+	// Generation counter: each loadDocs invocation gets a unique id; if a
+	// newer load starts while an older one is still in flight, the older
+	// resolution must not overwrite the newer's result.
+	let loadGen = 0;
+
 	async function loadDocs() {
 		if (renderedDocs) return;
 		const html = docstringHtml || docstring;
 		if (!html) return;
+		const gen = ++loadGen;
 		loading = true;
 		try {
-			renderedDocs = await renderDocstring(html);
+			const result = await renderDocstring(html);
+			if (gen !== loadGen) return; // superseded by a newer load
+			renderedDocs = result;
 		} catch (e) {
+			if (gen !== loadGen) return;
 			console.error('Failed to render docstring:', e);
 			renderedDocs = '<p class="docs-error">Failed to render documentation.</p>';
 		}
-		loading = false;
+		if (gen === loadGen) loading = false;
 	}
 
 	async function toggle() {

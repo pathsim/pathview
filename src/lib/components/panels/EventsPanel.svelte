@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { eventRegistry, eventRegistryVersion } from '$lib/events/registry';
 	import type { EventTypeDefinition, EventInstance } from '$lib/events/types';
 	import { eventStore } from '$lib/stores/events';
@@ -55,6 +56,8 @@
 			hoverCloseTimer = null;
 		}
 	}
+
+	onDestroy(clearHoverTimers);
 
 	function handleMouseEnter(item: EventTypeDefinition) {
 		if (hoverCloseTimer !== null) {
