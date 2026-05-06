@@ -9,10 +9,8 @@
 
 	let { node }: Props = $props();
 
-	const minInputs = $derived(node.ports?.minInputs ?? 1);
-	const minOutputs = $derived(node.ports?.minOutputs ?? 1);
-	const inputCount = $derived(Math.max(minInputs, node.ports?.inputs?.length ?? 0));
-	const outputCount = $derived(Math.max(minOutputs, node.ports?.outputs?.length ?? 0));
+	const inputCount = $derived(node.ports?.inputs?.length ?? 0);
+	const outputCount = $derived(node.ports?.outputs?.length ?? 0);
 
 	const shapeClass = $derived(getShapeCssClass(node));
 	const isSubsystemType = $derived(isSubsystem(node) || node.category === 'Subsystem');
