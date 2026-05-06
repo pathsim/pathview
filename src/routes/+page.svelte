@@ -215,7 +215,7 @@
 	// Library detail-column hover state. When the user hovers a tile, the
 	// library panel grows by DETAIL_COLUMN_WIDTH and renders a detail view
 	// of the hovered block.
-	const DETAIL_COLUMN_WIDTH = 320;
+	const DETAIL_COLUMN_WIDTH = 400;
 	let nodeLibraryDetailVisible = $state(false);
 	let eventsPanelDetailVisible = $state(false);
 	let nodeLibraryHoveredItem = $state<import('$lib/nodes/types').NodeTypeDefinition | null>(null);
@@ -1370,6 +1370,7 @@
 			bottomOffset={leftPanelBottomOffset()}
 			title="Blocks"
 			rightColumnActive={nodeLibraryDetailVisible}
+			rightColumnWidth={DETAIL_COLUMN_WIDTH}
 			onClose={() => showNodeLibrary = false}
 			onWidthChange={(w) =>
 				(nodeLibraryWidth = Math.min(
@@ -1420,6 +1421,7 @@
 			bottomOffset={leftPanelBottomOffset()}
 			title="Events"
 			rightColumnActive={eventsPanelDetailVisible}
+			rightColumnWidth={DETAIL_COLUMN_WIDTH}
 			onClose={() => showEventsPanel = false}
 			onWidthChange={(w) =>
 				(eventsPanelWidth = Math.min(

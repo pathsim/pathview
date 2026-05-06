@@ -35,6 +35,8 @@
 		 *  there's something to show (so the column doesn't eat panel width
 		 *  while empty). Defaults to true when a `rightColumn` is supplied. */
 		rightColumnActive?: boolean;
+		/** Width of the right column in px. */
+		rightColumnWidth?: number;
 	}
 
 	let {
@@ -57,7 +59,8 @@
 		footer,
 		children,
 		rightColumn,
-		rightColumnActive = true
+		rightColumnActive = true,
+		rightColumnWidth = 320
 	}: Props = $props();
 
 	const showRightColumn = $derived(!!rightColumn && rightColumnActive);
@@ -246,7 +249,7 @@
 			{@render children?.()}
 		</div>
 		{#if showRightColumn}
-			<div class="panel-right">
+			<div class="panel-right" style="width: {rightColumnWidth}px;">
 				{@render rightColumn!()}
 			</div>
 		{/if}
