@@ -368,11 +368,6 @@
 		{/each}
 	</div>
 
-	<div class="footer">
-		<span>Click or drag to add</span>
-		<span>↑↓ Enter</span>
-	</div>
-
 	<!-- Hidden drag preview container (rendered off-screen, used as drag image) -->
 	<div class="drag-preview-container" aria-hidden="true">
 		{#if dragPreviewNode}
@@ -528,17 +523,6 @@
 	}
 
 	.empty .hint {
-		font-size: 10px;
-		color: var(--text-disabled);
-	}
-
-	.footer {
-		flex-shrink: 0;
-		display: flex;
-		justify-content: space-between;
-		padding: var(--space-sm) var(--space-md);
-		background: var(--surface-raised);
-		border-top: 1px solid var(--border);
 		font-size: 10px;
 		color: var(--text-disabled);
 	}

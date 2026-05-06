@@ -208,9 +208,6 @@
 		</div>
 	</div>
 
-	<div class="footer">
-		Click or drag to add
-	</div>
 </div>
 
 <style>
@@ -256,12 +253,4 @@
 		cursor: grabbing;
 	}
 
-	.footer {
-		flex-shrink: 0;
-		padding: var(--space-sm) var(--space-md);
-		background: var(--surface-raised);
-		border-top: 1px solid var(--border);
-		font-size: 10px;
-		color: var(--text-disabled);
-	}
 </style>

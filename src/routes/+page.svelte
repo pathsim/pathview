@@ -1401,6 +1401,12 @@
 					</div>
 				{/if}
 			{/snippet}
+			{#snippet footer()}
+				<div class="library-footer">
+					<span>Click or drag to add</span>
+					<span>↑↓ Enter</span>
+				</div>
+			{/snippet}
 			<NodeLibrary
 				bind:this={nodeLibraryRef}
 				onAddNode={handleAddNode}
@@ -1440,6 +1446,11 @@
 						<EventDetail event={eventsPanelHoveredItem} />
 					</div>
 				{/if}
+			{/snippet}
+			{#snippet footer()}
+				<div class="library-footer">
+					<span>Click or drag to add</span>
+				</div>
 			{/snippet}
 			<EventsPanel
 				bind:this={eventsPanelRef}
@@ -1844,6 +1855,17 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
+	}
+
+	/* Footer for the library panels. Lives in ResizablePanel's footer slot
+	 * so it spans both columns when the detail panel is open. */
+	.library-footer {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--space-md);
+		padding: var(--space-sm) var(--space-md);
+		font-size: 10px;
+		color: var(--text-disabled);
 	}
 
 	/* Header tabs for results panel - pill style matching breadcrumb */
