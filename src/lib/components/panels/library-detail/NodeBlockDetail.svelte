@@ -34,10 +34,6 @@
 		{/if}
 	</header>
 
-	<div class="detail-subtitle">
-		<span class="block-type">{node.category}</span>
-	</div>
-
 	<div class="detail-preview">
 		<NodePreview {node} />
 	</div>
@@ -94,15 +90,6 @@
 		border-radius: var(--radius-sm);
 		text-transform: none;
 		letter-spacing: 0;
-	}
-
-	.detail-subtitle {
-		flex-shrink: 0;
-		padding: var(--space-sm) var(--space-md) 0;
-		font-size: 10px;
-		color: var(--text-disabled);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
 	}
 
 	.detail-preview {

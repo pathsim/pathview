@@ -73,14 +73,17 @@
 	});
 
 	// Reset state when docstring changes. In alwaysExpanded mode the toggle
-	// state stays true and we re-load the new content.
+	// state stays true and we re-load the new content. The loadDocs call
+	// must be untracked — it reads renderedDocs internally, and without
+	// untrack the subsequent write to renderedDocs would re-trigger this
+	// effect in an infinite loop.
 	$effect(() => {
 		const _ = docstring || docstringHtml;
 		if (_) {
 			cleanupCodeBlocks();
 			renderedDocs = '';
 			if (alwaysExpanded) {
-				loadDocs();
+				untrack(() => loadDocs());
 			} else {
 				expanded = false;
 			}
