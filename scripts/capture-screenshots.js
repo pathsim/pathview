@@ -19,12 +19,12 @@ const MANIFEST_PATH = join(STATIC_DIR, 'manifest.json');
 const BASE_URL = 'https://view.pathsim.org';
 const VIEWPORT = { width: 1000, height: 600 };
 const DEVICE_SCALE_FACTOR = 1;
-const SETTLE_DELAY = 1500;
+const SETTLE_DELAY = 5000;
 const THEMES = ['dark', 'light'];
 
 async function captureScreenshot(browser, filename, theme) {
 	const basename = filename.replace('.json', '');
-	const url = `${BASE_URL}?model=examples/${filename}&theme=${theme}`;
+	const url = `${BASE_URL}?model=examples/${filename}&theme=${theme}&fancyloading=false`;
 	console.log(`  ${basename} ${theme}...`);
 
 	const page = await browser.newPage();
