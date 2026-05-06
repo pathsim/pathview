@@ -27,16 +27,15 @@
 </script>
 
 <div class="detail-root">
-	<header class="detail-header">
-		<span class="detail-title">{node.name}</span>
-		{#if toolboxLabel}
-			<span class="toolbox-badge">{toolboxLabel}</span>
-		{/if}
-	</header>
-
 	<div class="detail-preview">
 		<NodePreview {node} />
 	</div>
+
+	{#if toolboxLabel}
+		<div class="detail-meta">
+			<span class="toolbox-badge">{toolboxLabel}</span>
+		</div>
+	{/if}
 
 	<div class="detail-docs">
 		<DocumentationSection docstring={node.docstring} alwaysExpanded />
@@ -53,33 +52,22 @@
 		overflow: hidden;
 	}
 
-	.detail-header {
+	.detail-preview {
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-sm);
-		height: var(--header-height);
-		padding: 0 var(--space-md);
-		background: var(--surface-raised);
-		border-bottom: 1px solid var(--border);
-		font-size: var(--font-base);
-		font-weight: 500;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
+		justify-content: center;
+		padding: var(--space-md);
 	}
 
-	.detail-title {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	.detail-meta {
+		flex-shrink: 0;
+		display: flex;
+		justify-content: center;
+		padding: 0 var(--space-md) var(--space-sm);
 	}
 
 	.toolbox-badge {
-		flex-shrink: 0;
 		padding: 1px 6px;
 		font-family: var(--font-mono);
 		font-size: 9px;
@@ -88,16 +76,6 @@
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
-		text-transform: none;
-		letter-spacing: 0;
-	}
-
-	.detail-preview {
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--space-md);
 	}
 
 	.detail-docs {
