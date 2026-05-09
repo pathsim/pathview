@@ -13,8 +13,31 @@ export interface MathRenderResult {
 	hasMath: boolean;
 }
 
-/** Cached render results to avoid re-rendering unchanged content */
+/**
+ * Bounded LRU cache for rendered results. Map iteration is insertion-ordered,
+ * so we rotate hits to the back (most-recent) and evict the front (oldest)
+ * when the cap is exceeded.
+ */
+const RENDER_CACHE_MAX = 500;
 const renderCache = new Map<string, MathRenderResult>();
+
+function cacheGet(key: string): MathRenderResult | undefined {
+	const value = renderCache.get(key);
+	if (value !== undefined) {
+		renderCache.delete(key);
+		renderCache.set(key, value);
+	}
+	return value;
+}
+
+function cacheSet(key: string, value: MathRenderResult): void {
+	if (renderCache.has(key)) renderCache.delete(key);
+	renderCache.set(key, value);
+	if (renderCache.size > RENDER_CACHE_MAX) {
+		const oldest = renderCache.keys().next().value;
+		if (oldest !== undefined) renderCache.delete(oldest);
+	}
+}
 
 /**
  * Check if a string contains inline math delimiters
@@ -36,13 +59,13 @@ export async function renderInlineMath(text: string): Promise<MathRenderResult> 
 	}
 
 	// Check cache
-	const cached = renderCache.get(text);
+	const cached = cacheGet(text);
 	if (cached) return cached;
 
 	// Check if there's any math to render
 	if (!containsMath(text)) {
 		const result = { html: escapeHtml(text), hasMath: false };
-		renderCache.set(text, result);
+		cacheSet(text, result);
 		return result;
 	}
 
@@ -69,7 +92,7 @@ export async function renderInlineMath(text: string): Promise<MathRenderResult> 
 	// Actually we need to be more careful - escape text first, then insert math
 
 	const result = { html, hasMath };
-	renderCache.set(text, result);
+	cacheSet(text, result);
 	return result;
 }
 
@@ -78,7 +101,7 @@ export async function renderInlineMath(text: string): Promise<MathRenderResult> 
  * Returns null if not cached (caller should use async version)
  */
 export function renderInlineMathSync(text: string): MathRenderResult | null {
-	return renderCache.get(text) ?? null;
+	return cacheGet(text) ?? null;
 }
 
 /**
