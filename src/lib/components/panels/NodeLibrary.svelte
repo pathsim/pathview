@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { nodeRegistry, blockConfig, registryVersion, type NodeCategory, type NodeTypeDefinition } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
+	import { createHoverDetail } from '$lib/actions/hoverDetail.svelte';
 	import NodePreview from '$lib/components/nodes/NodePreview.svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	interface Props {
@@ -37,35 +38,13 @@
 	let dragPreviewNode = $state<NodeTypeDefinition | null>(null);
 	let dragPreviewElement = $state<HTMLDivElement | undefined>(undefined);
 
-	// Hover-detail state. The detail content lives in a second column inside
-	// the library panel itself. We delay both opening and closing so that
-	// brushing past tiles on the way to the detail column doesn't flicker
-	// through every block in between.
-	const HOVER_OPEN_DELAY = 250;
-	const HOVER_SWITCH_DELAY = 200;
-	const HOVER_CLOSE_DELAY = 120;
-	let hoveredItem = $state<NodeTypeDefinition | null>(null);
-	let hoverOpenTimer: ReturnType<typeof setTimeout> | null = null;
-	let hoverSwitchTimer: ReturnType<typeof setTimeout> | null = null;
-	let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
-
-	function clearHoverTimers() {
-		if (hoverOpenTimer !== null) {
-			clearTimeout(hoverOpenTimer);
-			hoverOpenTimer = null;
-		}
-		if (hoverSwitchTimer !== null) {
-			clearTimeout(hoverSwitchTimer);
-			hoverSwitchTimer = null;
-		}
-		if (hoverCloseTimer !== null) {
-			clearTimeout(hoverCloseTimer);
-			hoverCloseTimer = null;
-		}
-	}
+	const hover = createHoverDetail<NodeTypeDefinition>({
+		onChange: (item) => onhoveritem?.(item),
+		onVisibleChange: (visible) => ondetailvisible?.(visible)
+	});
 
 	onDestroy(() => {
-		clearHoverTimers();
+		hover.cleanup();
 		unsubscribeRegistry();
 	});
 
@@ -132,100 +111,20 @@
 	// Handle mouse enter to prepare drag preview and schedule detail open.
 	function handleMouseEnter(node: NodeTypeDefinition) {
 		dragPreviewNode = node;
-		scheduleShowDetail(node);
+		hover.handleEnter(node);
 	}
 
-	function handleMouseLeave() {
-		scheduleHideDetail();
-	}
-
-	function scheduleShowDetail(node: NodeTypeDefinition) {
-		// Cancel pending close — we're hovering something again.
-		if (hoverCloseTimer !== null) {
-			clearTimeout(hoverCloseTimer);
-			hoverCloseTimer = null;
-		}
-		// Already showing this exact item — drop any in-flight switch so
-		// it doesn't replace us with itself.
-		if (hoveredItem === node) {
-			if (hoverSwitchTimer !== null) {
-				clearTimeout(hoverSwitchTimer);
-				hoverSwitchTimer = null;
-			}
-			return;
-		}
-		// Detail is open on a different item: schedule a switch. Brushing
-		// past tiles on the way to the detail column won't flip content
-		// because the cursor leaves before this timer fires.
-		if (hoveredItem !== null) {
-			if (hoverSwitchTimer !== null) clearTimeout(hoverSwitchTimer);
-			hoverSwitchTimer = setTimeout(() => {
-				hoverSwitchTimer = null;
-				hoveredItem = node;
-				onhoveritem?.(node);
-			}, HOVER_SWITCH_DELAY);
-			return;
-		}
-		// First-time open: wait a moment so brushing past tiles doesn't
-		// flash a detail.
-		if (hoverOpenTimer !== null) clearTimeout(hoverOpenTimer);
-		hoverOpenTimer = setTimeout(() => {
-			hoverOpenTimer = null;
-			hoveredItem = node;
-			onhoveritem?.(node);
-			ondetailvisible?.(true);
-		}, HOVER_OPEN_DELAY);
-	}
-
-	function scheduleHideDetail() {
-		// Cancel pending open / switch — user moved off before we'd commit.
-		if (hoverOpenTimer !== null) {
-			clearTimeout(hoverOpenTimer);
-			hoverOpenTimer = null;
-		}
-		if (hoverSwitchTimer !== null) {
-			clearTimeout(hoverSwitchTimer);
-			hoverSwitchTimer = null;
-		}
-		if (hoveredItem === null) return;
-		if (hoverCloseTimer !== null) clearTimeout(hoverCloseTimer);
-		hoverCloseTimer = setTimeout(() => {
-			hoverCloseTimer = null;
-			hoveredItem = null;
-			onhoveritem?.(null);
-			ondetailvisible?.(false);
-		}, HOVER_CLOSE_DELAY);
-	}
-
-	function hideDetailNow() {
-		clearHoverTimers();
-		const wasShown = hoveredItem !== null;
-		hoveredItem = null;
-		if (wasShown) {
-			onhoveritem?.(null);
-			ondetailvisible?.(false);
-		}
-	}
+	const handleMouseLeave = () => hover.handleLeave();
+	const hideDetailNow = () => hover.hideNow();
 
 	/** Called from the parent when the cursor enters the detail column —
 	 *  cancel any pending dismiss / switch so the column stays open and
 	 *  doesn't swap content from a transient last-tile hover. */
-	export function keepDetailAlive() {
-		if (hoverCloseTimer !== null) {
-			clearTimeout(hoverCloseTimer);
-			hoverCloseTimer = null;
-		}
-		if (hoverSwitchTimer !== null) {
-			clearTimeout(hoverSwitchTimer);
-			hoverSwitchTimer = null;
-		}
-	}
+	export const keepDetailAlive = () => hover.keepAlive();
 
 	/** Called from the parent when the cursor leaves the detail column —
 	 *  schedule the same delayed dismiss as a tile mouseleave. */
-	export function dismissDetail() {
-		scheduleHideDetail();
-	}
+	export const dismissDetail = () => hover.dismiss();
 
 	// Handle drag start
 	function handleDragStart(event: DragEvent, nodeType: NodeTypeDefinition) {
