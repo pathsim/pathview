@@ -146,8 +146,12 @@ function computeResultHistory(
 }
 
 /**
- * Merge incremental streaming result with accumulated result
- * Scope data is appended, spectrum data is replaced
+ * Merge incremental streaming result with accumulated result.
+ * Scope data is appended IN PLACE on the underlying time/signals arrays
+ * to avoid O(N) reallocation per chunk (which becomes O(N²) over a long
+ * sim). The entry object and outer scopeData are still freshly built so
+ * Svelte reactivity sees a new identity at each level above the arrays.
+ * Spectrum data is replaced.
  */
 function mergeStreamingResult(
 	accumulated: SimulationResult | null,
@@ -157,27 +161,36 @@ function mergeStreamingResult(
 		return incremental;
 	}
 
-	// Merge scope data by appending time and signals
 	const mergedScopeData: SimulationResult['scopeData'] = { ...accumulated.scopeData };
 	for (const [id, data] of Object.entries(incremental.scopeData)) {
-		if (mergedScopeData[id]) {
-			// Append to existing scope data
+		const existing = mergedScopeData[id];
+		if (existing) {
+			// Mutate in place — accumulated arrays are owned by us after the first chunk.
+			for (let i = 0; i < data.time.length; i++) {
+				existing.time.push(data.time[i]);
+			}
+			for (let s = 0; s < existing.signals.length; s++) {
+				const incoming = data.signals[s];
+				if (!incoming) continue;
+				const target = existing.signals[s];
+				for (let i = 0; i < incoming.length; i++) {
+					target.push(incoming[i]);
+				}
+			}
+			// New entry object preserves array refs but flips identity for downstream diffs.
 			mergedScopeData[id] = {
-				time: [...mergedScopeData[id].time, ...data.time],
-				signals: mergedScopeData[id].signals.map((sig, i) => [...sig, ...(data.signals[i] || [])]),
-				labels: data.labels || mergedScopeData[id].labels
+				time: existing.time,
+				signals: existing.signals,
+				labels: data.labels || existing.labels
 			};
 		} else {
-			// New scope
 			mergedScopeData[id] = data;
 		}
 	}
 
 	return {
 		scopeData: mergedScopeData,
-		// Spectrum data is not incremental, just use latest
 		spectrumData: incremental.spectrumData,
-		// Merge node names
 		nodeNames: { ...accumulated.nodeNames, ...incremental.nodeNames }
 	};
 }
