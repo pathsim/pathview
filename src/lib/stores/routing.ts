@@ -6,7 +6,18 @@ import { writable, derived, get } from 'svelte/store';
 import type { Position } from '$lib/types/common';
 import type { Connection, Waypoint } from '$lib/types/nodes';
 import type { RoutingContext, RouteResult, Bounds, Direction, PortStub } from '$lib/routing';
-import { calculateRoute, calculateRouteWithWaypoints, calculateSimpleRoute, getPathCells, ROUTING_MARGIN } from '$lib/routing';
+import {
+	calculateRoute,
+	calculateRouteWithWaypoints,
+	calculateSimpleRoute,
+	getPathCells,
+	ROUTING_MARGIN,
+	ASYNC_BATCH_SIZE,
+	WAYPOINT_MERGE_THRESHOLD,
+	WAYPOINT_COLLINEAR_THRESHOLD,
+	ROUTING_CONTEXT_PADDING
+} from '$lib/routing';
+import { DEFAULT_NODE_WIDTH, DEFAULT_NODE_HEIGHT } from '$lib/constants/dimensions';
 import { SparseGrid } from '$lib/routing/gridBuilder';
 import { generateId } from '$lib/stores/utils';
 import { graphStore } from '$lib/stores/graph';
@@ -52,9 +63,6 @@ function hashRouteInputs(
 	const wpHash = waypoints.map(w => `${w.position.x},${w.position.y}`).join(';');
 	return `${sourcePos.x},${sourcePos.y}|${targetPos.x},${targetPos.y}|${sourceDir}|${targetDir}|${wpHash}`;
 }
-
-/** Number of routes to calculate per async batch before yielding to browser */
-const ASYNC_BATCH_SIZE = 8;
 
 interface RoutingState {
 	/** Cached routes by connection ID */
@@ -734,8 +742,8 @@ export const routingStore = {
 		const sourcePos = sourceInfo?.position || null;
 		const targetPos = targetInfo?.position || null;
 
-		const MERGE_THRESHOLD = 15; // Pixels - merge waypoints closer than this
-		const COLLINEAR_THRESHOLD = 5; // Pixels - consider collinear if deviation less than this
+		const MERGE_THRESHOLD = WAYPOINT_MERGE_THRESHOLD;
+		const COLLINEAR_THRESHOLD = WAYPOINT_COLLINEAR_THRESHOLD;
 
 		// Helper to check if point is collinear with prev and next
 		const isCollinear = (prev: Position, curr: Position, next: Position): boolean => {
@@ -856,7 +864,7 @@ export const routingStore = {
  */
 export function buildRoutingContext(
 	nodes: Array<{ id: string; position: Position; width?: number; height?: number; measured?: { width?: number; height?: number } }>,
-	padding = 100
+	padding = ROUTING_CONTEXT_PADDING
 ): { nodeBounds: Map<string, Bounds>; canvasBounds: Bounds } {
 	const nodeBounds = new Map<string, Bounds>();
 
@@ -866,8 +874,8 @@ export function buildRoutingContext(
 	let maxY = -Infinity;
 
 	for (const node of nodes) {
-		const width = node.measured?.width ?? node.width ?? 80;
-		const height = node.measured?.height ?? node.height ?? 40;
+		const width = node.measured?.width ?? node.width ?? DEFAULT_NODE_WIDTH;
+		const height = node.measured?.height ?? node.height ?? DEFAULT_NODE_HEIGHT;
 
 		// Node position is center (nodeOrigin = [0.5, 0.5])
 		const left = node.position.x - width / 2;

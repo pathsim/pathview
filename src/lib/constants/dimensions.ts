@@ -19,6 +19,13 @@ export const NODE = {
 	borderWidth: 1
 } as const;
 
+/**
+ * Fallback node width/height used when xyflow has not yet measured a node.
+ * Re-exported so callers don't inline the magic numbers.
+ */
+export const DEFAULT_NODE_WIDTH = NODE.baseWidth;
+export const DEFAULT_NODE_HEIGHT = NODE.baseHeight;
+
 /** Handle (port connector) dimensions */
 export const HANDLE = {
 	/** Width of horizontal handles (rotation 0, 2): 1 grid unit */

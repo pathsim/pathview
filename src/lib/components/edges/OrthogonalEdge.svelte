@@ -24,7 +24,7 @@
 	import { routingStore, type PortInfo } from '$lib/stores/routing';
 	import { historyStore } from '$lib/stores/history';
 	import { screenToFlow } from '$lib/utils/viewUtils';
-	import { GRID_SIZE } from '$lib/routing/constants';
+	import { GRID_SIZE, EDGE_SOURCE_OFFSET, EDGE_TARGET_OFFSET, EDGE_CORNER_RADIUS } from '$lib/routing/constants';
 	import type { RouteResult, Direction } from '$lib/routing';
 	import type { Waypoint } from '$lib/types/nodes';
 
@@ -201,8 +201,8 @@
 	// Offset to start/end path at handle tips (not centers)
 	// Source: small inset from handle edge
 	// Target: larger offset to leave room for arrowhead
-	const sourceOffset = 0.5;
-	const targetOffset = 4.5;
+	const sourceOffset = EDGE_SOURCE_OFFSET;
+	const targetOffset = EDGE_TARGET_OFFSET;
 
 	// Adjusted source position based on handle direction
 	const adjustedSource = $derived(() => {
@@ -226,8 +226,7 @@
 		return { x, y };
 	});
 
-	// Corner radius for bends (0.5G = 5px)
-	const CORNER_RADIUS = 5;
+	const CORNER_RADIUS = EDGE_CORNER_RADIUS;
 
 	/**
 	 * Build SVG path with rounded corners using quadratic bezier curves
