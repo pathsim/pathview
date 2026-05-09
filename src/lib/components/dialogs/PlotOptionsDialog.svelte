@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import DialogShell from './shared/DialogShell.svelte';
 	import {
 		plotSettingsStore,
 		createTraceId,
@@ -41,12 +40,6 @@
 	onDestroy(() => {
 		unsubscribe();
 	});
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			onClose();
-		}
-	}
 
 	// Get trace settings reactively from local state
 	function getTraceSettings(traceId: string) {
@@ -127,22 +120,13 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if open}
-	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-	<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={onClose} role="presentation">
-		<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-		<div
-			class="dialog glass-panel"
-			transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }}
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			tabindex="-1"
-			aria-modal="true"
-			aria-labelledby="plot-options-title"
-		>
-			<div class="dialog-header">
+<DialogShell
+	{open}
+	{onClose}
+	ariaLabelledby="plot-options-title"
+	dialogClass="dialog glass-panel plot-options-dialog"
+>
+		<div class="dialog-header">
 				<span id="plot-options-title">Plot Options</span>
 				<button class="icon-btn ghost" onclick={onClose} aria-label="Close">
 					<Icon name="x" size={16} />
@@ -283,13 +267,11 @@
 						</div>
 					{/each}
 				{/if}
-			</div>
 		</div>
-	</div>
-{/if}
+</DialogShell>
 
 <style>
-	.dialog {
+	:global(.plot-options-dialog) {
 		width: 480px;
 		max-width: 90vw;
 		max-height: 80vh;

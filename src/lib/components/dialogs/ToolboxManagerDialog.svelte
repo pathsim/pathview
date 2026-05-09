@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { tooltip } from '$lib/components/Tooltip.svelte';
+	import DialogShell from './shared/DialogShell.svelte';
 	import {
 		TOOLBOX_CATALOG,
 		performInstall,
@@ -340,28 +339,16 @@
 	const allBlocksOn = $derived(blockSelections.length > 0 && blockSelections.every((s) => s.enabled));
 	const someBlocksOn = $derived(blockSelections.some((s) => s.enabled));
 
-	function handleBackdrop(e: MouseEvent) {
-		if (e.target === e.currentTarget) onClose();
-	}
-	function handleKeydown(e: KeyboardEvent) {
-		if (!open) return;
-		if (e.key === 'Escape') onClose();
-	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if open}
-	<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={handleBackdrop} role="presentation">
-		<div
-			class="dialog glass-panel manager-modal"
-			data-tour="dialog-toolbox-manager"
-			transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }}
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="manager-title"
-		>
-			<div class="dialog-header">
+<DialogShell
+	{open}
+	{onClose}
+	ariaLabelledby="manager-title"
+	dataTour="dialog-toolbox-manager"
+	dialogClass="dialog glass-panel manager-modal"
+>
+		<div class="dialog-header">
 				<span id="manager-title">
 					{#if step === 'manager'}Toolbox manager{:else}Add toolbox{/if}
 				</span>
@@ -684,16 +671,14 @@
 						{/each}
 					</div>
 				</div>
-			{/if}
-		</div>
-	</div>
-{/if}
+		{/if}
+</DialogShell>
 
 <style>
 	/* Uses global .dialog-backdrop, .dialog-header, .glass-panel, .icon-btn,
 	   .ghost button, default button, input/select/textarea from app.css */
 
-	.manager-modal {
+	:global(.manager-modal) {
 		width: 90%;
 		max-width: 560px;
 		max-height: 80vh;

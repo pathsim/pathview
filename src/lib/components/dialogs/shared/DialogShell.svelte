@@ -25,6 +25,7 @@
 		dialogScaleDuration?: number;
 		backdropClass?: string;
 		dialogClass?: string;
+		dialogStyle?: string;
 		children: Snippet;
 	}
 
@@ -40,6 +41,7 @@
 		dialogScaleDuration = 150,
 		backdropClass = 'dialog-backdrop',
 		dialogClass = 'dialog glass-panel',
+		dialogStyle,
 		children
 	}: Props = $props();
 
@@ -66,6 +68,7 @@
 	>
 		<div
 			class={dialogClass}
+			style={dialogStyle}
 			data-tour={dataTour}
 			transition:scale={{ start: 0.95, duration: dialogScaleDuration, easing: cubicOut }}
 			{role}

@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { get } from 'svelte/store';
 	import { eventStore } from '$lib/stores/events';
 	import { historyStore } from '$lib/stores/history';
@@ -15,6 +13,7 @@
 	import { tooltip } from '$lib/components/Tooltip.svelte';
 	import { paramInput } from '$lib/actions/paramInput';
 	import ColorPicker from './shared/ColorPicker.svelte';
+	import DialogShell from './shared/DialogShell.svelte';
 	import DocumentationSection from './shared/DocumentationSection.svelte';
 	import CodePreviewDialog from './CodePreviewDialog.svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
@@ -118,27 +117,17 @@
 		return String(value);
 	}
 
-	// Handle backdrop click
-	function handleBackdropClick(e: MouseEvent) {
-		if (e.target === e.currentTarget) {
-			closeEventDialog();
-		}
-	}
-
-	// Handle escape key
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			closeEventDialog();
-		}
-	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if eventId && event && typeDef}
-	<div class="dialog-backdrop" onclick={handleBackdropClick} transition:fade={{ duration: 150 }} role="presentation">
-		<div class="properties-dialog glass-panel" style="--node-color: {currentColor}" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
-			<div class="dialog-header">
+<DialogShell
+	open={!!(eventId && event && typeDef)}
+	onClose={closeEventDialog}
+	ariaLabelledby="dialog-title"
+	dialogClass="properties-dialog glass-panel"
+	dialogStyle="--node-color: {currentColor};"
+>
+	{#if eventId && event && typeDef}
+		<div class="dialog-header">
 				<div class="node-info">
 					<input
 						id="dialog-title"
@@ -222,12 +211,11 @@
 				<DocumentationSection docstringHtml={typeDef.docstringHtml} />
 			</div>
 
-			<div class="dialog-footer">
-				<span class="hint">Events trigger actions during simulation</span>
-			</div>
+		<div class="dialog-footer">
+			<span class="hint">Events trigger actions during simulation</span>
 		</div>
-	</div>
-{/if}
+	{/if}
+</DialogShell>
 
 <CodePreviewDialog
 	open={showCodePreview}

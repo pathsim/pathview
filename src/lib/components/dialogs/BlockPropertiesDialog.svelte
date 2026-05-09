@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { graphStore } from '$lib/stores/graph';
 	import { historyStore } from '$lib/stores/history';
 	import { nodeDialogStore, closeNodeDialog } from '$lib/stores/nodeDialog';
@@ -15,6 +13,7 @@
 	import { paramInput } from '$lib/actions/paramInput';
 	import { loadCodeMirrorModules, createEditorExtensions, type CodeMirrorModules } from '$lib/utils/codemirror';
 	import ColorPicker from './shared/ColorPicker.svelte';
+	import DialogShell from './shared/DialogShell.svelte';
 	import DocumentationSection from './shared/DocumentationSection.svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { DEFAULT_NODE_COLOR } from '$lib/utils/colors';
@@ -231,27 +230,18 @@
 		return String(value);
 	}
 
-	// Handle backdrop click
-	function handleBackdropClick(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			closeNodeDialog();
-		}
-	}
-
-	// Handle escape key
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			closeNodeDialog();
-		}
-	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if nodeId && node && typeDef}
-	<div class="dialog-backdrop" onclick={handleBackdropClick} transition:fade={{ duration: 150 }} role="presentation">
-		<div class="properties-dialog glass-panel" data-tour="dialog-properties" style="--node-color: {currentColor}" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
-			<div class="dialog-header">
+<DialogShell
+	open={!!(nodeId && node && typeDef)}
+	onClose={closeNodeDialog}
+	ariaLabelledby="dialog-title"
+	dataTour="dialog-properties"
+	dialogClass="properties-dialog glass-panel"
+	dialogStyle="--node-color: {currentColor};"
+>
+	{#if nodeId && node && typeDef}
+		<div class="dialog-header">
 				{#if showCode}
 					<span id="dialog-title">Python Code</span>
 				{:else}
@@ -400,14 +390,13 @@
 				{/if}
 			</div>
 
-			{#if !showCode}
-				<div class="dialog-footer">
-					<span class="hint">R rotate · X flip horizontal · Y flip vertical</span>
-				</div>
-			{/if}
-		</div>
-	</div>
-{/if}
+		{#if !showCode}
+			<div class="dialog-footer">
+				<span class="hint">R rotate · X flip horizontal · Y flip vertical</span>
+			</div>
+		{/if}
+	{/if}
+</DialogShell>
 
 <style>
 	/* Uses global .properties-dialog styles from app.css */
