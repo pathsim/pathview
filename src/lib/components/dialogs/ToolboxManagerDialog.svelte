@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
@@ -39,7 +40,8 @@
 
 	// Reactive list of installed toolboxes (drives manager and catalog filter)
 	let installed = $state<ToolboxConfig[]>([]);
-	toolboxes.subscribe((list) => (installed = list));
+	const unsubscribeToolboxes = toolboxes.subscribe((list) => (installed = list));
+	onDestroy(unsubscribeToolboxes);
 
 
 	// Source-step inputs
