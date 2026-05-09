@@ -4,7 +4,8 @@
  */
 
 import { get } from 'svelte/store';
-import type { Backend, BackendState, REPLRequest, REPLResponse, REPLErrorResponse } from '../types';
+import type { BackendState, REPLRequest, REPLResponse, REPLErrorResponse } from '../types';
+import { AbstractBackend } from '../abstract';
 import { backendState } from '../state';
 import { TIMEOUTS } from '$lib/constants/python';
 import { PROGRESS_MESSAGES, STATUS_MESSAGES } from '$lib/constants/messages';
@@ -28,9 +29,8 @@ interface StreamState {
  * Runs Python code via Pyodide in a Web Worker.
  * Supports streaming with code injection between generator steps.
  */
-export class PyodideBackend implements Backend {
+export class PyodideBackend extends AbstractBackend {
 	private worker: Worker | null = null;
-	private messageId = 0;
 	private pendingRequests = new Map<string, PendingRequest>();
 	private isInitializing = false;
 
@@ -40,10 +40,6 @@ export class PyodideBackend implements Backend {
 		onDone: null,
 		onError: null
 	};
-
-	// Output callbacks
-	private stdoutCallback: ((value: string) => void) | null = null;
-	private stderrCallback: ((value: string) => void) | null = null;
 
 	// -------------------------------------------------------------------------
 	// Lifecycle
@@ -143,30 +139,6 @@ export class PyodideBackend implements Backend {
 
 		// Reset state
 		backendState.reset();
-	}
-
-	// -------------------------------------------------------------------------
-	// State
-	// -------------------------------------------------------------------------
-
-	getState(): BackendState {
-		return backendState.get();
-	}
-
-	subscribe(callback: (state: BackendState) => void): () => void {
-		return backendState.subscribe(callback);
-	}
-
-	isReady(): boolean {
-		return this.getState().initialized;
-	}
-
-	isLoading(): boolean {
-		return this.getState().loading;
-	}
-
-	getError(): string | null {
-		return this.getState().error;
 	}
 
 	// -------------------------------------------------------------------------
@@ -297,24 +269,8 @@ export class PyodideBackend implements Backend {
 	}
 
 	// -------------------------------------------------------------------------
-	// Output Callbacks
-	// -------------------------------------------------------------------------
-
-	onStdout(callback: (value: string) => void): void {
-		this.stdoutCallback = callback;
-	}
-
-	onStderr(callback: (value: string) => void): void {
-		this.stderrCallback = callback;
-	}
-
-	// -------------------------------------------------------------------------
 	// Private Methods
 	// -------------------------------------------------------------------------
-
-	private generateId(): string {
-		return `repl_${++this.messageId}`;
-	}
 
 	private sendRequest(request: REPLRequest): void {
 		if (!this.worker) {

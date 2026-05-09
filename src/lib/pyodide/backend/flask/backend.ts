@@ -7,7 +7,8 @@
  * - streaming uses start + poll (like postMessage with stream-data/stream-done)
  */
 
-import type { Backend, BackendState } from '../types';
+import type { BackendState } from '../types';
+import { AbstractBackend } from '../abstract';
 import { backendState } from '../state';
 import { TIMEOUTS } from '$lib/constants/python';
 import { STATUS_MESSAGES } from '$lib/constants/messages';
@@ -21,10 +22,9 @@ const STREAM_POLL_INTERVAL = 5;
 /** BroadcastChannel name for cross-tab session coordination */
 const SESSION_CHANNEL = 'flask-session';
 
-export class FlaskBackend implements Backend {
+export class FlaskBackend extends AbstractBackend {
 	private host: string;
 	private sessionId: string;
-	private messageId = 0;
 	private _isStreaming = false;
 	private streamPollTimer: ReturnType<typeof setTimeout> | null = null;
 	private serverInitPromise: Promise<void> | null = null;
@@ -37,11 +37,8 @@ export class FlaskBackend implements Backend {
 		onError: ((error: Error) => void) | null;
 	} = { onData: null, onDone: null, onError: null };
 
-	// Output callbacks
-	private stdoutCallback: ((value: string) => void) | null = null;
-	private stderrCallback: ((value: string) => void) | null = null;
-
 	constructor(host: string) {
+		super();
 		this.host = host.replace(/\/$/, '');
 		const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('flask-session-id') : null;
 		if (stored) {
@@ -124,30 +121,6 @@ export class FlaskBackend implements Backend {
 
 		this.serverInitPromise = null;
 		backendState.reset();
-	}
-
-	// -------------------------------------------------------------------------
-	// State
-	// -------------------------------------------------------------------------
-
-	getState(): BackendState {
-		return backendState.get();
-	}
-
-	subscribe(callback: (state: BackendState) => void): () => void {
-		return backendState.subscribe(callback);
-	}
-
-	isReady(): boolean {
-		return this.getState().initialized;
-	}
-
-	isLoading(): boolean {
-		return this.getState().loading;
-	}
-
-	getError(): string | null {
-		return this.getState().error;
 	}
 
 	// -------------------------------------------------------------------------
@@ -318,24 +291,8 @@ export class FlaskBackend implements Backend {
 	}
 
 	// -------------------------------------------------------------------------
-	// Output Callbacks
-	// -------------------------------------------------------------------------
-
-	onStdout(callback: (value: string) => void): void {
-		this.stdoutCallback = callback;
-	}
-
-	onStderr(callback: (value: string) => void): void {
-		this.stderrCallback = callback;
-	}
-
-	// -------------------------------------------------------------------------
 	// Private Methods
 	// -------------------------------------------------------------------------
-
-	private generateId(): string {
-		return `repl_${++this.messageId}`;
-	}
 
 	/**
 	 * POST /api/init with packages and forward worker messages to callbacks.
