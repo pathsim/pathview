@@ -1,17 +1,18 @@
 <script lang="ts">
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { onDestroy } from 'svelte';
 	import { confirmationStore, type ConfirmationOptions } from '$lib/stores/confirmation';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import DialogShell from '$lib/components/dialogs/shared/DialogShell.svelte';
 
 	let state = $state<{
 		open: boolean;
 		options: ConfirmationOptions | null;
 	}>({ open: false, options: null });
 
-	confirmationStore.subscribe((s) => {
+	const unsubscribe = confirmationStore.subscribe((s) => {
 		state = { open: s.open, options: s.options };
 	});
+	onDestroy(unsubscribe);
 
 	function handleConfirm() {
 		confirmationStore.confirm();
@@ -21,64 +22,47 @@
 		confirmationStore.cancel();
 	}
 
-	function handleBackdropClick(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			handleCancel();
-		}
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (!state.open) return;
-		if (event.key === 'Escape') {
-			handleCancel();
-		} else if (event.key === 'Enter') {
+	function handleEnterKey(event: KeyboardEvent) {
+		if (state.open && event.key === 'Enter') {
 			handleConfirm();
 		}
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleEnterKey} />
 
-{#if state.open && state.options}
-	<div
-		class="dialog-backdrop"
-		onclick={handleBackdropClick}
-		transition:fade={{ duration: 150 }}
-		role="presentation"
-	>
-		<div
-			class="confirmation-dialog glass-panel"
-			transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }}
-			role="alertdialog"
-			aria-modal="true"
-			aria-labelledby="confirmation-title"
-			aria-describedby="confirmation-message"
-		>
-			<div class="dialog-header">
-				<span id="confirmation-title">{state.options.title}</span>
-				<button class="icon-btn" onclick={handleCancel} aria-label="Close">
-					<Icon name="x" size={16} />
-				</button>
-			</div>
-
-			<div class="dialog-body">
-				<p id="confirmation-message">{state.options.message}</p>
-			</div>
-
-			<div class="dialog-actions">
-				<button class="ghost" onclick={handleCancel}>
-					{state.options.cancelText}
-				</button>
-				<button onclick={handleConfirm}>
-					{state.options.confirmText}
-				</button>
-			</div>
+<DialogShell
+	open={state.open && state.options !== null}
+	onClose={handleCancel}
+	ariaLabelledby="confirmation-title"
+	role="alertdialog"
+	dialogClass="confirmation-dialog glass-panel"
+>
+	{#if state.options}
+		<div class="dialog-header">
+			<span id="confirmation-title">{state.options.title}</span>
+			<button class="icon-btn" onclick={handleCancel} aria-label="Close">
+				<Icon name="x" size={16} />
+			</button>
 		</div>
-	</div>
-{/if}
+
+		<div class="dialog-body">
+			<p id="confirmation-message">{state.options.message}</p>
+		</div>
+
+		<div class="dialog-actions">
+			<button class="ghost" onclick={handleCancel}>
+				{state.options.cancelText}
+			</button>
+			<button onclick={handleConfirm}>
+				{state.options.confirmText}
+			</button>
+		</div>
+	{/if}
+</DialogShell>
 
 <style>
-	.confirmation-dialog {
+	:global(.confirmation-dialog) {
 		width: 90%;
 		max-width: 320px;
 		display: flex;

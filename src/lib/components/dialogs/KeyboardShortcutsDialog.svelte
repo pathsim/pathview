@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import DialogShell from './shared/DialogShell.svelte';
 
 	interface Props {
 		open: boolean;
@@ -9,12 +8,6 @@
 	}
 
 	let { open, onClose }: Props = $props();
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			onClose();
-		}
-	}
 
 	const shortcuts = [
 		{
@@ -87,58 +80,47 @@
 	];
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if open}
-	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-	<div class="dialog-backdrop" transition:fade={{ duration: 150 }} onclick={onClose} role="presentation">
-		<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-		<div
-			class="dialog glass-panel"
-			data-tour="dialog-shortcuts"
-			transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }}
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			tabindex="-1"
-			aria-modal="true"
-			aria-labelledby="shortcuts-title"
-		>
-			<div class="dialog-header">
-				<span id="shortcuts-title">Keyboard Shortcuts</span>
-				<button class="icon-btn ghost" onclick={onClose} aria-label="Close">
-					<Icon name="x" size={16} />
-				</button>
-			</div>
-
-			<div class="dialog-body">
-				{#each shortcuts as section}
-					<div class="section">
-						<div class="section-header">{section.category}</div>
-						<div class="section-items">
-							{#each section.items as shortcut}
-								<div class="shortcut-row">
-									<span class="keys">
-										{#each shortcut.keys as key, i}
-											<kbd>{key}</kbd>{#if i < shortcut.keys.length - 1}<span class="separator">+</span>{/if}
-										{/each}
-									</span>
-									<span class="label">{shortcut.description}</span>
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			<div class="dialog-footer">
-				Press <kbd>?</kbd> to toggle
-			</div>
-		</div>
+<DialogShell
+	{open}
+	{onClose}
+	ariaLabelledby="shortcuts-title"
+	dataTour="dialog-shortcuts"
+	dialogClass="dialog glass-panel shortcuts-dialog"
+>
+	<div class="dialog-header">
+		<span id="shortcuts-title">Keyboard Shortcuts</span>
+		<button class="icon-btn ghost" onclick={onClose} aria-label="Close">
+			<Icon name="x" size={16} />
+		</button>
 	</div>
-{/if}
+
+	<div class="dialog-body">
+		{#each shortcuts as section}
+			<div class="section">
+				<div class="section-header">{section.category}</div>
+				<div class="section-items">
+					{#each section.items as shortcut}
+						<div class="shortcut-row">
+							<span class="keys">
+								{#each shortcut.keys as key, i}
+									<kbd>{key}</kbd>{#if i < shortcut.keys.length - 1}<span class="separator">+</span>{/if}
+								{/each}
+							</span>
+							<span class="label">{shortcut.description}</span>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/each}
+	</div>
+
+	<div class="dialog-footer">
+		Press <kbd>?</kbd> to toggle
+	</div>
+</DialogShell>
 
 <style>
-	.dialog {
+	:global(.shortcuts-dialog) {
 		width: 580px;
 		max-width: 90vw;
 		max-height: 80vh;

@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { graphStore, type SearchableNode } from '$lib/stores/graph';
 	import { triggerFocusNode } from '$lib/stores/viewActions';
 	import Icon from '$lib/components/icons/Icon.svelte';
+	import DialogShell from './shared/DialogShell.svelte';
 
 	interface Props {
 		open: boolean;
@@ -88,9 +87,7 @@
 
 		const items = filteredNodes();
 
-		if (event.key === 'Escape') {
-			onClose();
-		} else if (event.key === 'ArrowDown') {
+		if (event.key === 'ArrowDown') {
 			event.preventDefault();
 			selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
 		} else if (event.key === 'ArrowUp') {
@@ -133,20 +130,14 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if open}
-	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-	<div class="dialog-backdrop" transition:fade={{ duration: 100 }} onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()} role="presentation">
-		<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-		<div
-			class="search-dialog glass-panel"
-			data-tour="dialog-search"
-			transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }}
-			onclick={(e) => e.stopPropagation()}
-			role="dialog"
-			tabindex="-1"
-			aria-modal="true"
-		>
-			<div class="search-container">
+<DialogShell
+	{open}
+	{onClose}
+	dataTour="dialog-search"
+	dialogClass="search-dialog glass-panel"
+	backdropFadeDuration={100}
+>
+		<div class="search-container">
 				<span class="search-icon"><Icon name="search" size={14} /></span>
 				<input
 					bind:this={searchInput}
@@ -181,17 +172,15 @@
 				<div class="no-results">No blocks found</div>
 			{/if}
 
-			<div class="footer">
-				<span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
-				<span><kbd>↵</kbd> select</span>
-				<span><kbd>esc</kbd> close</span>
-			</div>
+		<div class="footer">
+			<span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+			<span><kbd>↵</kbd> select</span>
+			<span><kbd>esc</kbd> close</span>
 		</div>
-	</div>
-{/if}
+</DialogShell>
 
 <style>
-	.search-dialog {
+	:global(.search-dialog) {
 		position: absolute;
 		top: 15vh;
 		width: 320px;

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { themeStore, type Theme } from '$lib/stores/theme';
 	import { tooltip } from '$lib/components/Tooltip.svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { loadCodeMirrorModules, createEditorExtensions, type CodeMirrorModules } from '$lib/utils/codemirror';
+	import DialogShell from './shared/DialogShell.svelte';
 
 	interface Props {
 		open: boolean;
@@ -105,69 +104,57 @@
 		setTimeout(() => (copied = false), 2000);
 	}
 
-	function handleBackdropClick(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			onClose();
-		}
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			onClose();
-		}
-	}
-
 	onDestroy(() => {
 		unsubscribeTheme();
 		destroyEditor();
 	});
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if open}
-	<div class="dialog-backdrop nested" transition:fade={{ duration: 150 }} onclick={handleBackdropClick} role="presentation">
-		<div class="dialog glass-panel" transition:scale={{ start: 0.95, duration: 150, easing: cubicOut }} role="dialog" tabindex="-1" aria-labelledby="dialog-title">
-			<div class="dialog-header">
-				<span id="dialog-title">{title}</span>
-				<div class="header-actions">
-					<button
-						class="icon-btn"
-						class:success={copied}
-						onclick={copyToClipboard}
-						use:tooltip={copied ? "Copied!" : "Copy to Clipboard"}
-						aria-label="Copy to Clipboard"
-					>
-						{#if copied}
-							<Icon name="check" size={16} />
-						{:else}
-							<Icon name="copy" size={16} />
-						{/if}
-					</button>
-					<button
-						class="icon-btn"
-						onclick={onClose}
-						use:tooltip={{ text: "Close", shortcut: "Esc" }}
-						aria-label="Close"
-					>
-						<Icon name="x" size={16} />
-					</button>
-				</div>
-			</div>
-
-			<div class="dialog-body">
-				<div class="code-preview" bind:this={editorContainer}>
-					{#if editorLoading}
-						<div class="loading">Loading...</div>
-					{/if}
-				</div>
-			</div>
+<DialogShell
+	{open}
+	{onClose}
+	ariaLabelledby="dialog-title"
+	backdropClass="dialog-backdrop nested"
+	dialogClass="dialog glass-panel code-preview-dialog"
+>
+	<div class="dialog-header">
+		<span id="dialog-title">{title}</span>
+		<div class="header-actions">
+			<button
+				class="icon-btn"
+				class:success={copied}
+				onclick={copyToClipboard}
+				use:tooltip={copied ? "Copied!" : "Copy to Clipboard"}
+				aria-label="Copy to Clipboard"
+			>
+				{#if copied}
+					<Icon name="check" size={16} />
+				{:else}
+					<Icon name="copy" size={16} />
+				{/if}
+			</button>
+			<button
+				class="icon-btn"
+				onclick={onClose}
+				use:tooltip={{ text: "Close", shortcut: "Esc" }}
+				aria-label="Close"
+			>
+				<Icon name="x" size={16} />
+			</button>
 		</div>
 	</div>
-{/if}
+
+	<div class="dialog-body">
+		<div class="code-preview" bind:this={editorContainer}>
+			{#if editorLoading}
+				<div class="loading">Loading...</div>
+			{/if}
+		</div>
+	</div>
+</DialogShell>
 
 <style>
-	.dialog {
+	:global(.code-preview-dialog) {
 		width: 90%;
 		max-width: 700px;
 		max-height: 80vh;
