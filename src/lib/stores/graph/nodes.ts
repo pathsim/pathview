@@ -23,7 +23,7 @@ import {
 	updateCurrentAnnotations
 } from './state';
 import { regenerateGraphIds, createPorts } from './helpers';
-import { syncPortNamesFromLabels } from './ports';
+import { syncPortNamesFromLabels, syncInterfaceParentPortNamesFromLabels } from './ports';
 import { triggerSelectNodes } from '$lib/stores/viewActions';
 import { getPortLabelConfigs } from '$lib/nodes/uiConfig';
 import { queueAddBlock, queueRemoveBlock, queueAddConnection, queueRemoveConnection, queueUpdateParam } from '$lib/pyodide/mutationQueue';
@@ -232,6 +232,12 @@ export function updateNodeParams(id: string, params: Record<string, unknown>): v
 			if (config.param in params) {
 				syncPortNamesFromLabels(id, params[config.param], config.direction, config.parser);
 			}
+		}
+		if (
+			node.type === NODE_TYPES.INTERFACE &&
+			('input_labels' in params || 'output_labels' in params)
+		) {
+			syncInterfaceParentPortNamesFromLabels(id);
 		}
 	}
 }

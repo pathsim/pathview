@@ -47,7 +47,18 @@ export const InterfaceDefinition = defineNode({
 	maxInputs: null,
 	maxOutputs: null,
 	shape: 'rect',
-	params: {}
+	params: {
+		input_labels: {
+			type: 'array',
+			default: [],
+			description: 'labels for Interface input handles'
+		},
+		output_labels: {
+			type: 'array',
+			default: [],
+			description: 'labels for Interface output handles'
+		}
+	}
 });
 
 /**

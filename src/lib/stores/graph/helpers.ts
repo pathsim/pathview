@@ -69,7 +69,7 @@ export function deriveInterfaceNode(
 		outputs: parentSubsystem.inputs.map((port, i) => ({
 			id: `${interfaceNode.id}-output-${i}`,
 			nodeId: interfaceNode.id,
-			name: `in ${i}`,
+			name: port.name,
 			direction: 'output' as const,
 			index: i,
 			color: port.color
@@ -77,7 +77,7 @@ export function deriveInterfaceNode(
 		inputs: parentSubsystem.outputs.map((port, i) => ({
 			id: `${interfaceNode.id}-input-${i}`,
 			nodeId: interfaceNode.id,
-			name: `out ${i}`,
+			name: port.name,
 			direction: 'input' as const,
 			index: i,
 			color: port.color

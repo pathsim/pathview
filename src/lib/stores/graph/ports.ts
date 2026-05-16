@@ -331,3 +331,51 @@ export function syncPortNamesFromLabels(
 		updateNodeById(nodeId, () => updated);
 	}
 }
+
+/**
+ * Sync parent Subsystem port names from Interface label params.
+ * Interface output labels map to parent inputs, Interface input labels map to parent outputs.
+ */
+export function syncInterfaceParentPortNamesFromLabels(nodeId: string): void {
+	const currentGraph = getCurrentGraph();
+	const node = currentGraph.nodes.get(nodeId);
+	if (!node || node.type !== NODE_TYPES.INTERFACE) return;
+
+	const path = get(currentPath);
+	if (path.length === 0) return;
+
+	const inputLabels = parsePythonList(node.params?.['input_labels']);
+	const outputLabels = parsePythonList(node.params?.['output_labels']);
+	if (!inputLabels && !outputLabels) return;
+
+	const parentId = path[path.length - 1];
+	const parentPath = path.slice(0, -1);
+
+	updateParentSubsystem(parentPath, parentId, parent => {
+		let updatedParent = parent;
+
+		if (outputLabels) {
+			const updatedInputs = parent.inputs.map((port, index) => {
+				const name = index < outputLabels.length ? outputLabels[index] : PORT_NAME.input(index);
+				return port.name === name ? port : { ...port, name };
+			});
+			const changed = updatedInputs.some((port, index) => port.name !== parent.inputs[index].name);
+			if (changed) {
+				updatedParent = { ...updatedParent, inputs: updatedInputs };
+			}
+		}
+
+		if (inputLabels) {
+			const updatedOutputs = updatedParent.outputs.map((port, index) => {
+				const name = index < inputLabels.length ? inputLabels[index] : PORT_NAME.output(index);
+				return port.name === name ? port : { ...port, name };
+			});
+			const changed = updatedOutputs.some((port, index) => port.name !== updatedParent.outputs[index].name);
+			if (changed) {
+				updatedParent = { ...updatedParent, outputs: updatedOutputs };
+			}
+		}
+
+		return updatedParent;
+	});
+}
