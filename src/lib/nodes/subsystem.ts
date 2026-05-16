@@ -51,12 +51,12 @@ export const InterfaceDefinition = defineNode({
 		input_labels: {
 			type: 'array',
 			default: [],
-			description: 'labels for Interface input handles'
+			description: 'labels for Interface block input handles'
 		},
 		output_labels: {
 			type: 'array',
 			default: [],
-			description: 'labels for Interface output handles'
+			description: 'labels for Interface block output handles'
 		}
 	}
 });

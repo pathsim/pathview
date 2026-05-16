@@ -356,6 +356,7 @@ export function syncInterfaceParentPortNamesFromLabels(nodeId: string): void {
 
 		if (outputLabels) {
 			const updatedInputs = parent.inputs.map((port, index) => {
+				// If fewer labels are provided than ports, fall back to default names.
 				const name = index < outputLabels.length ? outputLabels[index] : PORT_NAME.input(index);
 				return port.name === name ? port : { ...port, name };
 			});
@@ -367,6 +368,7 @@ export function syncInterfaceParentPortNamesFromLabels(nodeId: string): void {
 
 		if (inputLabels) {
 			const updatedOutputs = updatedParent.outputs.map((port, index) => {
+				// If fewer labels are provided than ports, fall back to default names.
 				const name = index < inputLabels.length ? inputLabels[index] : PORT_NAME.output(index);
 				return port.name === name ? port : { ...port, name };
 			});
