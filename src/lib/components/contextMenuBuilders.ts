@@ -180,6 +180,13 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 		items.push(
 			DIVIDER,
 			{
+				label: 'Hide',
+				icon: 'eye-off',
+				action: () => historyStore.mutate(() =>
+					graphStore.updateNodeParams(nodeId, { _hidden: true })
+				)
+			},
+			{
 				label: 'View Code',
 				icon: 'braces',
 				action: () => showBlockCode(nodeId)
@@ -239,6 +246,13 @@ function buildNodeMenu(nodeId: string): MenuItemType[] {
 
 	items.push(
 		DIVIDER,
+		{
+			label: 'Hide',
+			icon: 'eye-off',
+			action: () => historyStore.mutate(() =>
+				graphStore.updateNodeParams(nodeId, { _hidden: true })
+			)
+		},
 		{
 			label: 'View Code',
 			icon: 'braces',
@@ -314,6 +328,16 @@ function buildSelectionMenu(
 			icon: 'clipboard',
 			shortcut: 'Ctrl+C',
 			action: () => clipboardStore.copy()
+		},
+		DIVIDER,
+		{
+			label: `Hide ${count} nodes`,
+			icon: 'eye-off',
+			action: () => historyStore.mutate(() => {
+				for (const id of nodeIds) {
+					graphStore.updateNodeParams(id, { _hidden: true });
+				}
+			})
 		},
 		DIVIDER,
 		{
