@@ -32,7 +32,18 @@ import { downloadJson } from '$lib/utils/download';
 import { confirmationStore } from '$lib/stores/confirmation';
 import { nodeRegistry } from '$lib/nodes';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
-import { AUTOSAVE_KEY, kvDelete, kvGet, kvHas, kvSet } from './handleStore';
+import {
+	AUTOSAVE_KEY,
+	kvDelete,
+	kvGet,
+	kvHas,
+	kvSet,
+	recentIdFor,
+	recentsAdd,
+	recentsList,
+	recentsRemove,
+	type RecentFile
+} from './handleStore';
 
 const LEGACY_STORAGE_KEY = 'pathview_autosave';
 const FILE_EXTENSION = '.pvm';
@@ -418,6 +429,7 @@ export async function saveFile(): Promise<boolean> {
 			const writable = await currentFileHandle.createWritable();
 			await writable.write(json);
 			await writable.close();
+			void rememberRecent(currentFileHandle);
 			return true;
 		} catch (error) {
 			// User may have revoked permission, fall through to Save As
@@ -456,6 +468,7 @@ export async function saveAsFile(): Promise<boolean> {
 			// Update current file reference
 			currentFileHandle = handle;
 			currentFileNameStore.set(name);
+			void rememberRecent(handle);
 			return true;
 		} catch (error: any) {
 			if (error.name === 'AbortError') {
@@ -704,6 +717,7 @@ async function importModel(
 		componentFile.metadata.name ||
 		null
 	);
+	if (currentFileHandle) void rememberRecent(currentFileHandle);
 
 	return { success: true, type: 'model' };
 }
@@ -856,4 +870,87 @@ export async function openImportDialog(
 		input.oncancel = () => resolve({ success: false, type: 'model', cancelled: true });
 		input.click();
 	});
+}
+
+// =============================================================================
+// RECENT FILES (FileSystemFileHandle LRU in IndexedDB)
+// =============================================================================
+
+async function rememberRecent(handle: FileSystemFileHandle): Promise<void> {
+	try {
+		await recentsAdd({ id: recentIdFor(handle), name: handle.name, handle });
+	} catch (e) {
+		console.warn('Failed to remember recent file:', e);
+	}
+}
+
+/**
+ * List recently opened/saved files (most recent first). Only meaningful on
+ * browsers with the File System Access API — others return an empty list.
+ */
+export async function listRecentFiles(): Promise<RecentFile[]> {
+	if (!hasFileSystemAccess()) return [];
+	try {
+		return await recentsList();
+	} catch (e) {
+		console.warn('Failed to list recent files:', e);
+		return [];
+	}
+}
+
+/**
+ * Open a recently-used file by its recents id. Triggers the permission
+ * re-prompt the first time per session, then loads the file in place (same
+ * code path as `openImportDialog`'s success branch). Stale entries (file
+ * moved/deleted, permission denied) are evicted from the recents list.
+ */
+export async function openRecentFile(id: string): Promise<ImportResult> {
+	if (!hasFileSystemAccess()) {
+		return { success: false, type: 'model', error: 'File System Access API not available' };
+	}
+	let entry: RecentFile | undefined;
+	try {
+		const all = await recentsList();
+		entry = all.find((r) => r.id === id);
+	} catch (e) {
+		return {
+			success: false,
+			type: 'model',
+			error: e instanceof Error ? e.message : 'Failed to read recent files'
+		};
+	}
+	if (!entry) {
+		return { success: false, type: 'model', error: 'Recent file no longer tracked' };
+	}
+
+	try {
+		const handle = entry.handle as FileSystemFileHandle & {
+			queryPermission?: (d: { mode: 'readwrite' }) => Promise<PermissionState>;
+			requestPermission?: (d: { mode: 'readwrite' }) => Promise<PermissionState>;
+		};
+		if (handle.queryPermission && handle.requestPermission) {
+			let perm = await handle.queryPermission({ mode: 'readwrite' });
+			if (perm !== 'granted') {
+				perm = await handle.requestPermission({ mode: 'readwrite' });
+			}
+			if (perm !== 'granted') {
+				return { success: false, type: 'model', cancelled: true };
+			}
+		}
+		const file = await handle.getFile();
+		return importFile(file, { fileHandle: handle, fileName: handle.name });
+	} catch (e: any) {
+		// File was moved, deleted, or the user revoked permission — evict it
+		await recentsRemove(id).catch(() => undefined);
+		return {
+			success: false,
+			type: 'model',
+			error: e instanceof Error ? e.message : 'Failed to open recent file'
+		};
+	}
+}
+
+/** Remove a single recent-files entry (e.g., user clicks an "x" in the menu). */
+export async function removeRecentFile(id: string): Promise<void> {
+	await recentsRemove(id);
 }
