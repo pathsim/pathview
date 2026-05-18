@@ -21,6 +21,8 @@
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { exportRecordingData } from '$lib/utils/csvExport';
 	import { createRecordingDataState } from '$lib/stores/recordingData.svelte';
+	import { getPortLabelConfigs } from '$lib/nodes/uiConfig';
+	import { PORT_NAME } from '$lib/constants/handles';
 
 	// Code preview state (declared early — referenced by subscription below)
 	let showCode = $state(false);
@@ -175,6 +177,24 @@
 		historyStore.mutate(() => graphStore.updateNodeParams(id, { _hidden: true }));
 		// Dialog targets a node that's now invisible; close it.
 		closeNodeDialog();
+	}
+
+	// Port-label editing — hide for blocks whose port names are driven by a
+	// regular param (Scope.labels, Adder.operations, …); for those the param
+	// itself is the source of truth and editing port names directly would be
+	// overwritten on the next param change.
+	const hasParamDrivenPortLabels = $derived(node ? getPortLabelConfigs(node.type).length > 0 : false);
+	const showPortLabels = $derived(
+		!!node && !hasParamDrivenPortLabels && (node.inputs.length > 0 || node.outputs.length > 0)
+	);
+
+	function handlePortNameChange(direction: 'input' | 'output', index: number, value: string) {
+		if (!node) return;
+		const id = node.id;
+		const trimmed = value.trim();
+		const fallback = direction === 'input' ? PORT_NAME.input(index) : PORT_NAME.output(index);
+		const name = trimmed === '' ? fallback : trimmed;
+		historyStore.mutate(() => graphStore.updateNodePortName(id, direction, index, name));
 	}
 
 	// Check if node is a recording node (Scope or Spectrum)
@@ -406,6 +426,39 @@
 						</div>
 					{:else}
 						<div class="no-params">No configurable parameters</div>
+					{/if}
+
+					<!-- Port labels — customise the names shown on each handle -->
+					{#if showPortLabels}
+						<div class="section">
+							<div class="section-title">Port labels</div>
+							<div class="params-grid">
+								{#each node.inputs as port, i (port.id)}
+									<div class="param-item">
+										<label for="port-in-{i}">in {i}</label>
+										<input
+											id="port-in-{i}"
+											type="text"
+											value={port.name}
+											placeholder={PORT_NAME.input(i)}
+											onchange={(e) => handlePortNameChange('input', i, e.currentTarget.value)}
+										/>
+									</div>
+								{/each}
+								{#each node.outputs as port, i (port.id)}
+									<div class="param-item">
+										<label for="port-out-{i}">out {i}</label>
+										<input
+											id="port-out-{i}"
+											type="text"
+											value={port.name}
+											placeholder={PORT_NAME.output(i)}
+											onchange={(e) => handlePortNameChange('output', i, e.currentTarget.value)}
+										/>
+									</div>
+								{/each}
+							</div>
+						</div>
 					{/if}
 
 					<!-- Documentation section (lazy loaded) -->
