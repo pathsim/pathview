@@ -420,6 +420,9 @@
 										/>
 									</div>
 								{/each}
+								{#if node.inputs.length > 0 && node.outputs.length > 0}
+									<div class="port-divider"></div>
+								{/if}
 								{#each node.outputs as port, i (port.id)}
 									<div class="param-item">
 										<label for="port-out-{i}">out {i}</label>
@@ -518,6 +521,12 @@
 	.param-input-row > :first-child {
 		flex: 1;
 		min-width: 0;
+	}
+
+	.port-divider {
+		height: 1px;
+		background: var(--border);
+		margin: 4px 0;
 	}
 
 	/* Pin button */
