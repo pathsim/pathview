@@ -49,7 +49,9 @@
 	import { initBackendFromUrl, autoDetectBackend } from '$lib/pyodide/backend';
 	import { runGraphStreamingSimulation, validateGraphSimulation, exportToPython } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
-	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName } from '$lib/schema/fileOps';
+	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName, loadGraphFile } from '$lib/schema/fileOps';
+	import { AUTOSAVE_KEY, kvGet } from '$lib/schema/handleStore';
+	import type { GraphFile } from '$lib/nodes/types';
 	import { confirmationStore } from '$lib/stores/confirmation';
 	import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
 	import { triggerFitView, triggerZoomIn, triggerZoomOut, triggerPan, getViewportCenter, screenToFlow, triggerClearSelection, triggerNudge, hasAnySelection, setFitViewPadding, triggerFlyInAnimation } from '$lib/stores/viewActions';
@@ -647,8 +649,12 @@
 			consoleLogCount = logs.length;
 		});
 
-		// Always start with clean slate
-		void clearAutoSave();
+		// Snapshot the previous session's autosave (if any) *before* setting up
+		// subscriptions, so the upcoming subscribe-fire / debounced writes
+		// cannot race-overwrite it in IDB while the user is still answering
+		// the Restore prompt. We keep the snapshot in memory and reload from
+		// there on confirm.
+		const initialAutosavePromise = kvGet<GraphFile>(AUTOSAVE_KEY);
 
 		// Setup periodic autosave (backup)
 		const cleanupAutoSave = setupAutoSave(30000);
@@ -670,6 +676,30 @@
 		};
 		window.addEventListener('run-simulation', handleRunSimulation);
 		window.addEventListener('continue-simulation', handleContinueSimulation);
+
+		// Offer to restore the previous session's autosave (skip if a URL
+		// model is loading — that takes precedence over restore).
+		void (async () => {
+			const snapshot = await initialAutosavePromise;
+			if (!snapshot || urlModelConfig) return;
+			const ok = await confirmationStore.show({
+				title: 'Restore last session?',
+				message: 'PathView found an autosaved version of your last session. Restore it?',
+				confirmText: 'Restore',
+				cancelText: 'Discard'
+			});
+			if (ok) {
+				try {
+					await loadGraphFile(snapshot);
+					setTimeout(() => triggerFitView(), 100);
+				} catch (e) {
+					console.warn('Failed to restore autosave:', e);
+					await clearAutoSave();
+				}
+			} else {
+				await clearAutoSave();
+			}
+		})();
 
 		return () => {
 			// Cleanup store subscriptions
