@@ -165,6 +165,18 @@
 	// Check if node can be exported (not Interface blocks)
 	const canExport = $derived(node?.type !== NODE_TYPES.INTERFACE);
 
+	// Hide button is meaningless for Interface blocks (they define the
+	// subsystem's outer ports) — skip them. All other nodes can be hidden.
+	const canHide = $derived(node?.type !== NODE_TYPES.INTERFACE);
+
+	function handleHide() {
+		if (!node) return;
+		const id = node.id;
+		historyStore.mutate(() => graphStore.updateNodeParams(id, { _hidden: true }));
+		// Dialog targets a node that's now invisible; close it.
+		closeNodeDialog();
+	}
+
 	// Check if node is a recording node (Scope or Spectrum)
 	const isRecordingNode = $derived(node?.type === 'Scope' || node?.type === 'Spectrum');
 
@@ -302,6 +314,17 @@
 								aria-label="Export"
 							>
 								<Icon name="upload" size={16} />
+							</button>
+						{/if}
+						<!-- Hide button -->
+						{#if canHide}
+							<button
+								class="icon-btn"
+								onclick={handleHide}
+								use:tooltip={"Hide"}
+								aria-label="Hide"
+							>
+								<Icon name="eye-off" size={16} />
 							</button>
 						{/if}
 					{/if}
