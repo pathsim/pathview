@@ -521,8 +521,13 @@
 	cleanups.push(graphStore.nodes.subscribe((graphNodesMap: Map<string, NodeInstance>) => {
 		if (isSyncing) return;
 
-		// Convert Map to array for processing
-		const filteredGraphNodes = Array.from(graphNodesMap.values());
+		// Convert Map to array for processing — exclude nodes hidden via `_hidden`
+		// param. Hidden nodes stay in the store (simulation still uses them) but
+		// disappear from the canvas; toggling `_hidden` triggers this subscriber
+		// again so they come back the same way they were removed.
+		const filteredGraphNodes = Array.from(graphNodesMap.values()).filter(
+			(n) => !n.params?.['_hidden']
+		);
 
 		// Track nodes that need handle updates (port count changed)
 		const nodesToUpdate: string[] = [];
@@ -689,23 +694,44 @@
 		annotationNodes = Array.from(annotationsMap.values()).map(toAnnotationNode);
 	}));
 
+	// Compute the set of node IDs currently visible (not `_hidden`). Read on
+	// every edge rebuild so connections to hidden nodes can be filtered out.
+	function getVisibleNodeIds(): Set<string> {
+		const graphNodesMap = get(graphStore.nodes);
+		const ids = new Set<string>();
+		for (const n of graphNodesMap.values()) {
+			if (!n.params?.['_hidden']) ids.add(n.id);
+		}
+		return ids;
+	}
+
+	function rebuildEdges(connections: Connection[]): void {
+		const visibleIds = getVisibleNodeIds();
+		const currentEdgeSelection = new Map(edges.map((e) => [e.id, e.selected]));
+		edges = connections
+			.filter((c) => visibleIds.has(c.sourceNodeId) && visibleIds.has(c.targetNodeId))
+			.map((conn) => {
+				const edge = toFlowEdge(conn);
+				if (currentEdgeSelection.get(conn.id)) edge.selected = true;
+				return edge;
+			});
+	}
+
 	// Subscribe to current connections (filtered by current navigation context)
 	cleanups.push(graphStore.connections.subscribe((connections: Connection[]) => {
 		if (isSyncing) return;
-		// Preserve selection state from existing edges
-		const currentEdgeSelection = new Map(edges.map(e => [e.id, e.selected]));
-		edges = connections.map(conn => {
-			const edge = toFlowEdge(conn);
-			// Preserve selection state
-			const wasSelected = currentEdgeSelection.get(conn.id);
-			if (wasSelected) {
-				edge.selected = true;
-			}
-			return edge;
-		});
+		rebuildEdges(connections);
 		// Recalculate routes when connections change
 		// Debounced to coalesce rapid changes (paste, undo, bulk operations)
 		scheduleRoutingUpdate();
+	}));
+
+	// When `_hidden` flips on a node, the connections store doesn't fire — the
+	// connections themselves are unchanged. Subscribe to the nodes store too
+	// and rebuild edges so newly hidden/visible nodes' edges follow along.
+	cleanups.push(graphStore.nodes.subscribe(() => {
+		if (isSyncing) return;
+		rebuildEdges(get(graphStore.connections));
 	}));
 
 	// Track last snapped positions during drag for discrete routing updates

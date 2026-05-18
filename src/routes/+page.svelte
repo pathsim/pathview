@@ -508,6 +508,50 @@
 
 	// App state
 	let nodeCount = $state(0);
+	let hiddenNodes = $state<import('$lib/nodes/types').NodeInstance[]>([]);
+	let hiddenMenuOpen = $state(false);
+	let hiddenOpenTimer: ReturnType<typeof setTimeout> | null = null;
+	let hiddenCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function clearHiddenTimers() {
+		if (hiddenOpenTimer) {
+			clearTimeout(hiddenOpenTimer);
+			hiddenOpenTimer = null;
+		}
+		if (hiddenCloseTimer) {
+			clearTimeout(hiddenCloseTimer);
+			hiddenCloseTimer = null;
+		}
+	}
+
+	function handleHiddenGroupEnter() {
+		clearHiddenTimers();
+		hiddenOpenTimer = setTimeout(() => {
+			hiddenMenuOpen = true;
+			hiddenOpenTimer = null;
+		}, 250);
+	}
+
+	function handleHiddenGroupLeave() {
+		clearHiddenTimers();
+		hiddenCloseTimer = setTimeout(() => {
+			hiddenMenuOpen = false;
+			hiddenCloseTimer = null;
+		}, 180);
+	}
+
+	function handleUnhide(nodeId: string) {
+		historyStore.mutate(() => graphStore.updateNodeParams(nodeId, { _hidden: false }));
+	}
+
+	function handleShowAll() {
+		clearHiddenTimers();
+		hiddenMenuOpen = false;
+		const ids = hiddenNodes.map((n) => n.id);
+		historyStore.mutate(() => {
+			for (const id of ids) graphStore.updateNodeParams(id, { _hidden: false });
+		});
+	}
 	let pyodideReady = $state(false);
 	let pyodideLoading = $state(false);
 	let simRunning = $state(false);
@@ -575,6 +619,7 @@
 
 		const unsubNodeCount = graphStore.nodesArray.subscribe((nodes) => {
 			nodeCount = nodes.length;
+			hiddenNodes = nodes.filter((n) => n.params?.['_hidden']);
 		});
 
 		const unsubPyodide = pyodideState.subscribe((s) => {
@@ -1355,6 +1400,46 @@
 			</button>
 		</div>
 
+		<!-- Hidden nodes -->
+		{#if hiddenNodes.length > 0}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="toolbar-group hidden-group"
+				onmouseenter={handleHiddenGroupEnter}
+				onmouseleave={handleHiddenGroupLeave}
+			>
+				<button
+					class="toolbar-btn hidden-btn"
+					use:tooltip={`${hiddenNodes.length} hidden node${hiddenNodes.length === 1 ? '' : 's'}`}
+					aria-label="Hidden nodes"
+				>
+					<Icon name="eye-off" size={16} />
+					<span class="hidden-badge">{hiddenNodes.length}</span>
+				</button>
+				{#if hiddenMenuOpen}
+					<div class="recent-menu" role="menu">
+						<div class="recent-menu-header">Hidden nodes</div>
+						{#each hiddenNodes as node (node.id)}
+							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+							<div class="recent-item" role="menuitem" tabindex="0" onclick={() => handleUnhide(node.id)}>
+								<Icon name="eye" size={14} />
+								<span class="recent-name" title={node.name}>{node.name}</span>
+								<span class="hidden-type">{node.type}</span>
+							</div>
+						{/each}
+						{#if hiddenNodes.length > 1}
+							<div class="recent-divider"></div>
+							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+							<div class="recent-item show-all" role="menuitem" tabindex="0" onclick={handleShowAll}>
+								<Icon name="eye" size={14} />
+								<span class="recent-name">Show all</span>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Help -->
 		<div class="toolbar-group">
 			<button
@@ -1935,6 +2020,49 @@
 	.recent-remove:hover {
 		color: var(--error);
 		background: color-mix(in srgb, var(--error) 15%, transparent);
+	}
+
+	/* Hidden-nodes group reuses .open-group/.recent-menu layout */
+	.hidden-group {
+		position: relative;
+	}
+
+	.hidden-btn {
+		position: relative;
+	}
+
+	.hidden-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		border-radius: 8px;
+		background: var(--accent);
+		color: var(--surface);
+		font-size: 10px;
+		font-weight: 600;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 0 0 2px var(--surface);
+	}
+
+	.hidden-type {
+		font-size: 10px;
+		color: var(--text-disabled);
+		font-family: var(--font-mono);
+	}
+
+	.recent-divider {
+		height: 1px;
+		background: var(--border);
+		margin: 4px 0;
+	}
+
+	.recent-item.show-all {
+		color: var(--accent);
 	}
 
 	.mutation-badge {
