@@ -37,6 +37,22 @@ function openOnNext(opener: () => Promise<void>): DriverHook {
 	};
 }
 
+type PopoverSpec = NonNullable<DriveStep['popover']>;
+
+/** Drop keys whose value is `undefined` from a popover spec.
+ *
+ *  driver.js merges a step's `popover` *over* its own defaults — the step
+ *  spread comes last. An explicit `onNextClick: undefined` therefore clobbers
+ *  driver.js's built-in Next handler, leaving the button rendered but inert.
+ *  Builders that forward optional hooks (`rawStep`, `blockStep`, `actionStep`)
+ *  must prune undefined keys before handing the popover to driver.js. */
+function prunePopover(popover: PopoverSpec): PopoverSpec {
+	for (const key of Object.keys(popover) as (keyof PopoverSpec)[]) {
+		if (popover[key] === undefined) delete popover[key];
+	}
+	return popover;
+}
+
 const FLOATING_POPOVER = { popoverClass: 'tour-floating' } as const;
 const FLOATING_BR = {
 	side: 'top' as Side,
@@ -296,13 +312,13 @@ export function actionStep(opts: ActionStep): DriveStep[] {
 		{
 			element: opts.result,
 			onHighlightStarted: opts.beforeResult,
-			popover: {
+			popover: prunePopover({
 				title: opts.resultTitle,
 				description: opts.resultBody,
 				side: opts.resultPosition?.side ?? 'right',
 				align: opts.resultPosition?.align ?? 'center',
 				onNextClick: opts.onResultNext
-			}
+			})
 		}
 	];
 }
@@ -328,13 +344,13 @@ export function blockStep(opts: BlockStep): DriveStep {
 		onHighlightStarted: opts.onHighlightStarted,
 		onHighlighted: opts.onHighlighted,
 		onDeselected: opts.onDeselected,
-		popover: {
+		popover: prunePopover({
 			title: opts.title,
 			description: opts.body,
 			side: opts.side ?? 'right',
 			align: opts.align ?? 'center',
 			onNextClick: opts.onNextClick
-		}
+		})
 	};
 }
 
@@ -364,7 +380,7 @@ export function rawStep(opts: RawStep): DriveStep {
 		element: opts.element,
 		onHighlightStarted: opts.onHighlightStarted,
 		onDeselected: opts.onDeselected,
-		popover: {
+		popover: prunePopover({
 			title: opts.title,
 			description: opts.body,
 			side: opts.side ?? 'right',
@@ -372,6 +388,6 @@ export function rawStep(opts: RawStep): DriveStep {
 			popoverClass: opts.popoverClass,
 			onNextClick: opts.onNextClick,
 			onPopoverRender: opts.onPopoverRender
-		}
+		})
 	};
 }
