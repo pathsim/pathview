@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import '../app.css';
 
 	interface Props {
@@ -6,6 +7,17 @@
 	}
 
 	let { children }: Props = $props();
+
+	// whatsmytraffic-Analytics nur auf der Web-Version (view.pathsim.org),
+	// nicht in der Standalone-/pip-Version.
+	onMount(() => {
+		if (location.hostname !== 'view.pathsim.org') return;
+		const s = document.createElement('script');
+		s.defer = true;
+		s.src = 'https://whatsmytraffic.com/beacon.js';
+		s.dataset.websiteId = '4fcc8497-cf99-4df4-bedd-36f46b4b9c72';
+		document.head.appendChild(s);
+	});
 </script>
 
 <div class="app">
