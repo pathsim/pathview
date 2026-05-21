@@ -34,9 +34,29 @@ def _pv_already_installed(import_path):
 
 
 async def _pv_install_micropip(spec):
-    """Pyodide-side install via micropip (top-level await)."""
+    """Pyodide-side install via micropip (top-level await).
+
+    micropip can only install pure-Python wheels (or packages Pyodide
+    ships pre-built), so toolboxes with compiled/native code fail here
+    even though they install fine in the standalone (pip-backed) build.
+    On failure we classify the error and prefix it with PV_INCOMPATIBLE
+    (browser-runtime limitation) or PV_INSTALL_ERROR (genuine failure)
+    so the JS side can show a useful hint instead of a raw traceback."""
     import micropip
-    await micropip.install(spec, keep_going=True)
+    try:
+        await micropip.install(spec, keep_going=True)
+    except Exception as e:
+        msg = str(e)
+        low = msg.lower()
+        incompatible = (
+            "pure python" in low
+            or "can't find" in low
+            or "cannot find" in low
+            or "no matching distribution" in low
+            or "no known package" in low
+        )
+        tag = "PV_INCOMPATIBLE" if incompatible else "PV_INSTALL_ERROR"
+        raise RuntimeError(tag + ": " + msg)
     return {"ok": True, "spec": spec, "via": "micropip"}
 
 

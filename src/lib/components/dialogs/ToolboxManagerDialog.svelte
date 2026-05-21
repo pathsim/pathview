@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { tooltip } from '$lib/components/Tooltip.svelte';
+	import { getBackendType } from '$lib/pyodide/backend';
 	import DialogShell from './shared/DialogShell.svelte';
 	import {
 		TOOLBOX_CATALOG,
@@ -80,8 +81,13 @@
 	let activeOverrideRow = $state<string | null>(null);
 	const SHAPE_OPTIONS = ['pill', 'rect', 'mixed'] as const;
 
+	// True when running in the browser (Pyodide) backend: installs are then
+	// limited to pure-Python / Pyodide-compatible packages.
+	let isWebRuntime = $state(false);
+
 	$effect(() => {
 		if (!open) return;
+		isWebRuntime = getBackendType() === 'pyodide';
 		if (editing) {
 			startEdit(editing);
 		} else {
@@ -508,6 +514,17 @@
 							network requests, read clipboard data, or consume CPU and memory.
 						</p>
 						<p>Only continue if you trust the source.</p>
+						{#if isWebRuntime}
+							<div class="web-note">
+								<Icon name="info" size={14} />
+								<span>
+									You're using the PathView web app. Installs run through Pyodide in the browser,
+									so only pure-Python toolboxes (or packages Pyodide ships pre-built) work here.
+									For toolboxes with compiled dependencies, use the standalone
+									<code>pip install pathview</code> desktop app.
+								</span>
+							</div>
+						{/if}
 						<div class="source-recap">
 							{#if resolvedSource?.type === 'pypi'}
 								<code>pip install {resolvedSource.pkg}{resolvedSource.version ? `==${resolvedSource.version}` : ''}</code>
@@ -936,6 +953,30 @@
 	}
 
 	.source-recap code {
+		font-family: var(--font-mono);
+		color: var(--text-muted);
+	}
+
+	/* Web-runtime (Pyodide) install limitation notice on the trust step */
+	.web-note {
+		display: flex;
+		gap: var(--space-sm);
+		padding: var(--space-sm) var(--space-md);
+		background: var(--accent-bg);
+		border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-base);
+		line-height: 1.5;
+		color: var(--text-muted);
+	}
+
+	.web-note :global(svg) {
+		flex-shrink: 0;
+		margin-top: 2px;
+		color: var(--accent);
+	}
+
+	.web-note code {
 		font-family: var(--font-mono);
 		color: var(--text-muted);
 	}

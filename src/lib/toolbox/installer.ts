@@ -79,6 +79,40 @@ function pyStr(s: string): string {
 }
 
 /**
+ * Turn a raw micropip failure into a web-version-aware message.
+ *
+ * The web app runs Python through Pyodide, which can only install
+ * pure-Python wheels (or packages Pyodide ships pre-built). Toolboxes with
+ * compiled/native code fail here even though they install fine in the
+ * standalone (pip-backed) PathView. `_pv_install_micropip` tags those
+ * failures with `PV_INCOMPATIBLE`, so we give a useful hint instead of
+ * surfacing a raw traceback. Genuine failures pass through unchanged.
+ */
+function reframePyodideInstallError(spec: string, err: unknown): Error {
+	const raw = err instanceof Error ? err.message : String(err);
+	if (!raw.includes('PV_INCOMPATIBLE')) {
+		// Network error, bad spec, etc. — pass through, just strip our tag.
+		return new Error(raw.replace(/PV_INSTALL_ERROR:\s*/, ''));
+	}
+	const detail = raw.split('PV_INCOMPATIBLE:').pop()?.trim() || raw;
+	return new Error(
+		`"${spec}" can't be installed in the PathView web app.\n` +
+			`\n` +
+			`The web version runs Python in your browser via Pyodide, which can\n` +
+			`only install pure-Python packages (or packages Pyodide ships\n` +
+			`pre-built). This toolbox needs compiled or native code that isn't\n` +
+			`available in the browser.\n` +
+			`\n` +
+			`To use it, install the standalone PathView desktop app:\n` +
+			`    pip install pathview\n` +
+			`    pathview\n` +
+			`It runs a real Python environment and can install any pip package.\n` +
+			`\n` +
+			`micropip: ${detail}`
+	);
+}
+
+/**
  * Install a package. Skips when `importPath` is given and the module is
  * already importable (saves a round-trip + download).
  *
@@ -94,8 +128,13 @@ export async function installPackage(spec: string, importPath?: string): Promise
 	}
 	const backend = getBackendType();
 	if (backend === 'pyodide') {
-		// runPythonAsync supports top-level await for micropip.install
-		await exec(`await _pv_install_micropip(${pyStr(spec)})`);
+		// runPythonAsync supports top-level await for micropip.install.
+		// Reframe Pyodide-incompatibility failures into an actionable hint.
+		try {
+			await exec(`await _pv_install_micropip(${pyStr(spec)})`);
+		} catch (e) {
+			throw reframePyodideInstallError(spec, e);
+		}
 	} else {
 		// Flask / remote: real CPython, use subprocess pip (sync)
 		await exec(`_pv_install_pip(${pyStr(spec)})`);
