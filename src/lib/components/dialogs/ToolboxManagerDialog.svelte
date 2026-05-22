@@ -13,6 +13,7 @@
 		upsertToolbox,
 		removeToolbox,
 		toolboxes,
+		toolboxSourceKey,
 		type CatalogEntry,
 		type ToolboxConfig,
 		type ToolboxSource,
@@ -162,7 +163,7 @@
 		resolvedImportPath = (pypiImportPath.trim() || pkg).replace(/-/g, '_');
 		resolvedDisplayName = displayNameInput.trim() || pkg;
 		resolvedEventsImportPath = eventsImportPathInput.trim() || undefined;
-		toolboxId = `pypi:${pkg}`;
+		toolboxId = toolboxSourceKey(resolvedSource);
 		categoryByClass = {};
 		defaultCategory = undefined;
 		step = 'trust';
@@ -174,7 +175,7 @@
 		resolvedImportPath = urlImportPath.trim();
 		resolvedDisplayName = displayNameInput.trim() || urlImportPath.trim();
 		resolvedEventsImportPath = eventsImportPathInput.trim() || undefined;
-		toolboxId = `url:${urlValue.trim()}`;
+		toolboxId = toolboxSourceKey(resolvedSource);
 		categoryByClass = {};
 		defaultCategory = undefined;
 		step = 'trust';
@@ -194,7 +195,9 @@
 		resolvedImportPath = '';
 		resolvedDisplayName = displayNameInput.trim() || fileName.replace(/\.py$/, '');
 		resolvedEventsImportPath = undefined;
-		toolboxId = `inline:${fileName}`;
+		// Content-addressed: keying the id on the code (not the filename)
+		// keeps two different uploads with the same name distinct.
+		toolboxId = toolboxSourceKey(resolvedSource);
 		categoryByClass = {};
 		defaultCategory = undefined;
 		step = 'trust';
@@ -326,10 +329,12 @@
 		onClose();
 	}
 
-	// Catalog entries that aren't already installed
+	// Catalog entries that aren't already installed. Matched on source
+	// identity, not id, so a catalog entry installed via the PyPI tab still
+	// counts as installed.
 	const availableCatalog = $derived.by(() => {
-		const installedIds = new Set(installed.map((t) => t.id));
-		return TOOLBOX_CATALOG.filter((e) => !installedIds.has(e.id));
+		const installedKeys = new Set(installed.map((t) => toolboxSourceKey(t.source)));
+		return TOOLBOX_CATALOG.filter((e) => !installedKeys.has(toolboxSourceKey(e.source)));
 	});
 
 	// Dot index across the add-toolbox flow (manager view = no progress dots)

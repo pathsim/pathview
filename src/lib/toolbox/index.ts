@@ -39,3 +39,5 @@ export { installAndRegisterToolbox, type InstallSpec } from './installFlow';
 export { seedPreloadedToolboxes } from './store';
 
 export { collectRequiredToolboxes, findMissingRequirements } from './dependencies';
+
+export { toolboxSourceKey, hashString } from './identity';

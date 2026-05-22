@@ -643,8 +643,19 @@ export function validateNodeTypes(nodes: NodeInstance[]): string[] {
  * Import a block or subsystem component at the given position
  * Uses shared cloneNodeForPaste utility for consistent ID regeneration
  */
-function importComponent(content: BlockContent | SubsystemContent, position: Position): string[] {
+async function importComponent(
+	content: BlockContent | SubsystemContent,
+	position: Position
+): Promise<string[]> {
 	const node = content.node;
+
+	// Install any runtime toolboxes the component declared before validating
+	// node types — without this, a .blk/.sub using a toolbox block would
+	// hard-fail even though the file records what it needs. Best-effort:
+	// a skipped/failed install just falls through to the unknown-type error.
+	if (content.requiredToolboxes && content.requiredToolboxes.length > 0) {
+		await installRequiredToolboxes(content.requiredToolboxes);
+	}
 
 	// Validate all node types are registered (recursive for subsystems)
 	const invalidTypes = validateNodeTypes([node]);
@@ -733,7 +744,10 @@ async function processImportContent(
 		case 'block':
 		case 'subsystem': {
 			const position = options.position || { x: 100, y: 100 };
-			const nodeIds = importComponent(componentFile.content as BlockContent | SubsystemContent, position);
+			const nodeIds = await importComponent(
+				componentFile.content as BlockContent | SubsystemContent,
+				position
+			);
 			return { success: true, type: componentFile.type, nodeIds };
 		}
 

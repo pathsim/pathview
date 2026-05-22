@@ -11,6 +11,7 @@ import { COMPONENT_VERSION } from '$lib/types/component';
 import { graphStore } from '$lib/stores/graph';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import { downloadJson } from '$lib/utils/download';
+import { collectRequiredToolboxes } from '$lib/toolbox';
 import { cleanNodeForExport } from './cleanParams';
 import { hasFileSystemAccess } from './fileOps';
 
@@ -25,6 +26,10 @@ export function createBlockFile(node: NodeInstance): ComponentFile {
 	// Remove graph property for blocks (only subsystems have graphs)
 	delete cleanedNode.graph;
 
+	// Record the toolbox this block needs (empty for builtin blocks) so a
+	// direct .blk import can resolve the dependency instead of hard-failing.
+	const requiredToolboxes = collectRequiredToolboxes([cleanedNode]);
+
 	return {
 		version: COMPONENT_VERSION,
 		type: 'block',
@@ -34,7 +39,8 @@ export function createBlockFile(node: NodeInstance): ComponentFile {
 			modified: new Date().toISOString()
 		},
 		content: {
-			node: cleanedNode
+			node: cleanedNode,
+			...(requiredToolboxes.length > 0 ? { requiredToolboxes } : {})
 		} as BlockContent
 	};
 }
@@ -51,6 +57,10 @@ export function createSubsystemFile(node: NodeInstance): ComponentFile {
 	const clonedNode = structuredClone(node);
 	const cleanedNode = cleanNodeForExport(clonedNode);
 
+	// Walk the nested graph for any toolbox blocks (collectRequiredToolboxes
+	// recurses into subsystem graphs) so a direct .sub import can resolve them.
+	const requiredToolboxes = collectRequiredToolboxes([cleanedNode]);
+
 	return {
 		version: COMPONENT_VERSION,
 		type: 'subsystem',
@@ -60,7 +70,8 @@ export function createSubsystemFile(node: NodeInstance): ComponentFile {
 			modified: new Date().toISOString()
 		},
 		content: {
-			node: cleanedNode
+			node: cleanedNode,
+			...(requiredToolboxes.length > 0 ? { requiredToolboxes } : {})
 		} as SubsystemContent
 	};
 }

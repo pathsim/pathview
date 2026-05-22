@@ -3,7 +3,7 @@
  */
 
 import type { NodeInstance } from './nodes';
-import type { GraphContent } from './schema';
+import type { GraphContent, ToolboxRequirement } from './schema';
 
 /** Component types that can be saved/loaded */
 export type ComponentType = 'block' | 'subsystem' | 'model';
@@ -24,11 +24,15 @@ export interface ComponentFile {
 /** Single block (no connections) */
 export interface BlockContent {
 	node: NodeInstance;
+	/** Runtime toolboxes this block needs (absent for builtin blocks). */
+	requiredToolboxes?: ToolboxRequirement[];
 }
 
 /** Subsystem (nested graph) */
 export interface SubsystemContent {
 	node: NodeInstance; // The subsystem node (includes .graph)
+	/** Runtime toolboxes the subsystem's blocks need (absent if all builtin). */
+	requiredToolboxes?: ToolboxRequirement[];
 }
 
 /** Full model - uses shared GraphContent structure */

@@ -14,6 +14,7 @@ import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import type { NodeInstance } from '$lib/types/nodes';
 import type { ToolboxRequirement } from '$lib/types/schema';
 import { toolboxes } from './store';
+import { toolboxSourceKey } from './identity';
 import type { ToolboxConfig } from './types';
 
 function walkNodeTypes(nodes: NodeInstance[], out: Set<string>): void {
@@ -62,9 +63,16 @@ export function collectRequiredToolboxes(nodes: NodeInstance[]): ToolboxRequirem
 /**
  * Filter a list of toolbox requirements to those that are NOT currently
  * installed. Used at load time to figure out what to prompt for.
+ *
+ * Matching is done on the source content identity (`toolboxSourceKey`), not
+ * the raw `id`: the id depends on how a toolbox was added (catalog vs PyPI
+ * tab vs file upload), so the same package can carry different ids across
+ * machines. Comparing source keys means a file that references
+ * `pypi:pathsim-chem` resolves against a catalog-installed `pathsim-chem`,
+ * and an inline toolbox is matched by its code rather than its filename.
  */
 export function findMissingRequirements(reqs: ToolboxRequirement[]): ToolboxRequirement[] {
 	if (!reqs || reqs.length === 0) return [];
-	const installed = new Set(get(toolboxes).map((t) => t.id));
-	return reqs.filter((r) => !installed.has(r.id));
+	const installedKeys = new Set(get(toolboxes).map((t) => toolboxSourceKey(t.source)));
+	return reqs.filter((r) => !installedKeys.has(toolboxSourceKey(r.source)));
 }
