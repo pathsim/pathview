@@ -69,6 +69,13 @@ export const TOOLBOX_CATALOG: CatalogEntry[] = [
 		source: { type: 'pypi', pkg: 'pathsim-rf' },
 		importPath: 'pathsim_rf',
 		defaultCategory: 'RF'
+	},
+	{
+		id: 'pathsim-fmi',
+		displayName: 'pathsim-fmi',
+		source: { type: 'pypi', pkg: 'pathsim-fmi' },
+		importPath: 'pathsim_fmi',
+		defaultCategory: 'FMI'
 	}
 ];
 
