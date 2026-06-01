@@ -17,9 +17,10 @@
 	interface Props {
 		onNew: () => void;
 		onClose: () => void;
+		onLoadExample: (url: string) => void;
 	}
 
-	let { onNew, onClose }: Props = $props();
+	let { onNew, onClose, onLoadExample }: Props = $props();
 
 	const examples: Example[] = [
 		{ filename: 'feedback-system.json', basename: 'feedback-system', name: 'Feedback System', description: 'Linear feedback system with delayed step excitation' },
@@ -165,12 +166,11 @@
 		<div class="examples-section">
 			<div class="examples-grid">
 				{#each examples as example}
-					<a
-					class="example-card"
-					href="?model={base}/examples/{example.filename}"
-					data-sveltekit-reload
-					onclick={onClose}
-				>
+					<button
+						type="button"
+						class="example-card"
+						onclick={() => onLoadExample(`${base}/examples/${example.filename}`)}
+					>
 						<div class="example-info">
 							<div class="example-name">{example.name}</div>
 							<div class="example-description">{example.description}</div>
@@ -184,7 +184,7 @@
 								onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
 							/>
 						</div>
-					</a>
+					</button>
 				{/each}
 			</div>
 		</div>

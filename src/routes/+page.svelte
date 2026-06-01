@@ -44,7 +44,7 @@
 	import { openNodeDialog } from '$lib/stores/nodeDialog';
 	import { openEventDialog } from '$lib/stores/eventDialog';
 	import type { MenuItemType } from '$lib/components/ContextMenu.svelte';
-	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation, stageMutations } from '$lib/pyodide/bridge';
+	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation, stageMutations, resetSimulation } from '$lib/pyodide/bridge';
 	import { pendingMutationCount } from '$lib/pyodide/mutationQueue';
 	import { initBackendFromUrl, autoDetectBackend } from '$lib/pyodide/backend';
 	import { runGraphStreamingSimulation, validateGraphSimulation, exportToPython } from '$lib/pyodide/pathsimRunner';
@@ -202,6 +202,11 @@
 	}
 	const urlModelConfig = getUrlModelConfig();
 	let showWelcomeModal = $state(!urlModelConfig); // Hide if loading from URL
+
+	// Backend-ready promise (assigned in onMount). Component-scoped so client-
+	// side example loading can gate its toolbox install on the running worker
+	// instead of forcing a full reload + Pyodide reinit.
+	let backendReady: Promise<unknown> | undefined = $state(undefined);
 
 	// Track widths directly - initialized on first dual-panel open
 	let consolePanelWidth = $state<number | undefined>(undefined);
@@ -581,7 +586,7 @@
 		// to `registryVersion` bumps, so any (missing) placeholders upgrade
 		// themselves as soon as their toolbox registers.
 		seedPreloadedToolboxes();
-		const backendReady = (async () => {
+		backendReady = (async () => {
 			try {
 				await autoDetectBackend();
 				await initBackendFromUrl();
@@ -1231,6 +1236,32 @@
 		}
 	}
 
+	// Load an example/model client-side — no page reload, so the running
+	// Pyodide worker is reused (no reinit). Reflects the model in the URL via
+	// replaceState, so deep-links (?model=) still work and the URL stays
+	// shareable. Used by the welcome modal's example cards.
+	async function loadExample(url: string): Promise<void> {
+		showWelcomeModal = false;
+		// Clear previous results / REPL state; the worker stays up.
+		await resetSimulation();
+		const result = await importFromUrl(url, {
+			deferToolboxInstall: true,
+			backendReady: backendReady ?? Promise.resolve()
+		});
+		if (result.success) {
+			try {
+				history.replaceState(history.state, '', `?model=${encodeURIComponent(url)}`);
+			} catch {
+				/* replaceState can throw in odd embedding contexts; non-fatal */
+			}
+			setTimeout(() => triggerFitView(), 100);
+		} else if (result.error) {
+			consoleStore.error(`Failed to load example: ${url}`);
+			consoleStore.error(result.error);
+			showConsole = true;
+		}
+	}
+
 	// Track placement offset for stacking prevention
 	let placementOffset = 0;
 	let lastPlacementTime = 0;
@@ -1851,6 +1882,7 @@
 		<WelcomeModal
 			onNew={handleNew}
 			onClose={() => showWelcomeModal = false}
+			onLoadExample={loadExample}
 		/>
 	{/if}
 </div>
