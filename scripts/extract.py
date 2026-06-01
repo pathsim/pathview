@@ -155,7 +155,7 @@ class ConfigLoader:
         if path.exists():
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
-        return {"version": "0.26.2", "preload": ["numpy", "scipy", "micropip"]}
+        return {"version": "0.29.4", "preload": ["numpy", "scipy", "micropip"]}
 
     def discover_toolboxes(self) -> list[Path]:
         """Find all toolbox config directories."""
@@ -882,7 +882,7 @@ class TypeScriptGenerator:
             "",
             f"export const PATHVIEW_VERSION = '{pathview_version}';",
             "",
-            f"export const PYODIDE_VERSION = '{pyodide.get('version', '0.26.2')}';",
+            f"export const PYODIDE_VERSION = '{pyodide.get('version', '0.29.4')}';",
             "export const PYODIDE_CDN_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.mjs`;",
             "",
             f"export const PYODIDE_PRELOAD = {json.dumps(pyodide.get('preload', []))} as const;",

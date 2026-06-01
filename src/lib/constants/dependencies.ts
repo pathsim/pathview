@@ -3,7 +3,7 @@
 
 export const PATHVIEW_VERSION = '0.8.9';
 
-export const PYODIDE_VERSION = '0.26.2';
+export const PYODIDE_VERSION = '0.29.4';
 export const PYODIDE_CDN_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.mjs`;
 
 export const PYODIDE_PRELOAD = ["numpy", "scipy", "micropip"] as const;

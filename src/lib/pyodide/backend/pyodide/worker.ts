@@ -12,7 +12,7 @@ import {
 import { PROGRESS_MESSAGES, ERROR_MESSAGES } from '$lib/constants/messages';
 import type { REPLRequest, REPLResponse } from '../types';
 
-import type { PyodideInterface } from 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs';
+import type { PyodideInterface } from 'https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.mjs';
 
 let pyodide: PyodideInterface | null = null;
 let isInitialized = false;

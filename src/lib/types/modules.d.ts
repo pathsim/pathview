@@ -7,7 +7,7 @@ declare module 'plotly.js-dist-min' {
 }
 
 // Pyodide CDN module
-declare module 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs' {
+declare module 'https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.mjs' {
 	interface PyProxy {
 		toJs(options?: { dict_converter?: typeof Object.fromEntries }): unknown;
 		destroy(): void;
