@@ -99,6 +99,12 @@ export const replState = {
 export async function init(): Promise<void> {
 	const backend = getBackend();
 
+	// Idempotent: several callers invoke init() (auto-detect, toolbox installer,
+	// first run, helper injection). The backend init itself is a no-op once
+	// ready, but logging/callback setup ran every time, producing repeated
+	// "Initializing Python REPL..." noise. Bail early when ready.
+	if (backend.isReady()) return;
+
 	// Set up console output callbacks
 	backend.onStdout((value) => consoleStore.output(value));
 	backend.onStderr((value) => consoleStore.error(value));
