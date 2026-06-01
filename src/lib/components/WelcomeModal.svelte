@@ -97,7 +97,7 @@
 
 	<div class="banner-content">
 		<div class="version-info">
-			PathView {PATHVIEW_VERSION} · {Object.entries(EXTRACTED_VERSIONS).map(([pkg, ver]) => `${pkg.replace('_', '-')} ${ver}`).join(' · ')}
+			pathview {PATHVIEW_VERSION} · {Object.entries(EXTRACTED_VERSIONS).map(([pkg, ver]) => `${pkg.replace('_', '-')} ${ver}`).join(' · ')}
 		</div>
 
 		<div class="header">
