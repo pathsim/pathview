@@ -129,7 +129,9 @@ def _extract_scope_data(blocks, node_id_map, incremental=False):
                             'labels': labels
                         }
                 except Exception as e:
-                    print(f"Error reading Scope: {e}")
+                    # stderr (not stdout) so a failing recorder surfaces as an
+                    # error in the console instead of an unexplained empty plot.
+                    print(f"Error reading Scope: {e}", file=__import__('sys').stderr)
             elif block_name == 'Subsystem':
                 if hasattr(block, 'blocks'):
                     find_scopes(block.blocks)
@@ -177,7 +179,9 @@ def _extract_spectrum_data(blocks, node_id_map):
                             'labels': labels
                         }
                 except Exception as e:
-                    print(f"Error reading Spectrum: {e}")
+                    # stderr (not stdout) so a failing recorder surfaces as an
+                    # error in the console instead of an unexplained empty plot.
+                    print(f"Error reading Spectrum: {e}", file=__import__('sys').stderr)
             elif block_name == 'Subsystem':
                 if hasattr(block, 'blocks'):
                     find_spectrums(block.blocks)
