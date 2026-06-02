@@ -107,6 +107,8 @@ export const MARKER_SYMBOL_PLOTLY: Record<MarkerStyle, string> = {
 export const PLOTLY_CONFIG: Partial<Plotly.Config> = {
 	responsive: true,
 	displaylogo: false,
+	// Suppress Plotly's "Double-click to zoom back out" / reset-axes tip popup.
+	showTips: false,
 	displayModeBar: 'hover',
 	modeBarButtonsToRemove: ['lasso2d', 'select2d'],
 	modeBarButtonsToAdd: [],
