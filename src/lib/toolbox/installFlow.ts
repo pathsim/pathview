@@ -11,8 +11,8 @@
  */
 
 import { get } from 'svelte/store';
-import { toolboxes, upsertToolbox } from './store';
-import { performInstall, discoverToolbox, registerToolbox } from './register';
+import { toolboxes } from './store';
+import { performInstall, discoverToolbox, commitToolbox } from './register';
 import { getCatalogEntry } from './catalog';
 import type { ToolboxConfig, ToolboxSource } from './types';
 
@@ -65,13 +65,10 @@ export async function installAndRegisterToolbox(spec: InstallSpec): Promise<Tool
 		};
 
 		const catalog = getCatalogEntry(spec.id);
-		registerToolbox(config, {
-			blocks: discovered.blocks,
-			events: discovered.events,
+		commitToolbox(config, discovered, {
 			defaultCategory: catalog?.defaultCategory,
 			categoryByClass: catalog?.categoryByClass
 		});
-		upsertToolbox(config);
 
 		return config;
 	})();

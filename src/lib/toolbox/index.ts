@@ -27,6 +27,7 @@ export {
 	performInstall,
 	discoverToolbox,
 	registerToolbox,
+	commitToolbox,
 	uninstallToolbox
 } from './register';
 

@@ -8,9 +8,8 @@
 		TOOLBOX_CATALOG,
 		performInstall,
 		discoverToolbox,
-		registerToolbox,
+		commitToolbox,
 		uninstallToolbox,
-		upsertToolbox,
 		removeToolbox,
 		toolboxes,
 		toolboxSourceKey,
@@ -318,13 +317,10 @@
 			blocks: blockSelections,
 			events: eventSelections
 		};
-		registerToolbox(config, {
-			blocks: discoveredBlocks,
-			events: discoveredEvents,
+		commitToolbox(config, { blocks: discoveredBlocks, events: discoveredEvents }, {
 			defaultCategory,
 			categoryByClass
 		});
-		upsertToolbox(config);
 		onSaved?.(config);
 		onClose();
 	}

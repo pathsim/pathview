@@ -25,6 +25,7 @@ import {
 	type IntrospectedBlock,
 	type IntrospectedEvent
 } from './installer';
+import { upsertToolbox } from './store';
 import type { BlockSelection, EventSelection, ToolboxConfig } from './types';
 
 /**
@@ -245,6 +246,26 @@ export function registerToolbox(
 		const def = buildEventDefinition(event, sel, importPath);
 		eventRegistry.register(def, config.id);
 	}
+}
+
+/**
+ * Commit a discovered toolbox: register its selected blocks/events and persist
+ * the config. The shared tail of both install paths — the startup/required
+ * orchestrator (`installFlow`) and the manager dialog — which run their own
+ * install + discover + selection beforehand and then call this to land it.
+ */
+export function commitToolbox(
+	config: ToolboxConfig,
+	discovered: { blocks: IntrospectedBlock[]; events: IntrospectedEvent[] },
+	hints: { defaultCategory?: string; categoryByClass?: Record<string, string> } = {}
+): void {
+	registerToolbox(config, {
+		blocks: discovered.blocks,
+		events: discovered.events,
+		defaultCategory: hints.defaultCategory,
+		categoryByClass: hints.categoryByClass
+	});
+	upsertToolbox(config);
 }
 
 /** Clean up a toolbox: drop registry entries and the Python module. */
