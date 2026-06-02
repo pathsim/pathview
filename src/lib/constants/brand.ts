@@ -7,6 +7,21 @@
  * key an accent override off it; the JS accent (`accent` / `keywordColor`) feeds
  * the canvas default color and the CodeMirror palette.
  */
+
+/**
+ * Parse a comma-separated palette from an env var (e.g.
+ * `VITE_BRAND_TRACE_PALETTE="#0070C0,#81C784,..."`) into a color array.
+ * Returns null when unset/empty so the caller keeps its default.
+ */
+function parsePalette(raw: string | undefined): string[] | null {
+	if (!raw) return null;
+	const colors = raw
+		.split(',')
+		.map((c) => c.trim())
+		.filter(Boolean);
+	return colors.length > 0 ? colors : null;
+}
+
 export const BRAND = {
 	/** Short key, set as `data-brand` on <html> for CSS overrides. */
 	key: import.meta.env.VITE_BRAND_KEY || 'pathsim',
@@ -24,10 +39,11 @@ export const BRAND = {
 	framework: import.meta.env.VITE_BRAND_FRAMEWORK || 'PathSim',
 	/**
 	 * Supplementary plot trace colors (used after trace 0, which takes the
-	 * accent). A re-branded build can override this so the palette doesn't clash
-	 * with its accent (e.g. a red-accent brand drops the leading red).
+	 * accent). A re-branded build can override this via `VITE_BRAND_TRACE_PALETTE`
+	 * (comma-separated hex) so the palette doesn't clash with its accent (e.g. a
+	 * red-accent brand drops the leading red).
 	 */
-	tracePalette: [
+	tracePalette: parsePalette(import.meta.env.VITE_BRAND_TRACE_PALETTE) ?? [
 		'#E57373', // Red
 		'#81C784', // Green
 		'#64B5F6', // Blue
