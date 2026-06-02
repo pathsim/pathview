@@ -3,6 +3,7 @@
  */
 
 import type { LineStyle, MarkerStyle } from './types';
+import { BRAND } from '$lib/constants/brand';
 
 // ============================================================
 // RENDER QUEUE CONFIGURATION
@@ -46,18 +47,8 @@ export function calculateGhostOpacity(ghostIndex: number, totalGhosts: number): 
 // COLORS
 // ============================================================
 
-/** Supplementary trace colors (after accent) */
-export const TRACE_COLORS = [
-	'#E57373', // Red
-	'#81C784', // Green
-	'#64B5F6', // Blue
-	'#BA68C8', // Purple
-	'#4DD0E1', // Cyan
-	'#FFB74D', // Orange
-	'#F06292', // Pink
-	'#4DB6AC', // Teal
-	'#90A4AE' // Grey
-];
+/** Supplementary trace colors (after accent, which is trace 0), from the brand. */
+export const TRACE_COLORS = BRAND.tracePalette;
 
 /**
  * Get trace color for a signal index

@@ -21,5 +21,21 @@ export const BRAND = {
 	/** Home link target (welcome modal). */
 	home: import.meta.env.VITE_BRAND_HOME || 'https://pathsim.org',
 	/** Simulation framework name (welcome tagline). */
-	framework: import.meta.env.VITE_BRAND_FRAMEWORK || 'PathSim'
+	framework: import.meta.env.VITE_BRAND_FRAMEWORK || 'PathSim',
+	/**
+	 * Supplementary plot trace colors (used after trace 0, which takes the
+	 * accent). A re-branded build can override this so the palette doesn't clash
+	 * with its accent (e.g. a red-accent brand drops the leading red).
+	 */
+	tracePalette: [
+		'#E57373', // Red
+		'#81C784', // Green
+		'#64B5F6', // Blue
+		'#BA68C8', // Purple
+		'#4DD0E1', // Cyan
+		'#FFB74D', // Orange
+		'#F06292', // Pink
+		'#4DB6AC', // Teal
+		'#90A4AE' // Grey
+	]
 };
