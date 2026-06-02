@@ -13,6 +13,7 @@
  */
 
 import INTROSPECT_PY from '../../../scripts/pathview_introspect.py?raw';
+import INSTALL_PY from '../../../scripts/pathview_install.py?raw';
 
 const RUNTIME_GLUE = `
 import sys as _pv_sys
@@ -20,57 +21,6 @@ import importlib as _pv_importlib
 import types as _pv_types
 
 _PV_INLINE_PREFIX = "pathview_inline_"
-
-
-def _pv_already_installed(import_path):
-    """Return True if the given module path is already importable."""
-    if not import_path:
-        return False
-    try:
-        _pv_importlib.import_module(import_path)
-        return True
-    except Exception:
-        return False
-
-
-async def _pv_install_micropip(spec):
-    """Pyodide-side install via micropip (top-level await).
-
-    micropip can only install pure-Python wheels (or packages Pyodide
-    ships pre-built), so toolboxes with compiled/native code fail here
-    even though they install fine in the standalone (pip-backed) build.
-    On failure we classify the error and prefix it with PV_INCOMPATIBLE
-    (browser-runtime limitation) or PV_INSTALL_ERROR (genuine failure)
-    so the JS side can show a useful hint instead of a raw traceback."""
-    import micropip
-    try:
-        await micropip.install(spec, keep_going=True)
-    except Exception as e:
-        msg = str(e)
-        low = msg.lower()
-        incompatible = (
-            "pure python" in low
-            or "can't find" in low
-            or "cannot find" in low
-            or "no matching distribution" in low
-            or "no known package" in low
-        )
-        tag = "PV_INCOMPATIBLE" if incompatible else "PV_INSTALL_ERROR"
-        raise RuntimeError(tag + ": " + msg)
-    return {"ok": True, "spec": spec, "via": "micropip"}
-
-
-def _pv_install_pip(spec):
-    """CPython-side install via subprocess pip (Flask backend)."""
-    import subprocess as _pv_subprocess
-    res = _pv_subprocess.run(
-        [_pv_sys.executable, "-m", "pip", "install", spec],
-        capture_output=True,
-        text=True,
-    )
-    if res.returncode != 0:
-        raise RuntimeError("pip install failed:\\n" + (res.stderr or res.stdout))
-    return {"ok": True, "spec": spec, "via": "pip"}
 
 
 def _pv_load_inline(module_name, code):
@@ -178,7 +128,7 @@ def _pv_module_version(import_path):
 _pv_helpers_loaded = True
 `;
 
-export const TOOLBOX_PYTHON_HELPERS = INTROSPECT_PY + RUNTIME_GLUE;
+export const TOOLBOX_PYTHON_HELPERS = INTROSPECT_PY + INSTALL_PY + RUNTIME_GLUE;
 
 /** Sentinel expression used to check whether helpers are already loaded in the REPL. */
 export const TOOLBOX_HELPERS_SENTINEL = `'_pv_helpers_loaded' in dir()`;

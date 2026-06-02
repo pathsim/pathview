@@ -10,6 +10,7 @@
 
 import { PYTHON_PACKAGES } from '$lib/constants/dependencies';
 import { PROGRESS_MESSAGES } from '$lib/constants/messages';
+import INSTALL_PY from '../../../../../scripts/pathview_install.py?raw';
 import type { PyodideInterface } from 'https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.mjs';
 
 export interface EngineInstallContext {
@@ -23,6 +24,12 @@ export async function installEngine(
 	pyodide: PyodideInterface,
 	ctx: EngineInstallContext
 ): Promise<void> {
+	// Define the shared install primitive (`_pv_install_micropip`) that the
+	// toolbox layer also uses (via TOOLBOX_PYTHON_HELPERS). Injected here, before
+	// the worker snapshots `_clean_globals`, so it survives a simulation reset —
+	// one micropip code path with one error-classification scheme, not two.
+	await pyodide.runPythonAsync(INSTALL_PY);
+
 	for (const pkg of PYTHON_PACKAGES) {
 		const progressKey = `INSTALLING_${pkg.import.toUpperCase()}` as keyof typeof PROGRESS_MESSAGES;
 		ctx.send({
@@ -31,11 +38,9 @@ export async function installEngine(
 		});
 
 		try {
-			const preFlag = pkg.pre ? ', pre=True' : '';
-			await pyodide.runPythonAsync(`
-import micropip
-await micropip.install('${pkg.pip}'${preFlag})
-			`);
+			await pyodide.runPythonAsync(
+				`await _pv_install_micropip('${pkg.pip}', pre=${pkg.pre ? 'True' : 'False'})`
+			);
 
 			// Verify installation
 			await pyodide.runPythonAsync(`
