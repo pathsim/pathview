@@ -560,6 +560,15 @@
 	}
 	let pyodideReady = $state(false);
 	let pyodideLoading = $state(false);
+	// True once startup `bootstrapToolboxes()` has finished (or failed). The
+	// engine wheel being up (`pyodideReady`) is not enough: the bootstrap still
+	// installs the preloaded catalog toolboxes afterwards (and, in engine builds
+	// that resolve dependencies, the engine base + docutils) via micropip. The
+	// run button folds this in so it stays in its loading state until that work
+	// is done, instead of unlocking the moment the wheel is ready.
+	let bootstrapComplete = $state(false);
+	let runLoading = $derived(pyodideLoading || !bootstrapComplete);
+	let runReady = $derived(pyodideReady && bootstrapComplete);
 	let simRunning = $state(false);
 	let isRunStarting = false; // Synchronous flag to prevent race conditions
 	let isContinuing = false; // Synchronous flag to prevent rapid continue calls
@@ -592,10 +601,16 @@
 				await autoDetectBackend();
 				await initBackendFromUrl();
 				await initPyodide();
+				statusText = 'Loading toolboxes...';
 				await bootstrapToolboxes();
+				statusText = 'Ready';
 			} catch (e) {
 				console.error('[startup] backend init failed', e);
 				throw e;
+			} finally {
+				// Unlock the run button even if bootstrap failed — a broken
+				// toolbox shouldn't leave the button stuck in its loading state.
+				bootstrapComplete = true;
 			}
 		})();
 		void loadFromUrlParam(backendReady).catch((e) => {
@@ -995,7 +1010,7 @@
 	// Run simulation (auto-initializes if needed)
 	async function handleRun() {
 		// Prevent concurrent simulation runs (synchronous check for rapid key presses)
-		if (simRunning || isRunStarting || pyodideLoading) return;
+		if (simRunning || isRunStarting || runLoading) return;
 
 		// Set flag before any async operations to prevent race conditions
 		isRunStarting = true;
@@ -1331,18 +1346,18 @@
 					<Icon name="stop-filled" size={16} />
 				</button>
 			{:else}
-				<div class="run-btn-wrapper" class:loading={pyodideLoading}>
+				<div class="run-btn-wrapper" class:loading={runLoading}>
 					<button
 						class="toolbar-btn run-btn"
-						class:active={!pyodideLoading}
-						class:loading={pyodideLoading}
+						class:active={!runLoading}
+						class:loading={runLoading}
 						onclick={handleRun}
-						disabled={pyodideLoading}
-						use:tooltip={{ text: pyodideReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
+						disabled={runLoading}
+						use:tooltip={{ text: runReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
 						aria-label="Run"
 						data-tour="toolbar-run"
 					>
-						{#if pyodideLoading}
+						{#if runLoading}
 							<span class="loading-status">{statusText}</span>
 							<span class="spinner"><Icon name="loader" size={16} /></span>
 						{:else}
@@ -1353,9 +1368,9 @@
 			{/if}
 			<button
 				class="toolbar-btn"
-				class:active={hasRunSimulation && pyodideReady && !simRunning}
+				class:active={hasRunSimulation && runReady && !simRunning}
 				onclick={handleContinue}
-				disabled={!hasRunSimulation || !pyodideReady || simRunning}
+				disabled={!hasRunSimulation || !runReady || simRunning}
 				use:tooltip={continueTooltip}
 				aria-label="Continue"
 			>
