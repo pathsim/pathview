@@ -387,7 +387,8 @@ export class FlaskBackend extends AbstractBackend {
 					try {
 						this.streamState.onData(JSON.parse(msg.value as string));
 					} catch {
-						// Ignore parse errors
+						// Surface (don't silently drop) a corrupt stream frame.
+						this.stderrCallback?.('[stream] dropped an unparseable data frame\n');
 					}
 				}
 				break;

@@ -47,7 +47,7 @@
 	import type { MenuItemType } from '$lib/components/ContextMenu.svelte';
 	import { pyodideState, simulationState, initPyodide, stopSimulation, continueStreamingSimulation, stageMutations, resetSimulation } from '$lib/pyodide/bridge';
 	import { pendingMutationCount } from '$lib/pyodide/mutationQueue';
-	import { initBackendFromUrl, autoDetectBackend } from '$lib/pyodide/backend';
+	import { resolveBackend } from '$lib/pyodide/backend';
 	import { runGraphStreamingSimulation, validateGraphSimulation, exportToPython } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
 	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName, loadGraphFile, listRecentFiles, openRecentFile, removeRecentFile } from '$lib/schema/fileOps';
@@ -598,8 +598,7 @@
 		seedPreloadedToolboxes();
 		backendReady = (async () => {
 			try {
-				await autoDetectBackend();
-				await initBackendFromUrl();
+				await resolveBackend();
 				await initPyodide();
 				statusText = 'Loading toolboxes...';
 				await bootstrapToolboxes();
