@@ -7,6 +7,7 @@ import { nodeRegistry, type NodeInstance } from '$lib/nodes';
 import { eventRegistry, type EventInstance } from '$lib/events';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import { blockImportPaths } from '$lib/nodes/generated/blocks';
+import { ENGINE_MODULE, enginePath } from '$lib/constants/engine';
 
 /**
  * Extract Python identifiers from a string (parameter values)
@@ -131,7 +132,7 @@ export function generateBlockCodeHeader(node: NodeInstance, codeContext: string)
 	// Imports
 	lines.push('import numpy as np');
 	if (node.type === NODE_TYPES.SUBSYSTEM) {
-		lines.push('from pathsim import Subsystem, Interface, Connection');
+		lines.push(`from ${ENGINE_MODULE} import Subsystem, Interface, Connection`);
 		const blockClasses = new Set<string>();
 		collectSubsystemBlockClasses(node, blockClasses);
 		if (blockClasses.size > 0) {
@@ -142,7 +143,7 @@ export function generateBlockCodeHeader(node: NodeInstance, codeContext: string)
 			for (const cls of [...blockClasses].sort()) {
 				const def = nodeRegistry.get(cls);
 				const importPath =
-					def?.importPath ?? blockImportPaths[cls] ?? 'pathsim.blocks';
+					enginePath(def?.importPath ?? blockImportPaths[cls] ?? 'pathsim.blocks');
 				const group = importGroups.get(importPath) || [];
 				group.push(cls);
 				importGroups.set(importPath, group);
@@ -153,7 +154,7 @@ export function generateBlockCodeHeader(node: NodeInstance, codeContext: string)
 		}
 	} else {
 		const importPath =
-			typeDef.importPath ?? blockImportPaths[typeDef.blockClass] ?? 'pathsim.blocks';
+			enginePath(typeDef.importPath ?? blockImportPaths[typeDef.blockClass] ?? 'pathsim.blocks');
 		lines.push(`from ${importPath} import ${typeDef.blockClass}`);
 	}
 
@@ -184,7 +185,7 @@ export function generateEventCodeHeader(event: EventInstance, codeContext: strin
 
 	// Imports
 	lines.push('import numpy as np');
-	lines.push(`from pathsim.events import ${typeDef.eventClass}`);
+	lines.push(`from ${ENGINE_MODULE}.events import ${typeDef.eventClass}`);
 
 	// Extract referenced code context
 	const paramValues = Object.values(event.params).filter(v => v != null && v !== '').join(' ');
