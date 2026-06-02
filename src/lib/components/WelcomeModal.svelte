@@ -5,6 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { PATHVIEW_VERSION, EXTRACTED_VERSIONS } from '$lib/constants/dependencies';
+	import { BRAND } from '$lib/constants/brand';
 	import { startGuidedTour, type TourId } from '$lib/tours';
 
 	interface Example {
@@ -102,8 +103,8 @@
 		</div>
 
 		<div class="header">
-			<img src="{base}/pathview_logo.png" alt="PathView" class="logo" />
-			<p class="tagline">Visual block-diagram editor for the PathSim simulation framework</p>
+			<img src="{base}/{BRAND.logo}" alt="{BRAND.name}" class="logo" />
+			<p class="tagline">Visual block-diagram editor for the {BRAND.framework} simulation framework</p>
 		</div>
 
 		<div class="actions">
@@ -112,7 +113,7 @@
 				<span class="action-label">New</span>
 			</button>
 
-			<a href="https://pathsim.org" target="_blank" class="action-card">
+			<a href={BRAND.home} target="_blank" class="action-card">
 				<Icon name="home" size={20} />
 				<span class="action-label">Home</span>
 			</a>

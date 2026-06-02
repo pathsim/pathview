@@ -31,6 +31,7 @@
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { nodeRegistry } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
+	import { BRAND } from '$lib/constants/brand';
 	import { PANEL_GAP, PANEL_TOGGLES_WIDTH, MIN_BOTTOM_PANEL_WIDTH, PANEL_DEFAULTS, NAV_HEIGHT } from '$lib/constants/layout';
 	import { GRID_SIZE } from '$lib/constants/grid';
 	import { DEFAULT_SIMULATION_SETTINGS } from '$lib/nodes/types';
@@ -734,7 +735,7 @@
 			if (!snapshot || urlModelConfig) return;
 			const ok = await confirmationStore.show({
 				title: 'Restore last session?',
-				message: 'PathView found an autosaved version of your last session. Restore it?',
+				message: `${BRAND.name} found an autosaved version of your last session. Restore it?`,
 				confirmText: 'Restore',
 				cancelText: 'Discard'
 			});
@@ -1300,14 +1301,14 @@
 <svelte:window onkeydown={handleKeydown} onresize={handleWindowResize} onmousemove={(e) => mousePosition = { x: e.clientX, y: e.clientY }} />
 
 <svelte:head>
-	<title>PathView</title>
+	<title>{BRAND.name}</title>
 	<link rel="icon" type="image/png" href="{base}/favicon.png">
 </svelte:head>
 
 <div class="app">
 	<!-- Logo overlay in top left -->
 	<button class="logo-overlay" onclick={() => showWelcomeModal = true} use:tooltip={"Welcome"} aria-label="Welcome" data-tour="welcome-banner-logo">
-		<img src="{base}/pathview_logo.png" alt="PathView" />
+		<img src="{base}/{BRAND.logo}" alt="{BRAND.name}" />
 	</button>
 
 	<!-- Canvas takes full screen -->

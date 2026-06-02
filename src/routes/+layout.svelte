@@ -1,12 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import '../app.css';
+	import { BRAND } from '$lib/constants/brand';
 
 	interface Props {
 		children: import('svelte').Snippet;
 	}
 
 	let { children }: Props = $props();
+
+	// Drive the CSS accent override (data-brand) for the active build's brand.
+	// Set on hydration (synchronously, not onMount) to minimize any flash.
+	if (typeof document !== 'undefined') {
+		document.documentElement.dataset.brand = BRAND.key;
+	}
 
 	// whatsmytraffic-Analytics nur auf der Web-Version (view.pathsim.org),
 	// nicht in der Standalone-/pip-Version.

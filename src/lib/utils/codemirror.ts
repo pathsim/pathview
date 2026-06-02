@@ -2,14 +2,17 @@
  * Shared CodeMirror utilities for consistent editor setup across the app.
  */
 
-// Syntax highlighting colors - aligned with node color palette
+import { BRAND } from '$lib/constants/brand';
+
+// Syntax highlighting colors - aligned with node color palette. keyword and the
+// operator/function accent follow the active brand (defaults: red + PathSim blue).
 export const SYNTAX_COLORS = {
-	keyword: '#E57373',   // Red - control flow, imports
-	operator: '#0070C0', // PathSim blue - symbols, operators
+	keyword: BRAND.keywordColor,   // control flow, imports
+	operator: BRAND.accent, // brand accent - symbols, operators
 	special: '#FFB74D',  // Orange - classes, types, decorators
 	number: '#4DB6AC',   // Teal - numeric literals
 	string: '#81C784',   // Green - string literals
-	function: '#0070C0', // PathSim blue - function names
+	function: BRAND.accent, // brand accent - function names
 	comment: { dark: '#505060', light: '#909098' },  // Same as line numbers
 	invalid: '#BA68C8',  // Purple - errors
 	// Theme-specific values for variables and punctuation

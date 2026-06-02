@@ -2,8 +2,11 @@
  * Color definitions for PathView
  */
 
-// Default node/event color (matches --pathsim-blue CSS variable)
-export const DEFAULT_NODE_COLOR = '#0070C0';
+import { BRAND } from '$lib/constants/brand';
+
+// Default node/event/annotation color: the brand accent (matches the CSS
+// `--accent` default). Items without an explicit color follow the active brand.
+export const DEFAULT_NODE_COLOR = BRAND.accent;
 
 // Port colors
 export const PORT_COLORS = {
