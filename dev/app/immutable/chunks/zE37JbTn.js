@@ -1,1 +1,0 @@
-import{f as s,E as p}from"./CwU0gd4N.js";import{B as i}from"./DQxlCg1u.js";function c(a,e,...t){var n=new i(a);s(()=>{const o=e()??null;n.ensure(o,o&&(r=>o(r,...t)))},p)}const l={key:"pathsim",name:"PathView",logo:"pathview_logo.png",accent:"#0070C0",keywordColor:"#E57373",home:"https://pathsim.org",framework:"PathSim"};export{l as B,c as s};
