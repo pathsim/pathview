@@ -180,9 +180,9 @@ export const simulationTour: TourScript = {
 			openerPosition: { side: 'bottom', align: 'end' },
 			contentTitle: 'Python Export',
 			contentBody: `
-				<p>The exported script is self-contained — copy, save or send to the Codegen tool. Useful for:</p>
+				<p>The exported script is self-contained — copy, save or run it anywhere. Useful for:</p>
 				<ul>
-					<li>Codegen for production deployment</li>
+					<li>Production deployment</li>
 					<li>Version control of the simulation</li>
 					<li>Running headless outside the browser</li>
 				</ul>

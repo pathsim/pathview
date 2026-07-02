@@ -191,7 +191,7 @@ export const startTour: TourScript = {
 			element: '[data-tour="toolbar-files"]',
 			title: 'Files & Sharing',
 			body: `
-				<p>Save and load <code>.pvm</code> files. Buttons left to right: New, Open, Save, Save As, View Python Code, Send to Codegen.</p>
+				<p>Save and load <code>.pvm</code> files. Buttons left to right: New, Open, Save, Save As, View Python Code.</p>
 				<table>
 					<tr><td>Open</td><td><kbd>Ctrl/Cmd+O</kbd></td></tr>
 					<tr><td>Save</td><td><kbd>Ctrl/Cmd+S</kbd></td></tr>
