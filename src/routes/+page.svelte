@@ -99,10 +99,10 @@
 	let mousePosition = $state({ x: 0, y: 0 });
 
 	// Save feedback animation state
-	let saveFlash = $state<'save' | 'save-as' | 'codegen' | null>(null);
+	let saveFlash = $state<'save' | 'save-as' | null>(null);
 	let saveFlashTimeout: ReturnType<typeof setTimeout> | undefined;
 
-	function flashSaveButton(which: 'save' | 'save-as' | 'codegen') {
+	function flashSaveButton(which: 'save' | 'save-as') {
 		clearTimeout(saveFlashTimeout);
 		saveFlash = which;
 		saveFlashTimeout = setTimeout(() => { saveFlash = null; }, 1500);
@@ -116,58 +116,6 @@
 	async function handleSaveAs() {
 		const success = await saveAsFile();
 		if (success) flashSaveButton('save-as');
-	}
-
-	// Codegen export — compress Python code into URL hash and open codegen
-	const CODEGEN_URL = import.meta.env.VITE_CODEGEN_URL ?? 'https://code.pathsim.org/app';
-	const CODEGEN_MAX_BYTES = 100_000; // 100 KB raw Python limit
-
-	async function compressAndEncode(text: string): Promise<string> {
-		const data = new TextEncoder().encode(text);
-		const cs = new CompressionStream('deflate-raw');
-		const writer = cs.writable.getWriter();
-		writer.write(data);
-		writer.close();
-		const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
-		let binary = '';
-		for (const b of compressed) binary += String.fromCharCode(b);
-		return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-	}
-
-	async function handleSendToCodegen() {
-		const { nodes, connections } = graphStore.toJSON();
-
-		if (nodes.length === 0) {
-			await confirmationStore.show({
-				title: 'No Model',
-				message: 'There are no blocks in the current graph. Add blocks to your simulation before exporting to Codegen.',
-				confirmText: 'OK',
-				cancelText: 'Cancel'
-			});
-			return;
-		}
-
-		const settings = settingsStore.get();
-		const codeContext = codeContextStore.getCode();
-		const events = eventStore.toJSON();
-		const pythonCode = exportToPython(nodes, connections, settings, codeContext, events);
-
-		const rawBytes = new TextEncoder().encode(pythonCode).length;
-		if (rawBytes > CODEGEN_MAX_BYTES) {
-			const sizeKB = Math.round(rawBytes / 1024);
-			const openExport = await confirmationStore.show({
-				title: 'Model Too Large',
-				message: `The generated Python code is ${sizeKB} KB, which exceeds the transfer limit. Use the Python Code export (Ctrl+E) to copy the code and paste it into Codegen manually.`,
-				confirmText: 'Open Python Export',
-				cancelText: 'Cancel'
-			});
-			if (openExport) exportDialogOpen = true;
-			return;
-		}
-
-		const encoded = await compressAndEncode(pythonCode);
-		window.open(`${CODEGEN_URL}?code=${encoded}`, '_blank');
-		flashSaveButton('codegen');
 	}
 
 	// Panel visibility state
@@ -1319,9 +1267,70 @@
 	<link rel="icon" type="image/png" href="{base}/favicon.png">
 </svelte:head>
 
-<div class="app">
-	<!-- Logo overlay in top left -->
-	<button class="logo-overlay" onclick={() => showWelcomeModal = true} use:tooltip={"Welcome"} aria-label="Welcome" data-tour="welcome-banner-logo">
+{#snippet fileOps(btn: string)}
+	<button class={btn} onclick={handleNew} use:tooltip={"New"} aria-label="New">
+		<Icon name="new-canvas" size={16} />
+	</button>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="open-group" onmouseenter={handleOpenGroupEnter} onmouseleave={handleOpenGroupLeave}>
+		<button class={btn} onclick={handleOpen} use:tooltip={{ text: "Open/Import", shortcut: "Ctrl+O" }} aria-label="Open/Import">
+			<Icon name="download" size={16} />
+		</button>
+		{#if recentFilesSupported && recentFilesMenuOpen}
+			<div class="recent-menu" role="menu">
+				<div class="recent-menu-header">Recent files</div>
+				{#each recentFiles as recent (recent.id)}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<div class="recent-item" role="menuitem" tabindex="0" onclick={() => handleOpenRecent(recent.id)}>
+						<Icon name="file" size={14} />
+						<span class="recent-name" title={recent.name}>{recent.name}</span>
+						<button class="recent-remove" onclick={(e) => handleRemoveRecent(recent.id, e)} aria-label="Remove from recents">
+							<Icon name="x" size={12} />
+						</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
+	<button class={btn} onclick={() => handleSave()} use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }} aria-label="Save">
+		<Icon name={saveFlash === 'save' ? 'check' : 'upload'} size={16} />
+	</button>
+	<button class={btn} onclick={() => handleSaveAs()} use:tooltip={{ text: "Save As", shortcut: "Ctrl+Shift+S" }} aria-label="Save As">
+		<Icon name={saveFlash === 'save-as' ? 'check' : 'upload-plus'} size={16} />
+	</button>
+	<button class={btn} onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code" data-tour="toolbar-export-python">
+		<Icon name="braces" size={16} />
+	</button>
+{/snippet}
+
+{#snippet viewActions(btn: string)}
+	<button class={btn} class:active={showPinnedPreviews} onclick={() => pinnedPreviewsStore.toggle()} use:tooltip={{ text: "Pin Previews", shortcut: "P" }} aria-label="Pin Previews" data-tour="toolbar-pin-previews">
+		<Icon name={showPinnedPreviews ? "pin-filled" : "pin"} size={16} />
+	</button>
+	<button class={btn} onclick={() => showKeyboardShortcuts = true} use:tooltip={{ text: "Shortcuts", shortcut: "?" }} aria-label="Keyboard shortcuts" data-tour="toolbar-shortcuts">
+		<Icon name="keyboard" size={16} />
+	</button>
+{/snippet}
+
+<div class="app has-nav">
+	<!-- Top nav bar: brand opens the welcome modal; file ops + view actions + theme live here. -->
+	<header class="nav editor-nav">
+		<div class="nav-side" data-tour="toolbar-files">
+			<button class="brand icon-btn" onclick={() => (showWelcomeModal = true)} use:tooltip={'Welcome'} aria-label="Welcome" data-tour="welcome-banner-logo">
+				<Icon name="home" size={16} />
+			</button>
+			{@render fileOps('icon-btn')}
+		</div>
+		<div class="nav-side">
+			{@render viewActions('icon-btn')}
+			<button class="icon-btn" bind:this={themeToggleBtn} onclick={(e) => toggleThemeWithTransition(e)} use:tooltip={{ text: currentTheme === 'dark' ? 'Light mode' : 'Dark mode', shortcut: 'T' }} aria-label="Toggle theme" data-tour="toolbar-theme">
+				<Icon name={currentTheme === 'dark' ? 'sun' : 'moon'} size={14} />
+			</button>
+		</div>
+	</header>
+
+	<!-- Logo overlay: stays over the canvas, below the fixed nav. -->
+	<button class="logo-overlay" onclick={() => showWelcomeModal = true} use:tooltip={"Welcome"} aria-label="Welcome">
 		<img src="{base}/{BRAND.logo}" alt="{BRAND.name}" />
 	</button>
 
@@ -1338,113 +1347,7 @@
 	<!-- Floating toolbar -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="toolbar-container" transition:fly={{ y: -20, duration: 200 }} onmousedown={() => triggerClearSelection()}>
-		<!-- Simulation controls -->
-		<div class="toolbar-group">
-			{#if simRunning}
-				<button class="toolbar-btn stop" onclick={stopSimulation} use:tooltip={{ text: "Stop", shortcut: "Esc" }} aria-label="Stop">
-					<Icon name="stop-filled" size={16} />
-				</button>
-			{:else}
-				<div class="run-btn-wrapper" class:loading={runLoading}>
-					<button
-						class="toolbar-btn run-btn"
-						class:active={!runLoading}
-						class:loading={runLoading}
-						onclick={handleRun}
-						disabled={runLoading}
-						use:tooltip={{ text: runReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter" }}
-						aria-label="Run"
-						data-tour="toolbar-run"
-					>
-						{#if runLoading}
-							<span class="loading-status">{statusText}</span>
-							<span class="spinner"><Icon name="loader" size={16} /></span>
-						{:else}
-							<Icon name="play-filled" size={16} />
-						{/if}
-					</button>
-				</div>
-			{/if}
-			<button
-				class="toolbar-btn"
-				class:active={hasRunSimulation && runReady && !simRunning}
-				onclick={handleContinue}
-				disabled={!hasRunSimulation || !runReady || simRunning}
-				use:tooltip={continueTooltip}
-				aria-label="Continue"
-			>
-				<Icon name="skip-forward-filled" size={16} />
-			</button>
-			{#if hasRunSimulation && $pendingMutationCount > 0}
-				<button
-					class="toolbar-btn stage-btn active"
-					onclick={() => stageMutations()}
-					use:tooltip={"Stage Changes"}
-					aria-label="Stage Changes"
-				>
-					<Icon name="stage" size={16} />
-					<span class="mutation-badge">{$pendingMutationCount}</span>
-				</button>
-			{/if}
-		</div>
-
-		<!-- File operations -->
-		<div class="toolbar-group" data-tour="toolbar-files">
-			<button class="toolbar-btn" onclick={handleNew} use:tooltip={"New"} aria-label="New">
-				<Icon name="new-canvas" size={16} />
-			</button>
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="open-group"
-				onmouseenter={handleOpenGroupEnter}
-				onmouseleave={handleOpenGroupLeave}
-			>
-				<button class="toolbar-btn" onclick={handleOpen} use:tooltip={{ text: "Open/Import", shortcut: "Ctrl+O" }} aria-label="Open/Import">
-					<Icon name="download" size={16} />
-				</button>
-				{#if recentFilesSupported && recentFilesMenuOpen}
-					<div class="recent-menu" role="menu">
-						<div class="recent-menu-header">Recent files</div>
-						{#each recentFiles as recent (recent.id)}
-							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-							<div class="recent-item" role="menuitem" tabindex="0" onclick={() => handleOpenRecent(recent.id)}>
-								<Icon name="file" size={14} />
-								<span class="recent-name" title={recent.name}>{recent.name}</span>
-								<button
-									class="recent-remove"
-									onclick={(e) => handleRemoveRecent(recent.id, e)}
-									aria-label="Remove from recents"
-								>
-									<Icon name="x" size={12} />
-								</button>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-			<button
-				class="toolbar-btn"
-				onclick={() => handleSave()}
-				use:tooltip={{ text: $currentFileName ? `Save '${$currentFileName}'` : "Save", shortcut: "Ctrl+S" }}
-				aria-label="Save"
-			>
-				<Icon name={saveFlash === 'save' ? 'check' : 'upload'} size={16} />
-			</button>
-			<button
-				class="toolbar-btn"
-				onclick={() => handleSaveAs()}
-				use:tooltip={{ text: "Save As", shortcut: "Ctrl+Shift+S" }}
-				aria-label="Save As"
-			>
-				<Icon name={saveFlash === 'save-as' ? 'check' : 'upload-plus'} size={16} />
-			</button>
-			<button class="toolbar-btn" onclick={() => exportDialogOpen = true} use:tooltip={{ text: "Python Code", shortcut: "Ctrl+E" }} aria-label="View Python Code" data-tour="toolbar-export-python">
-				<Icon name="braces" size={16} />
-			</button>
-			<button class="toolbar-btn" onclick={handleSendToCodegen} use:tooltip={"Send to Codegen"} aria-label="Send to Codegen">
-				<Icon name={saveFlash === 'codegen' ? 'check' : 'codegen'} size={16} />
-			</button>
-		</div>
+		<!-- Sim controls now live in the left rail; file ops + view actions live in the top nav bar. -->
 
 		<!-- Hidden nodes -->
 		{#if hiddenNodes.length > 0}
@@ -1485,39 +1388,63 @@
 				{/if}
 			</div>
 		{/if}
-
-		<!-- Help -->
-		<div class="toolbar-group">
-			<button
-				class="toolbar-btn"
-				class:active={showPinnedPreviews}
-				onclick={() => pinnedPreviewsStore.toggle()}
-				use:tooltip={{ text: "Pin Previews", shortcut: "P" }}
-				aria-label="Pin Previews"
-				data-tour="toolbar-pin-previews"
-			>
-				<Icon name={showPinnedPreviews ? "pin-filled" : "pin"} size={16} />
-			</button>
-			<button
-				class="toolbar-btn"
-				bind:this={themeToggleBtn}
-				onclick={(e) => toggleThemeWithTransition(e)}
-				use:tooltip={{ text: currentTheme === 'dark' ? 'Light mode' : 'Dark mode', shortcut: "T" }}
-				aria-label="Toggle theme"
-				data-tour="toolbar-theme"
-			>
-				<Icon name={currentTheme === 'dark' ? 'sun' : 'moon'} size={16} />
-			</button>
-			<button class="toolbar-btn" onclick={() => showKeyboardShortcuts = true} use:tooltip={{ text: "Shortcuts", shortcut: "?" }} aria-label="Keyboard shortcuts" data-tour="toolbar-shortcuts">
-				<Icon name="keyboard" size={16} />
-			</button>
-		</div>
 	</div>
 
 	<!-- Panel toggles (left edge) -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="panel-toggles" onmousedown={() => triggerClearSelection()}>
 		<!-- Panel controls - left panels first, then right panels -->
+		<!-- Simulation controls + settings -->
+		<div class="toggle-group">
+			{#if simRunning}
+				<button class="toolbar-btn stop" onclick={stopSimulation} use:tooltip={{ text: "Stop", shortcut: "Esc", position: "right" }} aria-label="Stop">
+					<Icon name="stop-filled" size={16} />
+				</button>
+			{:else}
+				<button
+					class="toolbar-btn"
+					class:active={!runLoading}
+					onclick={handleRun}
+					disabled={runLoading}
+					use:tooltip={{ text: runReady ? "Run" : "Initialize & Run", shortcut: "Ctrl+Enter", position: "right" }}
+					aria-label="Run"
+					data-tour="toolbar-run"
+				>
+					{#if runLoading}
+						<span class="spinner"><Icon name="loader" size={16} /></span>
+					{:else}
+						<Icon name="play-filled" size={16} />
+					{/if}
+				</button>
+			{/if}
+			<button
+				class="toolbar-btn"
+				class:active={hasRunSimulation && runReady && !simRunning}
+				onclick={handleContinue}
+				disabled={!hasRunSimulation || !runReady || simRunning}
+				use:tooltip={{ ...continueTooltip, position: "right" }}
+				aria-label="Continue"
+			>
+				<Icon name="skip-forward-filled" size={16} />
+			</button>
+			{#if hasRunSimulation && $pendingMutationCount > 0}
+				<button class="toolbar-btn stage-btn active" onclick={() => stageMutations()} use:tooltip={{ text: "Stage Changes", position: "right" }} aria-label="Stage Changes">
+					<Icon name="stage" size={16} />
+					<span class="mutation-badge">{$pendingMutationCount}</span>
+				</button>
+			{/if}
+			<button
+				class="toggle-btn"
+				class:active={showProperties}
+				onclick={toggleProperties}
+				use:tooltip={{ text: "Simulation", shortcut: "S", position: "right" }}
+				aria-label="Simulation"
+				data-tour="panel-toggle-simulation"
+			>
+				<Icon name="settings" size={18} />
+			</button>
+		</div>
+
 		<!-- Building tools -->
 		<div class="toggle-group">
 			<button
@@ -1589,20 +1516,6 @@
 				data-tour="panel-toggle-console"
 			>
 				<Icon name="terminal" size={18} />
-			</button>
-		</div>
-
-		<!-- Simulation settings -->
-		<div class="toggle-group">
-			<button
-				class="toggle-btn"
-				class:active={showProperties}
-				onclick={toggleProperties}
-				use:tooltip={{ text: "Simulation", shortcut: "S", position: "right" }}
-				aria-label="Simulation"
-				data-tour="panel-toggle-simulation"
-			>
-				<Icon name="settings" size={18} />
 			</button>
 		</div>
 
@@ -1916,6 +1829,49 @@
 		z-index: 0;
 	}
 
+	/* Top nav bar — fixed chrome over the canvas. */
+	.editor-nav {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 200;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: var(--header-height);
+		padding: 0 var(--space-md);
+		background: var(--surface-raised);
+		border-bottom: 1px solid var(--border);
+	}
+	.editor-nav .nav-side { display: flex; align-items: center; gap: var(--space-xs); }
+	/* Home button relies on .icon-btn for sizing/hover; small separator from file-ops. */
+	.editor-nav .brand { margin-right: var(--space-xs); }
+	/* Push the top-anchored floating overlays below the fixed nav. */
+	.app.has-nav .toolbar-container { top: calc(var(--space-md) + var(--header-height)); }
+	.app.has-nav .subsystem-breadcrumb { top: calc(var(--space-md) + var(--header-height)); }
+	.app.has-nav .logo-overlay { top: calc(var(--space-md) + var(--header-height)); }
+
+	/* Logo overlay — stays over the canvas, below the fixed nav. */
+	.logo-overlay {
+		position: fixed;
+		top: var(--space-md);
+		left: var(--space-md);
+		z-index: 100;
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+	}
+	.logo-overlay img {
+		height: 44px;
+		width: auto;
+		transition: opacity var(--transition-fast);
+	}
+	.logo-overlay:hover img {
+		opacity: 0.8;
+	}
+
 	/* Toolbar */
 	.toolbar-container {
 		position: fixed;
@@ -2130,27 +2086,6 @@
 	}
 
 	/* Logo overlay */
-	.logo-overlay {
-		position: fixed;
-		top: var(--space-md);
-		left: var(--space-md);
-		z-index: 100;
-		background: none;
-		border: none;
-		padding: 0;
-		cursor: pointer;
-	}
-
-	.logo-overlay img {
-		height: 44px;
-		width: auto;
-		transition: opacity var(--transition-fast);
-	}
-
-	.logo-overlay:hover img {
-		opacity: 0.8;
-	}
-
 	/* Subsystem breadcrumb navigation */
 	.subsystem-breadcrumb {
 		position: fixed;
