@@ -4,7 +4,8 @@
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/icons/Icon.svelte';
-	import { PATHVIEW_VERSION, EXTRACTED_VERSIONS } from '$lib/constants/dependencies';
+	import { PATHVIEW_VERSION } from '$lib/constants/dependencies';
+	import { getCachedPathsimVersion } from '$lib/toolbox/pathsimVersion';
 	import { BRAND } from '$lib/constants/brand';
 	import { startGuidedTour, type TourId } from '$lib/tours';
 
@@ -36,6 +37,7 @@
 	];
 
 	let isDark = $state(true);
+	let pathsimVersion = $state(getCachedPathsimVersion());
 
 	onMount(() => {
 		const updateTheme = () => {
@@ -46,7 +48,17 @@
 		const observer = new MutationObserver(updateTheme);
 		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-		return () => observer.disconnect();
+		// The pathsim version is resolved at runtime (after the Python engine
+		// boots), which may happen after this modal renders — poll until known.
+		const versionPoll = setInterval(() => {
+			pathsimVersion = getCachedPathsimVersion();
+			if (pathsimVersion) clearInterval(versionPoll);
+		}, 500);
+
+		return () => {
+			observer.disconnect();
+			clearInterval(versionPoll);
+		};
 	});
 
 	function handleNew() {
@@ -99,7 +111,7 @@
 
 	<div class="banner-content">
 		<div class="version-info">
-			pathview {PATHVIEW_VERSION} · {Object.entries(EXTRACTED_VERSIONS).map(([pkg, ver]) => `${pkg.replace('_', '-')} ${ver}`).join(' · ')}
+			pathview {PATHVIEW_VERSION}{pathsimVersion ? ` · pathsim ${pathsimVersion}` : ''}
 		</div>
 
 		<div class="header">

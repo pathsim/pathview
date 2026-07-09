@@ -604,46 +604,24 @@ class DependencyExtractor:
     def __init__(self, config_loader: ConfigLoader):
         self.config = config_loader
 
-    def _get_package_version(self, import_name: str) -> str | None:
-        """Get installed version of a package (strips local version identifiers)."""
-        try:
-            module = importlib.import_module(import_name)
-            version = getattr(module, '__version__', None)
-            if version:
-                # Strip local version identifier (e.g., +g22f8f27) - not supported by PyPI
-                version = version.split('+')[0]
-            return version
-        except ImportError:
-            return None
-
     def extract(self) -> dict:
-        """Extract all dependency information including installed versions."""
+        """Extract dependency configuration.
+
+        Package specs are taken verbatim from requirements-pyodide.txt.
+        Versions are intentionally NOT pinned to the locally installed
+        package: the runtime resolves pathsim (and toolboxes) against PyPI
+        so pathview never lags behind toolbox requirements.
+        """
         pyodide_config = self.config.load_pyodide_config()
         pyodide_packages = self.config.load_requirements("requirements-pyodide.txt")
 
-        # Get installed versions and create pinned package specs
-        extracted_versions = {}
-        for pkg in pyodide_packages:
-            version = self._get_package_version(pkg["import"])
-            if version:
-                extracted_versions[pkg["import"]] = version
-                base_name = pkg["pip"].split(">=")[0].split("==")[0].split("<=")[0].split("<")[0].split(">")[0]
-
-                # Only pin release versions (not dev versions which aren't on PyPI)
-                if ".dev" in version:
-                    print(f"    {base_name} {version} is dev version, keeping original spec: {pkg['pip']}")
-                else:
-                    pkg["pip"] = f"{base_name}=={version}"
-                    print(f"    Pinned {base_name} to version {version}")
-
         return {
             "pyodide": pyodide_config,
-            "packages": pyodide_packages,
-            "extracted_versions": extracted_versions
+            "packages": pyodide_packages
         }
 
     def update_pyproject(self, packages: list[dict], project_root: Path) -> None:
-        """Update pyproject.toml dependencies with pinned package versions.
+        """Update pyproject.toml dependencies with package specs.
 
         Adds/updates entries for packages from requirements-pyodide.txt
         while leaving all other dependencies (flask, numpy, etc.) untouched.
@@ -655,7 +633,7 @@ class DependencyExtractor:
 
         text = pyproject_path.read_text(encoding="utf-8")
 
-        # Build pip specs for managed packages (e.g. "pathsim==0.17.0")
+        # Build pip specs for managed packages (e.g. "pathsim")
         new_specs: list[str] = []
         for pkg in packages:
             base_name = pkg["pip"].split(">=")[0].split("==")[0].split("<=")[0].split("<")[0].split(">")[0]
@@ -864,7 +842,6 @@ class TypeScriptGenerator:
         """Write dependencies.ts file."""
         pyodide = data.get("pyodide", {})
         packages = data.get("packages", [])
-        extracted_versions = data.get("extracted_versions", {})
 
         # Read PathView version from package.json (at project root, 2 levels up from src/lib)
         package_json_path = self.output_dir.parent.parent / "package.json"
@@ -886,9 +863,6 @@ class TypeScriptGenerator:
             "export const PYODIDE_CDN_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.mjs`;",
             "",
             f"export const PYODIDE_PRELOAD = {json.dumps(pyodide.get('preload', []))} as const;",
-            "",
-            "/** Package versions extracted at build time (pinned for runtime) */",
-            f"export const EXTRACTED_VERSIONS: Record<string, string> = {json.dumps(extracted_versions)};",
             "",
             "export interface PackageConfig {",
             "  pip: string;",

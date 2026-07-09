@@ -20,7 +20,7 @@ dependencies = [
     "flask-cors>=4.0",
     "numpy",
     "waitress>=3.0",
-    "pathsim==0.20.0",
+    "pathsim",
 ]
 
 [project.optional-dependencies]
