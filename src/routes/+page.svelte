@@ -2015,7 +2015,7 @@
 
 	.hidden-badge {
 		position: absolute;
-		top: -2px;
+		top: 0;
 		right: 0;
 		min-width: 16px;
 		height: 16px;
@@ -2049,8 +2049,8 @@
 
 	.mutation-badge {
 		position: absolute;
-		top: -4px;
-		right: -4px;
+		top: 0;
+		right: 0;
 		min-width: 16px;
 		height: 16px;
 		padding: 0 4px;
