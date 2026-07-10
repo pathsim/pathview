@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
     import { base } from '$app/paths';
-	import { fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import FlowCanvas from '$lib/components/FlowCanvas.svelte';
 	import SimulationPanel from '$lib/components/panels/SimulationPanel.svelte';
@@ -1304,6 +1303,44 @@
 {/snippet}
 
 {#snippet viewActions(btn: string)}
+	{#if hiddenNodes.length > 0}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="hidden-group"
+			onmouseenter={handleHiddenGroupEnter}
+			onmouseleave={handleHiddenGroupLeave}
+		>
+			<button
+				class="{btn} hidden-btn"
+				use:tooltip={`${hiddenNodes.length} hidden node${hiddenNodes.length === 1 ? '' : 's'}`}
+				aria-label="Hidden nodes"
+			>
+				<Icon name="eye-off" size={16} />
+				<span class="hidden-badge">{hiddenNodes.length}</span>
+			</button>
+			{#if hiddenMenuOpen}
+				<div class="recent-menu" role="menu">
+					<div class="recent-menu-header">Hidden nodes</div>
+					{#each hiddenNodes as node (node.id)}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div class="recent-item" role="menuitem" tabindex="0" onclick={() => handleUnhide(node.id)}>
+							<Icon name="eye" size={14} />
+							<span class="recent-name" title={node.name}>{node.name}</span>
+							<span class="hidden-type">{node.type}</span>
+						</div>
+					{/each}
+					{#if hiddenNodes.length > 1}
+						<div class="recent-divider"></div>
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div class="recent-item show-all" role="menuitem" tabindex="0" onclick={handleShowAll}>
+							<Icon name="eye" size={14} />
+							<span class="recent-name">Show all</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
 	<button class={btn} class:active={showPinnedPreviews} onclick={() => pinnedPreviewsStore.toggle()} use:tooltip={{ text: "Pin Previews", shortcut: "P" }} aria-label="Pin Previews" data-tour="toolbar-pin-previews">
 		<Icon name={showPinnedPreviews ? "pin-filled" : "pin"} size={16} />
 	</button>
@@ -1342,52 +1379,6 @@
 	<!-- Subsystem navigation breadcrumb -->
 	<div class="subsystem-breadcrumb">
 		<SubsystemBreadcrumb />
-	</div>
-
-	<!-- Floating toolbar -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="toolbar-container" transition:fly={{ y: -20, duration: 200 }} onmousedown={() => triggerClearSelection()}>
-		<!-- Sim controls now live in the left rail; file ops + view actions live in the top nav bar. -->
-
-		<!-- Hidden nodes -->
-		{#if hiddenNodes.length > 0}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="toolbar-group hidden-group"
-				onmouseenter={handleHiddenGroupEnter}
-				onmouseleave={handleHiddenGroupLeave}
-			>
-				<button
-					class="toolbar-btn hidden-btn"
-					use:tooltip={`${hiddenNodes.length} hidden node${hiddenNodes.length === 1 ? '' : 's'}`}
-					aria-label="Hidden nodes"
-				>
-					<Icon name="eye-off" size={16} />
-					<span class="hidden-badge">{hiddenNodes.length}</span>
-				</button>
-				{#if hiddenMenuOpen}
-					<div class="recent-menu" role="menu">
-						<div class="recent-menu-header">Hidden nodes</div>
-						{#each hiddenNodes as node (node.id)}
-							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-							<div class="recent-item" role="menuitem" tabindex="0" onclick={() => handleUnhide(node.id)}>
-								<Icon name="eye" size={14} />
-								<span class="recent-name" title={node.name}>{node.name}</span>
-								<span class="hidden-type">{node.type}</span>
-							</div>
-						{/each}
-						{#if hiddenNodes.length > 1}
-							<div class="recent-divider"></div>
-							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-							<div class="recent-item show-all" role="menuitem" tabindex="0" onclick={handleShowAll}>
-								<Icon name="eye" size={14} />
-								<span class="recent-name">Show all</span>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
-		{/if}
 	</div>
 
 	<!-- Panel toggles (left edge) -->
@@ -1848,7 +1839,6 @@
 	/* Home button relies on .icon-btn for sizing/hover; small separator from file-ops. */
 	.editor-nav .brand { margin-right: var(--space-xs); }
 	/* Push the top-anchored floating overlays below the fixed nav. */
-	.app.has-nav .toolbar-container { top: calc(var(--space-md) + var(--header-height)); }
 	.app.has-nav .subsystem-breadcrumb { top: calc(var(--space-md) + var(--header-height)); }
 	.app.has-nav .logo-overlay { top: calc(var(--space-md) + var(--header-height)); }
 
@@ -1870,23 +1860,6 @@
 	}
 	.logo-overlay:hover img {
 		opacity: 0.8;
-	}
-
-	/* Toolbar */
-	.toolbar-container {
-		position: fixed;
-		top: var(--space-md);
-		left: 50%;
-		transform: translateX(-50%);
-		z-index: 100;
-		display: flex;
-		align-items: center;
-		gap: var(--space-lg);
-	}
-
-	.toolbar-group {
-		display: flex;
-		gap: var(--space-xs);
 	}
 
 	.toolbar-btn {
@@ -2025,9 +1998,15 @@
 		background: color-mix(in srgb, var(--error) 15%, transparent);
 	}
 
-	/* Hidden-nodes group reuses .open-group/.recent-menu layout */
+	/* Hidden-nodes group reuses .open-group/.recent-menu layout; it sits on
+	   the right side of the nav, so the menu anchors right to stay on screen. */
 	.hidden-group {
 		position: relative;
+	}
+
+	.hidden-group .recent-menu {
+		left: auto;
+		right: 0;
 	}
 
 	.hidden-btn {
@@ -2036,8 +2015,8 @@
 
 	.hidden-badge {
 		position: absolute;
-		top: -4px;
-		right: -4px;
+		top: 0;
+		right: 0;
 		min-width: 16px;
 		height: 16px;
 		padding: 0 4px;
@@ -2049,7 +2028,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 0 0 2px var(--surface);
+		box-shadow: 0 0 0 2px var(--surface-raised);
 	}
 
 	.hidden-type {
@@ -2070,8 +2049,8 @@
 
 	.mutation-badge {
 		position: absolute;
-		top: -4px;
-		right: -4px;
+		top: 0;
+		right: 0;
 		min-width: 16px;
 		height: 16px;
 		padding: 0 4px;
