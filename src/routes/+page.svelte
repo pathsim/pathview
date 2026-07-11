@@ -441,13 +441,11 @@
 		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 	}
 
+	/* Inherits the panel-header typography (uppercase, muted) */
 	.preview-open {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-xs);
-		color: var(--accent);
-		text-transform: none;
-		letter-spacing: normal;
 	}
 
 	.preview-canvas {
