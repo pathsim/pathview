@@ -211,15 +211,6 @@ button.icon-btn {
 	height: 32px;
 }
 
-/* Filled accent button */
-button.primary {
-	background: var(--accent);
-	color: #fff;
-}
-
-button.primary:hover {
-	background: var(--accent-hover);
-}
 
 /* Form elements */
 input,

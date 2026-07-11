@@ -68,7 +68,7 @@ export async function startGuidedTour(id: TourId): Promise<void> {
 
 	const wantsLoad = await confirmationStore.show({
 		title: 'Load demo model?',
-		message: `This tour works best with the "${script.demoName}" example model. Loading replaces your current graph — save first if needed.`,
+		message: `This tour works best with the "${script.demoName}" example model. Loading replaces your current graph, save first if needed.`,
 		confirmText: 'Load demo',
 		cancelText: 'Continue without'
 	});

@@ -37,7 +37,7 @@ export const startTour: TourScript = {
 		rawStep({
 			element: '[data-tour="welcome-banner-logo"]',
 			title: 'Home',
-			body: `<p>Click the home button anytime to return to the landing page — restart any tour, browse examples, open recent files or jump to docs and GitHub.</p>`,
+			body: `<p>Click the home button anytime to return to the landing page to restart any tour, browse examples, open recent files or jump to docs and GitHub.</p>`,
 			side: 'bottom',
 			align: 'start'
 		}),
@@ -99,7 +99,7 @@ export const startTour: TourScript = {
 			body: `
 				<p>The interactive working area:</p>
 				<ul>
-					<li>Drag blocks around — they snap to a grid</li>
+					<li>Drag blocks around, they snap to a grid</li>
 					<li>Drag from an output port to an input port to connect</li>
 					<li>Double-click a block for properties</li>
 					<li>Right-click for the context menu</li>
@@ -144,7 +144,7 @@ export const startTour: TourScript = {
 			element: '[data-tour="breadcrumb"]',
 			title: 'Breadcrumb',
 			body: `
-				<p>You're now inside the subsystem — the canvas shows its internal blocks.</p>
+				<p>You're now inside the subsystem. The canvas shows its internal blocks.</p>
 				<p>The breadcrumb at the top tracks your current path. Click any segment to jump back to that level, or press <kbd>H</kbd> to go straight to the root.</p>
 				<p>Click <strong>Next</strong> to navigate back to the root.</p>
 			`,

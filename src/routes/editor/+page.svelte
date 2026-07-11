@@ -62,38 +62,13 @@
 	import Tooltip, { tooltip } from '$lib/components/Tooltip.svelte';
 	import { isInputFocused } from '$lib/utils/focus';
 	import { isTourActive } from '$lib/tours/inputMode';
+	import { toggleThemeWithTransition } from '$lib/utils/themeTransition';
 	import { startGuidedTour } from '$lib/tours';
 	import type { TourId } from '$lib/tours/types';
 	import { searchDialogStore } from '$lib/stores/searchDialog';
 
-	// Theme toggle button ref for radial transition origin
+	// Theme toggle button ref for the radial transition origin (keyboard shortcut)
 	let themeToggleBtn: HTMLButtonElement;
-
-	function toggleThemeWithTransition(e?: MouseEvent) {
-		const apply = () => themeStore.toggle();
-
-		if (!document.startViewTransition) { apply(); return; }
-
-		let x: number, y: number;
-		if (e) {
-			x = e.clientX; y = e.clientY;
-		} else if (themeToggleBtn) {
-			const rect = themeToggleBtn.getBoundingClientRect();
-			x = rect.left + rect.width / 2;
-			y = rect.top + rect.height / 2;
-		} else {
-			apply(); return;
-		}
-
-		const maxRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-		const transition = document.startViewTransition(apply);
-		transition.ready.then(() => {
-			document.documentElement.animate(
-				{ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${maxRadius}px at ${x}px ${y}px)`] },
-				{ duration: 500, easing: 'ease-out', pseudoElement: '::view-transition-new(root)' }
-			);
-		});
-	}
 
 	// Track mouse position for paste operations
 	let mousePosition = $state({ x: 0, y: 0 });
@@ -953,7 +928,7 @@
 					return;
 				case 't':
 					event.preventDefault();
-					toggleThemeWithTransition();
+					toggleThemeWithTransition(undefined, themeToggleBtn);
 					return;
 				case '+':
 				case '=':

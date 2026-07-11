@@ -141,7 +141,7 @@ export const modelingTour: TourScript = {
 		blockStep({
 			block: () => findBlockElement(LPF),
 			title: 'Open Block Properties',
-			body: `<p>Double-click any block to open its Properties dialog. The next steps customise the <strong>Butterworth filter</strong> block on the right — Click <strong>Next</strong> to open its properties.</p>`,
+			body: `<p>Double-click any block to open its Properties dialog. The next steps customise the <strong>Butterworth filter</strong> block on the right. Click <strong>Next</strong> to open its properties.</p>`,
 			side: 'right',
 			align: 'start',
 			onNextClick: (_el, _s, opts) => {
@@ -175,7 +175,7 @@ export const modelingTour: TourScript = {
 			locate: T.blockField('name-input'),
 			locateTitle: 'Block Names',
 			locateBody: `
-				<p>The Name field for the filter. The display name is independent of the block's type — you can describe what it does in your model.</p>
+				<p>The Name field for the filter. The display name is independent of the block's type, so you can describe what it does in your model.</p>
 				<p>Click <strong>Next</strong> to rename it to <strong>Lowpass Filter</strong>.</p>
 			`,
 			locatePosition: { side: 'left', align: 'start' },

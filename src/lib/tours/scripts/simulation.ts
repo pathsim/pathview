@@ -61,9 +61,9 @@ export const simulationTour: TourScript = {
 			contentBody: `
 				<p>Shared Python code for the whole graph. Anything defined here is available to blocks that take a callable:</p>
 				<ul>
-					<li><code>Function</code> — algebraic transforms</li>
-					<li><code>Source</code> — time-dependent inputs</li>
-					<li><code>ODE</code>, <code>DynamicalSystem</code> — right-hand sides</li>
+					<li><code>Function</code>: algebraic transforms</li>
+					<li><code>Source</code>: time-dependent inputs</li>
+					<li><code>ODE</code>, <code>DynamicalSystem</code>: right-hand sides</li>
 					<li><code>Switch</code>, <code>Wrapper</code>, conditions</li>
 				</ul>
 				<p>Use it for shared constants, helper functions, lookup tables.</p>
@@ -76,9 +76,9 @@ export const simulationTour: TourScript = {
 			contentBody: `
 				<p>Discrete events that interrupt or modify the integration:</p>
 				<ul>
-					<li><strong>Schedule</strong> — fire at fixed times</li>
-					<li><strong>ZeroCrossing</strong> — trigger when a signal crosses a threshold</li>
-					<li><strong>Condition</strong> — trigger when a Python expression turns true</li>
+					<li><strong>Schedule</strong>: fire at fixed times</li>
+					<li><strong>ZeroCrossing</strong>: trigger when a signal crosses a threshold</li>
+					<li><strong>Condition</strong>: trigger when a Python expression turns true</li>
 					<li>Hover any event for a detail panel with preview and full documentation</li>
 				</ul>
 				<p>Each event can modify block parameters or call user code. The bouncing-ball demo uses an event for the floor collision.</p>
@@ -168,7 +168,7 @@ export const simulationTour: TourScript = {
 					<tr><td>Continue from current state</td><td><kbd>Shift+Enter</kbd></td></tr>
 					<tr><td>Stop</td><td><kbd>Esc</kbd></td></tr>
 				</table>
-				<p>Continue is useful for stepping through long runs interactively without resetting — adds wall-time without re-initialising state.</p>
+				<p>Continue is useful for stepping through long runs interactively without resetting. It adds wall-time without re-initialising state.</p>
 			`
 		}),
 
@@ -180,14 +180,14 @@ export const simulationTour: TourScript = {
 			openerPosition: { side: 'bottom', align: 'end' },
 			contentTitle: 'Python Export',
 			contentBody: `
-				<p>The exported script is self-contained — copy, save or run it anywhere. Useful for:</p>
+				<p>The exported script is self-contained. Copy, save or run it anywhere. Useful for:</p>
 				<ul>
 					<li>Production deployment</li>
 					<li>Version control of the simulation</li>
 					<li>Running headless outside the browser</li>
 				</ul>
 				<p>Shortcut: <kbd>Ctrl/Cmd+E</kbd></p>
-				<p>That's it — you've seen all three tours. Happy simulating!</p>
+				<p>That's it, you've seen all three tours. Happy simulating!</p>
 			`,
 			contentPosition: { side: 'left', align: 'center' }
 		})

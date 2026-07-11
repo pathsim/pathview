@@ -9,6 +9,7 @@
 	import { PATHVIEW_VERSION } from '$lib/constants/dependencies';
 	import { EXAMPLES, DEFAULT_EXAMPLE } from '$lib/constants/examples';
 	import { themeStore, type Theme } from '$lib/stores/theme';
+	import { toggleThemeWithTransition } from '$lib/utils/themeTransition';
 	import { AUTOSAVE_KEY, kvGet, hasFileSystemAccess, type RecentFile } from '$lib/schema/handleStore';
 	import { loadGraphFile, listRecentFiles, openRecentFile, removeRecentFile } from '$lib/schema/fileOps';
 	import type { GraphFile } from '$lib/nodes/types';
@@ -111,7 +112,7 @@
 </script>
 
 <svelte:head>
-	<title>{BRAND.name} — Visual editor for {BRAND.framework}</title>
+	<title>{BRAND.name} · Visual editor for {BRAND.framework}</title>
 	<meta
 		name="description"
 		content="Visual block-diagram editor for the {BRAND.framework} simulation framework. Build, simulate and share dynamical system models in the browser."
@@ -123,7 +124,11 @@
 	<div class="landing">
 		<!-- Same nav chrome as the editor (.nav from the component library) -->
 		<header class="nav landing-nav">
-			<div class="nav-side"></div>
+			<div class="nav-side">
+				<a class="icon-btn" href={editorHref} use:tooltip={'Open Editor'} aria-label="Open Editor">
+					<Icon name="play" size={16} />
+				</a>
+			</div>
 			<div class="nav-side">
 				<a class="icon-btn" href="https://docs.pathsim.org" target="_blank" use:tooltip={'Documentation'} aria-label="Documentation">
 					<Icon name="book" size={14} />
@@ -131,13 +136,9 @@
 				<a class="icon-btn" href="https://github.com/pathsim/pathview" target="_blank" use:tooltip={'GitHub'} aria-label="GitHub">
 					<Icon name="github" size={14} />
 				</a>
-				<button class="icon-btn" onclick={() => themeStore.toggle()} use:tooltip={'Toggle theme'} aria-label="Toggle theme">
+				<button class="icon-btn" onclick={(e) => toggleThemeWithTransition(e)} use:tooltip={'Toggle theme'} aria-label="Toggle theme">
 					<Icon name={currentTheme === 'dark' ? 'sun' : 'moon'} size={14} />
 				</button>
-				<a class="editor-btn" href={editorHref}>
-					<span>Open Editor</span>
-					<Icon name="arrow-right" size={12} />
-				</a>
 			</div>
 		</header>
 
@@ -150,7 +151,7 @@
 				</p>
 				<p class="hero-description">
 					Build dynamical system models from blocks, simulate them right in the browser and
-					export them as {BRAND.framework} Python code — no install required.
+					export them as {BRAND.framework} Python code. No install required.
 				</p>
 				<div class="hero-actions">
 					<a href="{editorHref}?new=1" class="action-card">
@@ -186,7 +187,7 @@
 							{#if preview === 'session'}
 								Your last session
 							{:else if preview === 'example'}
-								Example — {DEFAULT_EXAMPLE.name}
+								Example: {DEFAULT_EXAMPLE.name}
 							{:else}
 								Loading…
 							{/if}
@@ -273,7 +274,7 @@
 			<section>
 				<h2 class="section-label">Examples</h2>
 				<p class="section-description">
-					Ready-made models covering controls, signal processing, events and more — click one to
+					Ready-made models covering controls, signal processing, events and more. Click one to
 					open it in the editor.
 				</p>
 				<div class="examples-grid">
@@ -334,25 +335,6 @@
 		z-index: var(--z-sticky);
 	}
 
-	.editor-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-xs);
-		margin-left: var(--space-sm);
-		padding: var(--space-xs) var(--space-md);
-		background: var(--accent);
-		color: #fff;
-		border-radius: var(--radius-md);
-		font-size: var(--font-base);
-		font-weight: 500;
-		text-decoration: none;
-		transition: background var(--transition-fast);
-	}
-
-	.editor-btn:hover {
-		background: var(--accent-hover);
-	}
-
 	/* ── Layout ──────────────────────────────────────────────────────────── */
 	main {
 		width: 100%;
@@ -374,7 +356,6 @@
 		margin: var(--space-sm) 0 var(--space-lg);
 		font-size: var(--font-base);
 		color: var(--text-muted);
-		max-width: 520px;
 	}
 
 	footer {
@@ -397,7 +378,7 @@
 	}
 
 	.footer-links a:hover {
-		color: var(--text);
+		color: var(--accent);
 	}
 
 	.footer-note {
@@ -490,7 +471,7 @@
 		padding: var(--space-sm) var(--space-md);
 		text-align: left;
 		font-size: var(--font-base);
-		color: var(--text);
+		color: var(--text-muted);
 	}
 
 	.recent-row:hover {
@@ -533,7 +514,7 @@
 	.tour-name {
 		font-size: var(--font-base);
 		font-weight: 500;
-		color: var(--text);
+		color: var(--text-muted);
 	}
 
 	.tour-description {
@@ -629,10 +610,6 @@
 		.tour-grid,
 		.examples-grid {
 			grid-template-columns: 1fr;
-		}
-
-		.editor-btn span {
-			display: none;
 		}
 	}
 </style>
