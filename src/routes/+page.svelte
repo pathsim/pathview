@@ -16,14 +16,16 @@
 	import { triggerFitView } from '$lib/stores/viewActions';
 	import { consoleStore } from '$lib/stores/console';
 
-	// Deep links (?model= / ?modelgh=) land directly in the editor, carrying
-	// the full query string (also covers theme/fancyloading/backend params).
-	// The landing never renders in that case.
+	// Deep links (?model= / ?modelgh=) and explicit backend overrides
+	// (?backend=flask[&host=...]) land directly in the editor, carrying the
+	// full query string (which also preserves theme/fancyloading). The
+	// landing never renders in that case. A bare ?theme= stays here: the
+	// theme store reads and persists it on any route.
 	const redirecting =
 		typeof window !== 'undefined' &&
 		(() => {
 			const params = new URLSearchParams(window.location.search);
-			return params.has('model') || params.has('modelgh');
+			return params.has('model') || params.has('modelgh') || params.has('backend');
 		})();
 
 	const editorHref = `${base}/editor`;
