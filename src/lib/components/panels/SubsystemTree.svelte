@@ -105,7 +105,7 @@
 					filterMatch={null}
 					onNavigate={handleNavigate}
 				/>
-				<div class="hint">No subsystems — add one in the canvas.</div>
+				<div class="hint">No subsystems. Add one in the canvas.</div>
 			</div>
 		{:else if !filterHasResults}
 			<div class="empty">

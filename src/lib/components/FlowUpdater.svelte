@@ -23,9 +23,13 @@
 		pendingUpdates: string[];
 		onUpdatesProcessed: () => void;
 		edges?: { id: string }[];
+		/** The canvas doesn't fill the window (e.g. landing preview tile) —
+		 *  the panel-padding fitView math is window-based, so use SvelteFlow's
+		 *  native fitView against the actual canvas dimensions instead. */
+		embedded?: boolean;
 	}
 
-	let { pendingUpdates, onUpdatesProcessed, edges = [] }: Props = $props();
+	let { pendingUpdates, onUpdatesProcessed, edges = [], embedded = false }: Props = $props();
 
 	const { getNodes, getEdges, fitView, zoomIn, zoomOut, getViewport, setViewport, screenToFlowPosition } = useSvelteFlow();
 	const updateNodeInternals = useUpdateNodeInternals();
@@ -34,6 +38,10 @@
 	function fitViewWithPadding(padding: FitViewPadding, duration: number = 300) {
 		const nodes = getNodes();
 		if (nodes.length === 0) {
+			return;
+		}
+		if (embedded) {
+			fitView({ padding: 0.1, duration });
 			return;
 		}
 

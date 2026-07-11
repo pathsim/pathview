@@ -28,7 +28,7 @@
 
 <div class="detail-root">
 	<div class="detail-section">
-		<div class="section-title">
+		<div class="section-title section-label">
 			<span class="title-text">{event.name}</span>
 			{#if toolboxLabel}
 				<span class="title-meta">({toolboxLabel})</span>
@@ -60,15 +60,11 @@
 		border-bottom: 1px solid var(--border);
 	}
 
+	/* Typography from .section-label (app.css component library) */
 	.section-title {
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-sm);
-		font-size: 10px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		color: var(--text-muted);
 		margin-bottom: var(--space-sm);
 	}
 

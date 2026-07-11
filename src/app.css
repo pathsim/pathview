@@ -211,6 +211,7 @@ button.icon-btn {
 	height: 32px;
 }
 
+
 /* Form elements */
 input,
 select,
@@ -337,6 +338,105 @@ input[type="checkbox"]:focus-visible {
 	color: var(--accent);
 }
 
+/* ─── Component library ─────────────────────────────────────────────────────
+   Shared building blocks — prefer these over per-component re-definitions. */
+
+/* Section label — small uppercase heading used across panels, dialogs and pages */
+.section-label,
+.properties-dialog .section-title {
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+/* App nav bar — same chrome on the editor and the landing page */
+.nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: var(--header-height);
+	padding: 0 var(--space-md);
+	background: var(--surface-raised);
+	border-bottom: 1px solid var(--border);
+	flex-shrink: 0;
+}
+
+.nav .nav-side {
+	display: flex;
+	align-items: center;
+	gap: var(--space-xs);
+}
+
+/* Header strip atop panels and dialogs */
+.panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: var(--header-height);
+	padding: 0 var(--space-md);
+	background: var(--surface-raised);
+	border-bottom: 1px solid var(--border);
+	font-weight: 500;
+	font-size: var(--font-base);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	flex-shrink: 0;
+}
+
+/* Card — raised tile; `.interactive` adds the accent-ring hover signature */
+.card {
+	background: var(--surface-raised);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+	transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card.interactive {
+	cursor: pointer;
+}
+
+.card.interactive:hover {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Action card — vertical icon-over-label link/button (quick actions) */
+.action-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 8px;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-md);
+	color: var(--text-muted);
+	cursor: pointer;
+	text-decoration: none;
+	font-family: inherit;
+	font-size: 11px;
+	font-weight: 500;
+}
+
+.action-card svg {
+	color: var(--accent);
+	transition: transform 0.15s ease;
+}
+
+.action-card:hover svg {
+	transform: scale(1.2);
+}
+
+/* Separator — hairline between page sections */
+.separator {
+	height: 1px;
+	background: var(--border);
+}
+
 /* Dialog backdrop */
 .dialog-backdrop {
 	position: fixed;
@@ -354,7 +454,7 @@ input[type="checkbox"]:focus-visible {
 	background: transparent;
 }
 
-/* Dialog header */
+/* Dialog header — the panel-header strip with dialog corner rounding */
 .dialog-header {
 	display: flex;
 	align-items: center;
@@ -369,6 +469,7 @@ input[type="checkbox"]:focus-visible {
 	color: var(--text-muted);
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
+	flex-shrink: 0;
 }
 
 /* Properties dialog shared styles (Block/Event properties) */
@@ -445,12 +546,8 @@ input[type="checkbox"]:focus-visible {
 	margin-bottom: 0;
 }
 
+/* Typography from .section-label (see component library); spacing only */
 .properties-dialog .section-title {
-	font-size: 10px;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	color: var(--text-muted);
 	margin-bottom: var(--space-sm);
 }
 

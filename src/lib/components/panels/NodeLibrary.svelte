@@ -246,7 +246,7 @@
 	<div class="node-grid-container">
 		{#each Array.from(groupedNodes().entries()) as [category, nodes]}
 			<div class="category">
-				<button class="category-header" onclick={() => toggleCategory(category)}>
+				<button class="category-header section-label" onclick={() => toggleCategory(category)}>
 					<span class="chevron" class:expanded={!collapsedCategories.has(category)}>
 						<Icon name="chevron-right" size={12} />
 					</span>
@@ -355,6 +355,7 @@
 		margin-bottom: var(--space-lg);
 	}
 
+	/* Typography from .section-label (app.css component library) */
 	.category-header {
 		display: flex;
 		align-items: center;
@@ -362,11 +363,6 @@
 		width: 100%;
 		padding: var(--space-xs) 0;
 		margin-bottom: var(--space-sm);
-		font-size: 10px;
-		font-weight: 600;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
 		background: none;
 		border: none;
 		cursor: pointer;

@@ -343,22 +343,7 @@
 	}
 
 
-	/* Panel header */
-	.panel-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		height: var(--header-height);
-		padding: 0 var(--space-md);
-		background: var(--surface-raised);
-		border-bottom: 1px solid var(--border);
-		font-weight: 500;
-		font-size: var(--font-base);
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		flex-shrink: 0;
-	}
+	/* .panel-header comes from the app.css component library */
 
 	.panel-toolbar {
 		flex-shrink: 0;
