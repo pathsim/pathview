@@ -25,7 +25,6 @@
 	import PlotOptionsDialog from '$lib/components/dialogs/PlotOptionsDialog.svelte';
 	import SearchDialog from '$lib/components/dialogs/SearchDialog.svelte';
 	import ResizablePanel from '$lib/components/ResizablePanel.svelte';
-	import WelcomeModal from '$lib/components/WelcomeModal.svelte';
 	import SubsystemBreadcrumb from '$lib/components/SubsystemBreadcrumb.svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import { nodeRegistry } from '$lib/nodes';
@@ -49,7 +48,7 @@
 	import { resolveBackend } from '$lib/pyodide/backend';
 	import { runGraphStreamingSimulation, validateGraphSimulation, exportToPython } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
-	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName, loadGraphFile, listRecentFiles, openRecentFile, removeRecentFile } from '$lib/schema/fileOps';
+	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName, loadGraphFile, listRecentFiles, openRecentFile, removeRecentFile, installToolboxesForCurrentGraph } from '$lib/schema/fileOps';
 	import { AUTOSAVE_KEY, kvGet, hasFileSystemAccess, type RecentFile } from '$lib/schema/handleStore';
 	import type { GraphFile } from '$lib/nodes/types';
 	import { confirmationStore } from '$lib/stores/confirmation';
@@ -63,6 +62,8 @@
 	import Tooltip, { tooltip } from '$lib/components/Tooltip.svelte';
 	import { isInputFocused } from '$lib/utils/focus';
 	import { isTourActive } from '$lib/tours/inputMode';
+	import { startGuidedTour } from '$lib/tours';
+	import type { TourId } from '$lib/tours/types';
 	import { searchDialogStore } from '$lib/stores/searchDialog';
 
 	// Theme toggle button ref for radial transition origin
@@ -149,7 +150,28 @@
 		return null;
 	}
 	const urlModelConfig = getUrlModelConfig();
-	let showWelcomeModal = $state(!urlModelConfig); // Hide if loading from URL
+
+	// One-shot intent params set by the landing page: `?new=1` starts with a
+	// blank canvas, `?tour=<id>` starts a guided tour after mount. Both are
+	// removed from the URL once handled.
+	function getUrlIntent(): { isNew: boolean; tour: TourId | null } {
+		if (typeof window === 'undefined') return { isNew: false, tour: null };
+		const params = new URLSearchParams(window.location.search);
+		const tour = params.get('tour');
+		return {
+			isNew: params.get('new') === '1',
+			tour: tour === 'start' || tour === 'modeling' || tour === 'simulation' ? tour : null
+		};
+	}
+	const urlIntent = getUrlIntent();
+
+	function clearIntentParams() {
+		const params = new URLSearchParams(window.location.search);
+		params.delete('new');
+		params.delete('tour');
+		const query = params.toString();
+		window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
+	}
 
 	// Backend-ready promise (assigned in onMount). Component-scoped so client-
 	// side example loading can gate its toolbox install on the running worker
@@ -532,6 +554,12 @@
 	const continueTooltip = { text: "Continue", shortcut: "Shift+Enter" };
 
 	onMount(() => {
+		// Graph already populated at mount means we arrived via SPA navigation
+		// from the landing page (hero preview or recent file). The landing
+		// defers the toolbox install indefinitely (no backend runs there), so
+		// catch up once the backend is ready.
+		const prePopulated = graphStore.toJSON().nodes.length > 0;
+
 		// The URL-param model load runs *parallel* to backend startup: fetch,
 		// parse, and graphStore.fromJSON happen immediately so the user sees
 		// the model right away. The toolbox install step inside loadGraphFile
@@ -554,7 +582,7 @@
 				console.error('[startup] backend init failed', e);
 				throw e;
 			} finally {
-				// Unlock the run button even if bootstrap failed — a broken
+				// Unlock the run button even if bootstrap failed â€” a broken
 				// toolbox shouldn't leave the button stuck in its loading state.
 				bootstrapComplete = true;
 			}
@@ -562,10 +590,31 @@
 		void loadFromUrlParam(backendReady).catch((e) => {
 			console.error('[startup] URL-param model load failed', e);
 		});
+		if (prePopulated && !urlModelConfig && !urlIntent.isNew) {
+			void backendReady
+				.then(() => installToolboxesForCurrentGraph())
+				.catch(() => {
+					// Backend failure already logged; placeholders stay visible.
+				});
+		}
+
+		// Landing-page intents. `?new=1` resets without the unsaved-changes
+		// confirm â€” the landing preview may have populated the store, and the
+		// user just chose "New" deliberately.
+		if (urlIntent.isNew || urlIntent.tour) {
+			if (urlIntent.isNew) {
+				newGraph();
+			}
+			if (urlIntent.tour) {
+				const tourId: TourId = urlIntent.tour;
+				setTimeout(() => void startGuidedTour(tourId), 400);
+			}
+			clearIntentParams();
+		}
 		void backendReady.catch(() => {
 			// Already logged above. Swallow here so the unhandled rejection
 			// from this branch (independent of the loadFromUrlParam branch)
-			// doesn't trip console noise — loadFromUrlParam awaits the same
+			// doesn't trip console noise â€” loadFromUrlParam awaits the same
 			// promise and surfaces install errors via consoleStore.
 		});
 
@@ -689,11 +738,14 @@
 		window.addEventListener('run-simulation', handleRunSimulation);
 		window.addEventListener('continue-simulation', handleContinueSimulation);
 
-		// Offer to restore the previous session's autosave (skip if a URL
-		// model is loading — that takes precedence over restore).
+		// Offer to restore the previous session's autosave. Skipped when a URL
+		// model is loading, when a landing intent (new/tour) applies, or when
+		// the graph is already populated â€” SPA navigation from the landing page
+		// arrives with the model (preview, recent file) already in the store.
 		void (async () => {
 			const snapshot = await initialAutosavePromise;
-			if (!snapshot || urlModelConfig) return;
+			if (!snapshot || urlModelConfig || urlIntent.isNew || urlIntent.tour) return;
+			if (nodeCount > 0) return;
 			const ok = await confirmationStore.show({
 				title: 'Restore last session?',
 				message: `${BRAND.name} found an autosaved version of your last session. Restore it?`,
@@ -1087,7 +1139,7 @@
 		}
 	}
 
-	// ── Recent files hover menu ──────────────────────────────────────────────
+	// â”€â”€ Recent files hover menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 	const recentFilesSupported = hasFileSystemAccess();
 	let recentFiles = $state<RecentFile[]>([]);
 	let recentFilesMenuOpen = $state(false);
@@ -1198,32 +1250,6 @@
 		}
 	}
 
-	// Load an example/model client-side — no page reload, so the running
-	// Pyodide worker is reused (no reinit). Reflects the model in the URL via
-	// replaceState, so deep-links (?model=) still work and the URL stays
-	// shareable. Used by the welcome modal's example cards.
-	async function loadExample(url: string): Promise<void> {
-		showWelcomeModal = false;
-		// Clear previous results / REPL state; the worker stays up.
-		await resetSimulation();
-		const result = await importFromUrl(url, {
-			deferToolboxInstall: true,
-			backendReady: backendReady ?? Promise.resolve()
-		});
-		if (result.success) {
-			try {
-				history.replaceState(history.state, '', `?model=${encodeURIComponent(url)}`);
-			} catch {
-				/* replaceState can throw in odd embedding contexts; non-fatal */
-			}
-			setTimeout(() => triggerFitView(), 100);
-		} else if (result.error) {
-			consoleStore.error(`Failed to load example: ${url}`);
-			consoleStore.error(result.error);
-			showConsole = true;
-		}
-	}
-
 	// Track placement offset for stacking prevention
 	let placementOffset = 0;
 	let lastPlacementTime = 0;
@@ -1277,7 +1303,7 @@
 		</button>
 		{#if recentFilesSupported && recentFilesMenuOpen}
 			<div class="recent-menu" role="menu">
-				<div class="recent-menu-header">Recent files</div>
+				<div class="recent-menu-header section-label">Recent files</div>
 				{#each recentFiles as recent (recent.id)}
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 					<div class="recent-item" role="menuitem" tabindex="0" onclick={() => handleOpenRecent(recent.id)}>
@@ -1320,7 +1346,7 @@
 			</button>
 			{#if hiddenMenuOpen}
 				<div class="recent-menu" role="menu">
-					<div class="recent-menu-header">Hidden nodes</div>
+					<div class="recent-menu-header section-label">Hidden nodes</div>
 					{#each hiddenNodes as node (node.id)}
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<div class="recent-item" role="menuitem" tabindex="0" onclick={() => handleUnhide(node.id)}>
@@ -1350,12 +1376,12 @@
 {/snippet}
 
 <div class="app has-nav">
-	<!-- Top nav bar: brand opens the welcome modal; file ops + view actions + theme live here. -->
+	<!-- Top nav bar: brand links to the landing page; file ops + view actions + theme live here. -->
 	<header class="nav editor-nav">
 		<div class="nav-side" data-tour="toolbar-files">
-			<button class="brand icon-btn" onclick={() => (showWelcomeModal = true)} use:tooltip={'Welcome'} aria-label="Welcome" data-tour="welcome-banner-logo">
+			<a class="brand icon-btn" href="{base}/" use:tooltip={'Home'} aria-label="Home" data-tour="welcome-banner-logo">
 				<Icon name="home" size={16} />
-			</button>
+			</a>
 			{@render fileOps('icon-btn')}
 		</div>
 		<div class="nav-side">
@@ -1568,7 +1594,7 @@
 			{#snippet footer()}
 				<div class="library-footer">
 					<span>Click or drag to add</span>
-					<span>↑↓ Enter</span>
+					<span>â†‘â†“ Enter</span>
 				</div>
 			{/snippet}
 			<NodeLibrary
@@ -1790,15 +1816,6 @@
 
 	<!-- Global Confirmation Modal -->
 	<ConfirmationModal />
-
-	<!-- Welcome Modal -->
-	{#if showWelcomeModal}
-		<WelcomeModal
-			onNew={handleNew}
-			onClose={() => showWelcomeModal = false}
-			onLoadExample={loadExample}
-		/>
-	{/if}
 </div>
 
 <style>
@@ -1815,22 +1832,15 @@
 		z-index: 0;
 	}
 
-	/* Top nav bar — fixed chrome over the canvas. */
+	/* Top nav bar â€” fixed chrome over the canvas. */
+	/* Chrome from .nav (app.css component library); only positioning here. */
 	.editor-nav {
 		position: fixed;
 		top: 0;
 		left: 0;
 		right: 0;
 		z-index: 200;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		height: var(--header-height);
-		padding: 0 var(--space-md);
-		background: var(--surface-raised);
-		border-bottom: 1px solid var(--border);
 	}
-	.editor-nav .nav-side { display: flex; align-items: center; gap: var(--space-xs); }
 	/* Home button relies on .icon-btn for sizing/hover; small separator from file-ops. */
 	.editor-nav .brand { margin-right: var(--space-xs); }
 	/* Push the top-anchored floating overlays below the fixed nav. */
@@ -1910,12 +1920,9 @@
 		z-index: -1;
 	}
 
+	/* Typography from .section-label (app.css component library) */
 	.recent-menu-header {
 		padding: 6px 10px 4px;
-		font-size: 10px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
 		color: var(--text-disabled);
 	}
 

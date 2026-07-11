@@ -3,7 +3,7 @@
  *
  * Currently just `addNextTourButton`, which adds a "Continue with X →" button
  * between Back and Done so the user can chain into the next tour without
- * going back to the welcome banner.
+ * going back to the landing page.
  */
 
 import type { Driver } from 'driver.js';

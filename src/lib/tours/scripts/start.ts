@@ -36,8 +36,8 @@ export const startTour: TourScript = {
 
 		rawStep({
 			element: '[data-tour="welcome-banner-logo"]',
-			title: 'Welcome Banner',
-			body: `<p>Click the logo anytime to reopen the welcome banner — restart any tour, browse examples or jump to docs and GitHub.</p>`,
+			title: 'Home',
+			body: `<p>Click the home button anytime to return to the landing page — restart any tour, browse examples, open recent files or jump to docs and GitHub.</p>`,
 			side: 'bottom',
 			align: 'start'
 		}),

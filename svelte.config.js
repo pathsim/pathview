@@ -17,6 +17,12 @@ const config = {
 		paths: {
 			// Use BASE_PATH env var for deployment (e.g., '/dev' or '')
 			base: process.env.BASE_PATH || ''
+		},
+		prerender: {
+			// With ssr disabled the crawler can't discover routes from links,
+			// so list them explicitly — /editor needs its own index.html for
+			// direct hits on static hosting.
+			entries: ['/', '/editor']
 		}
 	}
 };

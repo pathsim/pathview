@@ -330,6 +330,26 @@ export async function loadGraphFile(
 }
 
 /**
+ * Install required toolboxes for the graph currently in the store, and warn
+ * about block types that remain unregistered.
+ *
+ * Used by the editor when it mounts with a pre-populated graph (SPA
+ * navigation from the landing page, whose preview loads files with the
+ * toolbox install deferred forever — no backend runs there).
+ */
+export async function installToolboxesForCurrentGraph(): Promise<void> {
+	const { nodes } = graphStore.toJSON();
+	if (nodes.length === 0) return;
+	await installRequiredToolboxes(collectRequiredToolboxes(nodes));
+	const unknownTypes = validateNodeTypes(nodes);
+	if (unknownTypes.length > 0) {
+		consoleStore.warn(
+			`[toolbox] unknown block types in this file: ${unknownTypes.join(', ')}. They will render as placeholders.`
+		);
+	}
+}
+
+/**
  * Save autosave snapshot to IndexedDB. Async because IDB is async; callers
  * fire-and-forget unless they need to chain off completion.
  */
@@ -917,8 +937,10 @@ export async function listRecentFiles(): Promise<RecentFile[]> {
  * re-prompt the first time per session, then loads the file in place (same
  * code path as `openImportDialog`'s success branch). Stale entries (file
  * moved/deleted, permission denied) are evicted from the recents list.
+ * Import options (e.g. `deferToolboxInstall` on the landing page, where no
+ * backend runs) are forwarded to the import.
  */
-export async function openRecentFile(id: string): Promise<ImportResult> {
+export async function openRecentFile(id: string, options: ImportOptions = {}): Promise<ImportResult> {
 	if (!hasFileSystemAccess()) {
 		return { success: false, type: 'model', error: 'File System Access API not available' };
 	}
@@ -952,7 +974,7 @@ export async function openRecentFile(id: string): Promise<ImportResult> {
 			}
 		}
 		const file = await handle.getFile();
-		return importFile(file, { fileHandle: handle, fileName: handle.name });
+		return importFile(file, { ...options, fileHandle: handle, fileName: handle.name });
 	} catch (e: any) {
 		// File was moved, deleted, or the user revoked permission — evict it
 		await recentsRemove(id).catch(() => undefined);
