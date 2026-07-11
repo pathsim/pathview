@@ -375,13 +375,7 @@
 		gap: var(--space-xs);
 	}
 
-	.section-label {
-		font-size: 10px;
-		font-weight: 600;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
+	/* .section-label comes from the app.css component library */
 
 	.solver-matrix {
 		display: grid;

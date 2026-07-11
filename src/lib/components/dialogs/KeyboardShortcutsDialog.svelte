@@ -97,7 +97,7 @@
 	<div class="dialog-body">
 		{#each shortcuts as section}
 			<div class="section">
-				<div class="section-header">{section.category}</div>
+				<div class="section-header section-label">{section.category}</div>
 				<div class="section-items">
 					{#each section.items as shortcut}
 						<div class="shortcut-row">
@@ -151,11 +151,8 @@
 		border-bottom: none;
 	}
 
+	/* Typography from .section-label (app.css component library) */
 	.section-header {
-		font-size: 10px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
 		color: var(--text-disabled);
 		margin-bottom: var(--space-sm);
 	}
