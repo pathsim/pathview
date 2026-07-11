@@ -1366,11 +1366,6 @@
 		</div>
 	</header>
 
-	<!-- Logo overlay: stays over the canvas, below the fixed nav. -->
-	<button class="logo-overlay" onclick={() => showWelcomeModal = true} use:tooltip={"Welcome"} aria-label="Welcome">
-		<img src="{base}/{BRAND.logo}" alt="{BRAND.name}" />
-	</button>
-
 	<!-- Canvas takes full screen -->
 	<div class="canvas-layer">
 		<FlowCanvas />
@@ -1840,27 +1835,6 @@
 	.editor-nav .brand { margin-right: var(--space-xs); }
 	/* Push the top-anchored floating overlays below the fixed nav. */
 	.app.has-nav .subsystem-breadcrumb { top: calc(var(--space-md) + var(--header-height)); }
-	.app.has-nav .logo-overlay { top: calc(var(--space-md) + var(--header-height)); }
-
-	/* Logo overlay — stays over the canvas, below the fixed nav. */
-	.logo-overlay {
-		position: fixed;
-		top: var(--space-md);
-		left: var(--space-md);
-		z-index: 100;
-		background: none;
-		border: none;
-		padding: 0;
-		cursor: pointer;
-	}
-	.logo-overlay img {
-		height: 44px;
-		width: auto;
-		transition: opacity var(--transition-fast);
-	}
-	.logo-overlay:hover img {
-		opacity: 0.8;
-	}
 
 	.toolbar-btn {
 		width: var(--header-height);
@@ -2064,7 +2038,6 @@
 		pointer-events: none;
 	}
 
-	/* Logo overlay */
 	/* Subsystem breadcrumb navigation */
 	.subsystem-breadcrumb {
 		position: fixed;

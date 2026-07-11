@@ -77,26 +77,8 @@
 					break;
 			}
 
-			// Clamp horizontal position to keep tooltip within viewport
-			if (finalPosition === 'bottom' || finalPosition === 'top') {
-				const halfWidth = tooltipMaxWidth / 2;
-				if (x - halfWidth < padding) {
-					x = padding + halfWidth;
-				} else if (x + halfWidth > window.innerWidth - padding) {
-					x = window.innerWidth - padding - halfWidth;
-				}
-			}
-
-			// Clamp vertical position for left/right tooltips
-			if (finalPosition === 'left' || finalPosition === 'right') {
-				const halfHeight = tooltipHeight / 2;
-				if (y - halfHeight < padding) {
-					y = padding + halfHeight;
-				} else if (y + halfHeight > window.innerHeight - padding) {
-					y = window.innerHeight - padding - halfHeight;
-				}
-			}
-
+			// Viewport clamping happens in the component after render,
+			// where the actual tooltip dimensions can be measured.
 			tooltipStore.set({ text, shortcut, maxWidth, x, y, visible: true, position: finalPosition });
 		}, 50);
 	}
@@ -152,21 +134,51 @@
 </script>
 
 <script lang="ts">
-	let state = $state<TooltipState>({ text: '', x: 0, y: 0, visible: false, position: 'bottom' });
+	let tip = $state<TooltipState>({ text: '', x: 0, y: 0, visible: false, position: 'bottom' });
+	let tooltipEl = $state<HTMLDivElement>();
 
 	tooltipStore.subscribe((s) => {
-		state = s;
+		tip = s;
+	});
+
+	// Clamp the rendered tooltip to the viewport using its measured size,
+	// so narrow tooltips sit flush at the edges instead of being pushed
+	// inward by a max-width estimate.
+	$effect(() => {
+		if (!tip.visible || !tooltipEl) return;
+		void tip.text; void tip.shortcut; void tip.position;
+		const padding = 8; // Minimum distance from viewport edge
+		// Measure from the unclamped anchor position — a previous run may
+		// have shifted the element while Svelte skipped the style attribute.
+		tooltipEl.style.left = `${tip.x}px`;
+		tooltipEl.style.top = `${tip.y}px`;
+		const rect = tooltipEl.getBoundingClientRect();
+		let dx = 0;
+		let dy = 0;
+		if (rect.left < padding) {
+			dx = padding - rect.left;
+		} else if (rect.right > window.innerWidth - padding) {
+			dx = window.innerWidth - padding - rect.right;
+		}
+		if (rect.top < padding) {
+			dy = padding - rect.top;
+		} else if (rect.bottom > window.innerHeight - padding) {
+			dy = window.innerHeight - padding - rect.bottom;
+		}
+		if (dx !== 0) tooltipEl.style.left = `${tip.x + dx}px`;
+		if (dy !== 0) tooltipEl.style.top = `${tip.y + dy}px`;
 	});
 </script>
 
-{#if state.visible}
+{#if tip.visible}
 	<div
-		class="tooltip tooltip-{state.position}"
-		style="left: {state.x}px; top: {state.y}px;{state.maxWidth ? ` max-width: ${state.maxWidth}px;` : ''}"
+		bind:this={tooltipEl}
+		class="tooltip tooltip-{tip.position}"
+		style="left: {tip.x}px; top: {tip.y}px;{tip.maxWidth ? ` max-width: ${tip.maxWidth}px;` : ''}"
 	>
-		<span class="text">{state.text}</span>
-		{#if state.shortcut}
-			<span class="shortcut">{state.shortcut}</span>
+		<span class="text">{tip.text}</span>
+		{#if tip.shortcut}
+			<span class="shortcut">{tip.shortcut}</span>
 		{/if}
 	</div>
 {/if}
