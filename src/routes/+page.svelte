@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import FlowCanvas from '$lib/components/FlowCanvas.svelte';
 	import Icon from '$lib/components/icons/Icon.svelte';
 	import Tooltip, { tooltip } from '$lib/components/Tooltip.svelte';
@@ -21,12 +22,17 @@
 	// full query string (which also preserves theme/fancyloading). The
 	// landing never renders in that case. A bare ?theme= stays here: the
 	// theme store reads and persists it on any route.
-	const redirecting =
-		typeof window !== 'undefined' &&
-		(() => {
-			const params = new URLSearchParams(window.location.search);
-			return params.has('model') || params.has('modelgh') || params.has('backend');
-		})();
+	//
+	// Derived from the ROUTER url, not a window.location snapshot: during a
+	// client-side navigation from /editor back to the landing, the component
+	// initializes before the history entry updates, so window.location still
+	// held the editor's query (?model=... from an example deep link). That
+	// made `redirecting` spuriously true, rendered the landing empty, and
+	// bounced the user straight back to the editor: the Home button appeared
+	// to set the URL without ever navigating.
+	const redirecting = $derived(
+		['model', 'modelgh', 'backend'].some((k) => page.url.searchParams.has(k))
+	);
 
 	const editorHref = `${base}/editor`;
 
@@ -76,9 +82,16 @@
 		recentFiles = await listRecentFiles();
 	}
 
+	// Forward deep links to the editor, reacting to the url (a plain onMount
+	// redirect would act on the stale pre-navigation query, see above).
+	$effect(() => {
+		if (redirecting) {
+			void goto(`${editorHref}${page.url.search}`, { replaceState: true });
+		}
+	});
+
 	onMount(() => {
 		if (redirecting) {
-			void goto(`${editorHref}${window.location.search}`, { replaceState: true });
 			return;
 		}
 
