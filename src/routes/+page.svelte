@@ -507,6 +507,7 @@
 		padding: var(--space-md) var(--space-lg);
 		text-decoration: none;
 		color: var(--accent);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 	}
 
 	.tour-name {
