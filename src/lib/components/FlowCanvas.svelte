@@ -52,6 +52,13 @@
 		findFirstAvailableInputPort
 	} from './canvas';
 
+	interface Props {
+		/** Render as a non-interactive preview: no editing, selection,
+		 *  keyboard shortcuts, context menus or pan/zoom; auto-fits the view. */
+		readonly?: boolean;
+	}
+	let { readonly = false }: Props = $props();
+
 	// Theme for SvelteFlow
 	let colorMode = $state<Theme>('dark');
 	const unsubscribeTheme = themeStore.subscribe((theme) => {
@@ -1052,18 +1059,18 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={readonly ? undefined : handleKeydown} />
 
 <div
 	bind:this={canvasEl}
 	class="flow-canvas"
 	role="application"
 	aria-label="Flow canvas"
-	ondragover={handleDragOver}
-	ondragenter={handleDragEnter}
-	ondragleave={handleDragLeave}
-	ondblclick={handleCanvasDoubleClick}
-	onmousemove={handleMouseMove}
+	ondragover={readonly ? undefined : handleDragOver}
+	ondragenter={readonly ? undefined : handleDragEnter}
+	ondragleave={readonly ? undefined : handleDragLeave}
+	ondblclick={readonly ? undefined : handleCanvasDoubleClick}
+	onmousemove={readonly ? undefined : handleMouseMove}
 >
 	{#if isFileDragOver}
 		<div class="drop-zone-overlay">
@@ -1079,32 +1086,40 @@
 		bind:edges
 		{nodeTypes}
 		{edgeTypes}
-		onconnect={handleConnect}
-		onnodedragstart={handleNodeDragStart}
-		onnodedrag={handleNodeDrag}
-		onnodedragstop={handleNodeDragStop}
-		ondelete={handleDelete}
-		onselectionchange={handleSelectionChange}
-		ondrop={(e: any) => handleDrop(e.event || e)}
-		ondragover={(e: any) => handleDragOver(e.event || e)}
-		onnodecontextmenu={handleNodeContextMenu}
-		onedgecontextmenu={handleEdgeContextMenu}
-		onpanecontextmenu={handlePaneContextMenu}
+		onconnect={readonly ? undefined : handleConnect}
+		onnodedragstart={readonly ? undefined : handleNodeDragStart}
+		onnodedrag={readonly ? undefined : handleNodeDrag}
+		onnodedragstop={readonly ? undefined : handleNodeDragStop}
+		ondelete={readonly ? undefined : handleDelete}
+		onselectionchange={readonly ? undefined : handleSelectionChange}
+		ondrop={readonly ? undefined : (e: any) => handleDrop(e.event || e)}
+		ondragover={readonly ? undefined : (e: any) => handleDragOver(e.event || e)}
+		onnodecontextmenu={readonly ? undefined : handleNodeContextMenu}
+		onedgecontextmenu={readonly ? undefined : handleEdgeContextMenu}
+		onpanecontextmenu={readonly ? undefined : handlePaneContextMenu}
 		nodeOrigin={[0.5, 0.5]}
 		{...{ snapToGrid: true, snapGrid: SNAP_GRID } as any}
-		deleteKeyCode={['Delete', 'Backspace']}
-		selectionKeyCode={['Shift']}
-		multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
+		deleteKeyCode={readonly ? null : ['Delete', 'Backspace']}
+		selectionKeyCode={readonly ? null : ['Shift']}
+		multiSelectionKeyCode={readonly ? null : ['Shift', 'Meta', 'Control']}
 		{colorMode}
-		connectOnClick
-		edgesReconnectable
-		edgesFocusable
-		edgesSelectable
+		connectOnClick={!readonly}
+		nodesDraggable={!readonly}
+		nodesConnectable={!readonly}
+		elementsSelectable={!readonly}
+		edgesReconnectable={!readonly}
+		edgesFocusable={!readonly}
+		edgesSelectable={!readonly}
+		panOnDrag={!readonly}
+		zoomOnScroll={!readonly}
+		zoomOnPinch={!readonly}
+		preventScrolling={!readonly}
+		fitView={readonly}
 		zoomOnDoubleClick={false}
 		elevateEdgesOnSelect={false}
 		proOptions={{ hideAttribution: true }}
 	>
-		<FlowUpdater pendingUpdates={pendingNodeUpdates} onUpdatesProcessed={clearPendingUpdates} />
+		<FlowUpdater pendingUpdates={pendingNodeUpdates} onUpdatesProcessed={clearPendingUpdates} embedded={readonly} />
 		<Background variant={BackgroundVariant.Dots} gap={BACKGROUND_GAP} size={1} />
 	</SvelteFlow>
 </div>
