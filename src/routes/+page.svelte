@@ -122,8 +122,9 @@
 
 {#if !redirecting}
 	<div class="landing">
-		<!-- Same nav chrome as the editor (.nav from the component library) -->
-		<header class="nav landing-nav">
+		<!-- Same nav chrome as the editor (.nav from the component library);
+		     sits above the scroll container, only the page content scrolls. -->
+		<header class="nav">
 			<div class="nav-side">
 				<a class="icon-btn" href={editorHref} use:tooltip={'Open Editor'} aria-label="Open Editor">
 					<Icon name="play" size={16} />
@@ -142,16 +143,13 @@
 			</div>
 		</header>
 
-		<main>
-			<!-- Hero -->
+		<div class="page-scroll">
+			<main>
+				<!-- Hero -->
 			<section class="hero">
 				<img src="{base}/{BRAND.logo}" alt={BRAND.name} class="hero-logo" />
 				<p class="hero-tagline">
 					Visual block-diagram editor for the {BRAND.framework} simulation framework
-				</p>
-				<p class="hero-description">
-					Build dynamical system models from blocks, simulate them right in the browser and
-					export them as {BRAND.framework} Python code. No install required.
 				</p>
 				<div class="hero-actions">
 					<a href="{editorHref}?new=1" class="action-card">
@@ -312,6 +310,7 @@
 				<div class="footer-note">pathview {PATHVIEW_VERSION} · {BRAND.framework} ecosystem</div>
 			</footer>
 		</main>
+		</div>
 	</div>
 
 	<Tooltip />
@@ -321,18 +320,17 @@
 	.landing {
 		flex: 1;
 		min-height: 0;
-		overflow-y: auto;
-		overflow-x: hidden;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 	}
 
-	/* ── Nav ─────────────────────────────────────────────────────────────── */
-	/* Chrome from .nav (component library); the landing pins it while scrolling. */
-	.landing-nav {
-		position: sticky;
-		top: 0;
-		z-index: var(--z-sticky);
+	/* Scroll container starts below the nav bar, like the other pathsim sites */
+	.page-scroll {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
 	}
 
 	/* ── Layout ──────────────────────────────────────────────────────────── */
@@ -405,12 +403,6 @@
 		font-size: 13px;
 		color: var(--text-muted);
 		letter-spacing: 0.2px;
-	}
-
-	.hero-description {
-		font-size: var(--font-base);
-		color: var(--text-muted);
-		max-width: 480px;
 	}
 
 	.hero-actions {
