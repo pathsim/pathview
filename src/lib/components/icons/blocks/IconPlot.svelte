@@ -101,15 +101,16 @@
 		<path d="M 86 22 L 86 44 M 82 40 L 86 44 L 90 40" />
 	{/if}
 	{#if badge}
+		<!-- Top-left: the corner a rising characteristic leaves free. -->
 		<text
-			x={AXIS_BOX.x1}
-			y={AXIS_BOX.y0 + 2}
-			text-anchor="end"
+			x={AXIS_BOX.x0 + 4}
+			y={AXIS_BOX.y0}
+			text-anchor="start"
 			dominant-baseline="hanging"
 			fill="currentColor"
 			stroke="none"
 			font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace"
-			font-size="15"
+			font-size="11"
 			font-weight="600">{badge}</text
 		>
 	{/if}
