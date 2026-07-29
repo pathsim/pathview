@@ -94,7 +94,9 @@ export const iconRegistry: Record<string, IconDef> = {
 	// The dead zone lies exactly on the x-axis — drawing it would hide the very
 	// feature the icon is about.
 	Deadband: { kind: 'plot', samples: () => C.deadbandSamples(), xRange: X_BIPOLAR, yRange: Y_TIGHT, axes: 'yaxis' },
-	Relay: { kind: 'plot', samples: () => C.relaySamples(), xRange: X_BIPOLAR, yRange: Y_BIPOLAR },
+	// Axis-parallel hysteresis loop — with axes drawn through it the icon reads
+	// as a hash mark, so the loop stands on its own.
+	Relay: { kind: 'plot', samples: () => C.relaySamples(0.45), xRange: X_BIPOLAR, yRange: Y_BIPOLAR, axes: 'none' },
 	RateLimiter: { kind: 'plot', samples: () => C.rateLimiterSamples() },
 	SampleHold: { kind: 'plot', samples: () => C.sampleHoldSamples() },
 	Backlash: { kind: 'plot', samples: () => C.backlashSamples(), xRange: X_BIPOLAR, yRange: Y_BIPOLAR },
