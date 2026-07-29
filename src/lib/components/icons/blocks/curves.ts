@@ -7,29 +7,33 @@
 
 export type Sample = [number, number];
 
-/** Box used to draw axes — the visible "frame" of the plot. */
-export const AXIS_BOX = {
-	x0: 12,
-	x1: 88,
-	y0: 8,
-	y1: 56
-} as const;
-
-/** Inset between axes box and the actual signal area, gives axes headroom. */
-const SIGNAL_INSET = 8;
-
-/** Box used to map sample values into pixels — strictly inside AXIS_BOX. */
+/**
+ * Geometry. The signal area (PLOT_BOX) is centred in the 96×64 viewBox; the
+ * axes overshoot it by AXIS_OVERSHOOT on every side, so an icon stays visually
+ * balanced no matter which axes it draws.
+ */
 export const PLOT_BOX = {
-	x0: AXIS_BOX.x0 + SIGNAL_INSET / 2,
-	x1: AXIS_BOX.x1 - SIGNAL_INSET,
-	y0: AXIS_BOX.y0 + SIGNAL_INSET,
-	y1: AXIS_BOX.y1 - SIGNAL_INSET / 2,
+	x0: 14,
+	x1: 82,
+	y0: 14,
+	y1: 50,
 	get width() {
 		return this.x1 - this.x0;
 	},
 	get height() {
 		return this.y1 - this.y0;
 	}
+} as const;
+
+/** How far the axes extend past the signal area. */
+const AXIS_OVERSHOOT = 4;
+
+/** Box used to draw axes — the visible "frame" of the plot. */
+export const AXIS_BOX = {
+	x0: PLOT_BOX.x0 - AXIS_OVERSHOOT,
+	x1: PLOT_BOX.x1 + AXIS_OVERSHOOT,
+	y0: PLOT_BOX.y0 - AXIS_OVERSHOOT,
+	y1: PLOT_BOX.y1 + AXIS_OVERSHOOT
 } as const;
 
 export function mapX(x: number, xMin = 0, xMax = 1): number {
@@ -76,32 +80,29 @@ export function sineSamples(cycles = 1.5, n = 64): Sample[] {
 	return out;
 }
 
-export function squareSamples(cycles = 1.5): Sample[] {
+/** Square wave over whole periods, so the trace closes cleanly at both edges. */
+export function squareSamples(cycles = 2): Sample[] {
 	const out: Sample[] = [];
 	const period = 1 / cycles;
-	let t = 0;
-	out.push([0, 1]);
-	while (t < 1) {
-		const tHigh = Math.min(1, t + period / 2);
-		out.push([tHigh, 1]);
-		out.push([tHigh, -1]);
-		const tLow = Math.min(1, t + period);
-		out.push([tLow, -1]);
-		if (tLow < 1) {
-			out.push([tLow, 1]);
-		}
-		t += period;
+	for (let c = 0; c < cycles; c++) {
+		const t0 = c * period;
+		out.push([t0, 1]);
+		out.push([t0 + period / 2, 1]);
+		out.push([t0 + period / 2, -1]);
+		out.push([t0 + period, -1]);
+		if (c < cycles - 1) out.push([t0 + period, 1]);
 	}
 	return out;
 }
 
-export function triangleSamples(cycles = 1.5, n = 80): Sample[] {
+/** Triangle wave over whole periods, starting and ending at the zero crossing. */
+export function triangleSamples(cycles = 2, n = 81): Sample[] {
 	const out: Sample[] = [];
 	for (let i = 0; i < n; i++) {
 		const t = i / (n - 1);
-		const phase = (t * cycles * 2) % 2;
-		const v = phase < 1 ? phase : 2 - phase;
-		out.push([t, v * 2 - 1]);
+		const phase = (t * cycles * 4) % 4;
+		const v = phase < 1 ? phase : phase < 3 ? 2 - phase : phase - 4;
+		out.push([t, v]);
 	}
 	return out;
 }
@@ -419,6 +420,17 @@ export function cosFunctionSamples(n = 80): Sample[] {
 	return out;
 }
 
+/** atan2 characteristic — the arctan S-curve saturating towards ±π/2,
+ *  normalised so ±π/2 maps to ±1. */
+export function atan2Samples(gain = 4, n = 80): Sample[] {
+	const out: Sample[] = [];
+	for (let i = 0; i < n; i++) {
+		const x = -1 + (2 * i) / (n - 1);
+		out.push([x, Math.atan(x * gain) / (Math.PI / 2)]);
+	}
+	return out;
+}
+
 export function powSamples(exp = 2, n = 60): Sample[] {
 	const out: Sample[] = [];
 	for (let i = 0; i < n; i++) {
@@ -471,18 +483,16 @@ export function pidStepSamples(t0 = 0.12, n = 100): Sample[] {
 	return pt2StepSamples(0.4, 18, t0, n);
 }
 
-/** Modulo / sawtooth: y = x mod period over x ∈ [0, 1] */
-export function modSamples(period = 0.3): Sample[] {
+/** Modulo / sawtooth: y = x mod period, over a whole number of periods so no
+ *  tooth is cut off at the right edge. */
+export function modSamples(teeth = 3): Sample[] {
 	const out: Sample[] = [];
-	let t = 0;
-	while (t < 1) {
-		out.push([t, 0]);
-		const tEnd = Math.min(1, t + period);
-		out.push([tEnd, (tEnd - t) / period]);
-		if (tEnd < 1) {
-			out.push([tEnd, 0]);
-		}
-		t = tEnd;
+	const period = 1 / teeth;
+	for (let i = 0; i < teeth; i++) {
+		const t0 = i * period;
+		out.push([t0, 0]);
+		out.push([t0 + period, 1]);
+		if (i < teeth - 1) out.push([t0 + period, 0]);
 	}
 	return out;
 }
@@ -658,27 +668,91 @@ export function firstOrderHoldSamples(n = 6): Sample[] {
 	return out;
 }
 
-export function backlashSamples(): Sample[] {
+/** Backlash — closed hysteresis loop: the rising branch, then the falling one
+ *  traced back, so the dead zone between them is visible as an open shape. */
+export function backlashSamples(width = 0.42, gain = 0.8): Sample[] {
 	return [
-		[-1, -0.7],
-		[-0.3, -0.7],
-		[0.3, 0.7],
-		[1, 0.7]
+		// rising branch
+		[-1, -gain],
+		[-1 + 2 * width, -gain],
+		[1, gain],
+		// falling branch, traced back to the start
+		[1 - 2 * width, gain],
+		[-1, -gain]
 	];
+}
+
+/** Discrete random draws — one value per sample instant, rendered as stems. */
+export function randomStemSamples(n = 11, seed = 7): Sample[] {
+	let s = seed;
+	const rand = () => {
+		s = (s * 9301 + 49297) % 233280;
+		return s / 233280;
+	};
+	const out: Sample[] = [];
+	for (let i = 0; i < n; i++) {
+		out.push([(i + 0.5) / n, rand() * 1.8 - 0.9]);
+	}
+	return out;
+}
+
+/** Reconstructed analog ramp — the smooth counterpart to a quantizer staircase. */
+export function rampBipolarSamples(): Sample[] {
+	return [
+		[-1, -1],
+		[1, 1]
+	];
+}
+
+/* --- Converters (ADC / DAC) --------------------------------------------
+ * Both icons show the same analog signal as a dashed ghost. The ADC adds the
+ * sample instants taken from it, the DAC the held signal reconstructed from
+ * them — so the pair reads as "sampling" versus "holding".
+ */
+
+const CONVERTER_AMP = 0.85;
+const CONVERTER_CYCLES = 1.15;
+
+function converterSignal(t: number): number {
+	return CONVERTER_AMP * Math.sin(2 * Math.PI * CONVERTER_CYCLES * t);
+}
+
+/** The continuous signal both converter icons reference. */
+export function converterAnalogSamples(n = 90): Sample[] {
+	return Array.from({ length: n }, (_, i) => {
+		const t = i / (n - 1);
+		return [t, converterSignal(t)] as Sample;
+	});
+}
+
+/** Sample instants taken from that signal — drawn as stems by the ADC icon. */
+export function converterSampleSamples(n = 7): Sample[] {
+	return Array.from({ length: n }, (_, i) => {
+		const t = (i + 0.5) / n;
+		return [t, converterSignal(t)] as Sample;
+	});
+}
+
+/** Zero-order-hold reconstruction of those samples — the DAC output. */
+export function converterHeldSamples(n = 7): Sample[] {
+	const out: Sample[] = [];
+	for (let i = 0; i < n; i++) {
+		const v = converterSignal((i + 0.5) / n);
+		out.push([i / n, v]);
+		out.push([(i + 1) / n, v]);
+	}
+	return out;
 }
 
 /* --- Scope-style display signals --------------------------------------- */
 
-/** Superposition of three sin/cos components — visually rich oscilloscope trace */
-export function superposedSignal(n = 220): Sample[] {
+/** Ringing step response — the Scope trace. A decaying oscillation reads as a
+ *  signal at any size and spans the screen without the noise of a superposition. */
+export function scopeTrace(decay = 1.45, cycles = 3, n = 200): Sample[] {
 	const out: Sample[] = [];
 	for (let i = 0; i < n; i++) {
 		const t = i / (n - 1);
-		const v =
-			0.55 * Math.sin(2 * Math.PI * 1.2 * t) +
-			0.4 * Math.sin(2 * Math.PI * 5.2 * t + 0.4) +
-			0.08 * Math.cos(2 * Math.PI * 11 * t);
-		out.push([t, v]);
+		out.push([t, Math.exp(-decay * t) * Math.sin(2 * Math.PI * cycles * t)]);
 	}
 	return out;
 }
@@ -708,24 +782,24 @@ export function dampedOscillation(zeta = 0.06, cycles = 2.5, t0 = 0.05, n = 140)
 	return out;
 }
 
+/** Spectrum line heights — one entry per bin, rendered as bars by IconScope.
+ *  Shaped like a real spectrum: a dominant fundamental with decaying harmonics
+ *  sitting on a low noise floor. */
 export function spectrumBars(): Sample[] {
-	const peaks = [
-		[0.08, 0.15],
-		[0.18, 0.55],
-		[0.28, 0.85],
-		[0.38, 0.65],
-		[0.5, 0.4],
-		[0.62, 0.7],
-		[0.74, 0.3],
-		[0.86, 0.5],
-		[0.94, 0.18]
-	] as Array<[number, number]>;
-	const out: Sample[] = [[0, 0]];
-	for (const [t, h] of peaks) {
-		out.push([t, 0]);
-		out.push([t, h]);
-		out.push([t, 0]);
-	}
-	out.push([1, 0]);
-	return out;
+	return [
+		[0.1, 0.28],
+		[0.22, 1.0],
+		[0.34, 0.2],
+		[0.46, 0.62],
+		[0.58, 0.16],
+		[0.7, 0.4],
+		[0.82, 0.14],
+		[0.94, 0.24]
+	];
+}
+
+/** PID step response hitting an actuator limit — the flat top is the
+ *  saturation the anti-windup logic deals with. */
+export function antiWindupStepSamples(limit = 0.82, t0 = 0.12, n = 100): Sample[] {
+	return pt2StepSamples(0.4, 18, t0, n).map(([t, v]) => [t, Math.min(v, limit)] as Sample);
 }
