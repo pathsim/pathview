@@ -7,29 +7,33 @@
 
 export type Sample = [number, number];
 
-/** Box used to draw axes — the visible "frame" of the plot. */
-export const AXIS_BOX = {
-	x0: 12,
-	x1: 88,
-	y0: 8,
-	y1: 56
-} as const;
-
-/** Inset between axes box and the actual signal area, gives axes headroom. */
-const SIGNAL_INSET = 8;
-
-/** Box used to map sample values into pixels — strictly inside AXIS_BOX. */
+/**
+ * Geometry. The signal area (PLOT_BOX) is centred in the 96×64 viewBox; the
+ * axes overshoot it by AXIS_OVERSHOOT on every side, so an icon stays visually
+ * balanced no matter which axes it draws.
+ */
 export const PLOT_BOX = {
-	x0: AXIS_BOX.x0 + SIGNAL_INSET / 2,
-	x1: AXIS_BOX.x1 - SIGNAL_INSET,
-	y0: AXIS_BOX.y0 + SIGNAL_INSET,
-	y1: AXIS_BOX.y1 - SIGNAL_INSET / 2,
+	x0: 14,
+	x1: 82,
+	y0: 14,
+	y1: 50,
 	get width() {
 		return this.x1 - this.x0;
 	},
 	get height() {
 		return this.y1 - this.y0;
 	}
+} as const;
+
+/** How far the axes extend past the signal area. */
+const AXIS_OVERSHOOT = 4;
+
+/** Box used to draw axes — the visible "frame" of the plot. */
+export const AXIS_BOX = {
+	x0: PLOT_BOX.x0 - AXIS_OVERSHOOT,
+	x1: PLOT_BOX.x1 + AXIS_OVERSHOOT,
+	y0: PLOT_BOX.y0 - AXIS_OVERSHOOT,
+	y1: PLOT_BOX.y1 + AXIS_OVERSHOOT
 } as const;
 
 export function mapX(x: number, xMin = 0, xMax = 1): number {

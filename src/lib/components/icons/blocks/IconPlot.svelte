@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AXIS_BOX, mapX, mapY, buildPath, type Sample } from './curves';
+	import { AXIS_BOX, PLOT_BOX, mapX, mapY, buildPath, type Sample } from './curves';
 
 	type AxesMode = 'none' | 'baseline' | 'cross';
 	type Decoration = 'arrow-up' | 'arrow-down';
@@ -12,6 +12,10 @@
 		axes?: AxesMode;
 		markers?: boolean;
 		decoration?: Decoration;
+		/** Vertical asymptotes in sample-x coordinates, drawn dashed. */
+		asymptotes?: number[];
+		/** Small superscript label in the top-right corner (e.g. base of a log). */
+		badge?: string;
 	}
 
 	let {
@@ -21,7 +25,9 @@
 		yRange = [0, 1],
 		axes = 'cross',
 		markers = false,
-		decoration
+		decoration,
+		asymptotes,
+		badge
 	}: Props = $props();
 
 	const path = $derived(buildPath(samples, xRange[0], xRange[1], yRange[0], yRange[1]));
@@ -31,26 +37,40 @@
 			: ''
 	);
 
+	// The zero line only sits inside the plot when 0 is actually part of the
+	// value range; otherwise it falls back to the box edge. For x this uses a
+	// strict test, so a time signal (x starting at 0) keeps its y-axis just
+	// left of the trace instead of drawing it straight through the first edge.
 	const xAxisY = $derived(
 		yRange[0] <= 0 && yRange[1] >= 0 ? mapY(0, yRange[0], yRange[1]) : AXIS_BOX.y1
 	);
 	const yAxisX = $derived(
-		xRange[0] <= 0 && xRange[1] >= 0 ? mapX(0, xRange[0], xRange[1]) : AXIS_BOX.x0
+		xRange[0] < 0 && xRange[1] > 0 ? mapX(0, xRange[0], xRange[1]) : AXIS_BOX.x0
 	);
 
 	const finiteSamples = $derived(samples.filter(([, v]) => Number.isFinite(v)));
+	const asymptoteX = $derived(
+		(asymptotes ?? []).map((x) => mapX(x, xRange[0], xRange[1]))
+	);
 </script>
 
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" fill="none" stroke="currentColor"
-	stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+	stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+	<!-- Axes sit behind the trace and are deliberately lighter, so a curve
+	     running along an axis (Abs, Deadband) stays readable. -->
 	{#if axes === 'baseline' || axes === 'cross'}
-		<line x1={AXIS_BOX.x0} y1={xAxisY} x2={AXIS_BOX.x1} y2={xAxisY} />
+		<g class="axis">
+			<line x1={AXIS_BOX.x0} y1={xAxisY} x2={AXIS_BOX.x1} y2={xAxisY} />
+			{#if axes === 'cross'}
+				<line x1={yAxisX} y1={AXIS_BOX.y0} x2={yAxisX} y2={AXIS_BOX.y1} />
+			{/if}
+		</g>
 	{/if}
-	{#if axes === 'cross'}
-		<line x1={yAxisX} y1={AXIS_BOX.y0} x2={yAxisX} y2={AXIS_BOX.y1} />
-	{/if}
+	{#each asymptoteX as ax}
+		<line class="asymptote" x1={ax} y1={PLOT_BOX.y0} x2={ax} y2={PLOT_BOX.y1} />
+	{/each}
 	{#if pathDashed}
-		<path d={pathDashed} stroke-dasharray="3 2.5" />
+		<path d={pathDashed} class="ghost" stroke-dasharray="3.5 3" />
 	{/if}
 	<path d={path} />
 	{#if markers}
@@ -58,16 +78,29 @@
 			<circle
 				cx={mapX(x, xRange[0], xRange[1])}
 				cy={mapY(v, yRange[0], yRange[1])}
-				r="3"
+				r="2.8"
 				fill="currentColor"
 				stroke="none"
 			/>
 		{/each}
 	{/if}
 	{#if decoration === 'arrow-up'}
-		<path d="M 88 40 L 88 24 M 84 28 L 88 24 L 92 28" />
+		<path d="M 86 44 L 86 22 M 82 26 L 86 22 L 90 26" />
 	{:else if decoration === 'arrow-down'}
-		<path d="M 88 24 L 88 40 M 84 36 L 88 40 L 92 36" />
+		<path d="M 86 22 L 86 44 M 82 40 L 86 44 L 90 40" />
+	{/if}
+	{#if badge}
+		<text
+			x={AXIS_BOX.x1}
+			y={AXIS_BOX.y0 + 2}
+			text-anchor="end"
+			dominant-baseline="hanging"
+			fill="currentColor"
+			stroke="none"
+			font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace"
+			font-size="15"
+			font-weight="600">{badge}</text
+		>
 	{/if}
 </svg>
 
@@ -76,5 +109,20 @@
 		width: 100%;
 		height: 100%;
 		display: block;
+	}
+
+	.axis {
+		stroke-width: 0.9;
+		opacity: 0.42;
+	}
+
+	.asymptote {
+		stroke-width: 0.9;
+		opacity: 0.42;
+		stroke-dasharray: 3 3;
+	}
+
+	.ghost {
+		opacity: 0.5;
 	}
 </style>
