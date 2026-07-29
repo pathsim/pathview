@@ -56,7 +56,6 @@
 	}
 
 	.axis {
-		stroke-width: 0.9;
-		opacity: 0.42;
+		stroke-width: 1.6;
 	}
 </style>

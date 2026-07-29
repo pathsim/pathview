@@ -17,12 +17,12 @@
 import type { Sample } from './curves';
 import * as C from './curves';
 
-type AxesMode = 'none' | 'baseline' | 'cross';
+type AxesMode = 'none' | 'baseline' | 'yaxis' | 'cross';
 
 export type IconDef =
 	| { kind: 'plot'; samples: () => Sample[]; samplesDashed?: () => Sample[]; xRange?: [number, number]; yRange?: [number, number]; axes?: AxesMode; markers?: boolean; decoration?: 'arrow-up' | 'arrow-down'; asymptotes?: number[]; badge?: string; stems?: boolean }
 	| { kind: 'pz'; poles?: Array<[number, number]>; zeros?: Array<[number, number]> }
-	| { kind: 'scope'; samples: () => Sample[]; samples2?: () => Sample[]; yRange?: [number, number]; gridX?: number; gridY?: number }
+	| { kind: 'scope'; samples: () => Sample[]; samples2?: () => Sample[]; yRange?: [number, number]; gridX?: number; gridY?: number; bars?: boolean }
 	| { kind: 'surface'; fn?: (u: number, v: number) => number; rows?: number; cols?: number }
 	| { kind: 'math'; latex: string }
 	| { kind: 'glyph'; text: string; size?: number }
@@ -66,7 +66,8 @@ export const iconRegistry: Record<string, IconDef> = {
 		yRange: Y_BIPOLAR
 	},
 	PID: { kind: 'plot', samples: () => C.pidStepSamples(), yRange: PT2_RANGE },
-	AntiWindupPID: { kind: 'plot', samples: () => C.pt1StepSamples(0.12, 0.12) },
+	// Saturating response — visibly different from the plain PID overshoot.
+	AntiWindupPID: { kind: 'plot', samples: () => C.antiWindupStepSamples(), yRange: PT2_RANGE },
 
 	/* --- Bode magnitude (Filters / generic transfer functions) --- */
 	ButterworthLowpassFilter: { kind: 'plot', samples: () => C.butterLowpassBode() },
@@ -86,9 +87,13 @@ export const iconRegistry: Record<string, IconDef> = {
 	// Same curve shape as Log — the base is what distinguishes the two.
 	Log10: { kind: 'plot', samples: () => C.logSamples(), badge: '10' },
 	Sqrt: { kind: 'plot', samples: () => C.sqrtSamples() },
-	Abs: { kind: 'plot', samples: () => C.absSamples(), xRange: X_BIPOLAR },
+	// The V sits on the zero line, so drawing the y-axis through its vertex too
+	// would turn the icon into a four-armed fan — baseline only.
+	Abs: { kind: 'plot', samples: () => C.absSamples(), xRange: X_BIPOLAR, axes: 'baseline' },
 	Clip: { kind: 'plot', samples: () => C.clipSamples(), xRange: X_BIPOLAR, yRange: Y_TIGHT },
-	Deadband: { kind: 'plot', samples: () => C.deadbandSamples(), xRange: X_BIPOLAR, yRange: Y_TIGHT },
+	// The dead zone lies exactly on the x-axis — drawing it would hide the very
+	// feature the icon is about.
+	Deadband: { kind: 'plot', samples: () => C.deadbandSamples(), xRange: X_BIPOLAR, yRange: Y_TIGHT, axes: 'yaxis' },
 	Relay: { kind: 'plot', samples: () => C.relaySamples(), xRange: X_BIPOLAR, yRange: Y_BIPOLAR },
 	RateLimiter: { kind: 'plot', samples: () => C.rateLimiterSamples() },
 	SampleHold: { kind: 'plot', samples: () => C.sampleHoldSamples() },
@@ -138,7 +143,9 @@ export const iconRegistry: Record<string, IconDef> = {
 	 * 80×40 px, so a two-line formula degrades into unreadable texture. */
 	ODE: { kind: 'math', latex: '\\dot{x} = f(x, u, t)' },
 	StateSpace: { kind: 'math', latex: '\\dot{x} = Ax{+}Bu' },
-	DynamicalSystem: { kind: 'math', latex: '\\dot{x} = f(x, u, t)' },
+	// Keeps the output equation ODE does not have — abbreviated so two lines
+	// still scale up rather than turning to texture.
+	DynamicalSystem: { kind: 'math', latex: '\\begin{aligned}\\dot{x} &= f\\\\ y &= g\\end{aligned}' },
 	DynamicalFunction: { kind: 'math', latex: 'f(u, t)' },
 	Function: { kind: 'math', latex: 'f(u)' },
 	Polynomial: { kind: 'math', latex: '\\sum c_k\\,u^{k}' },
@@ -171,11 +178,18 @@ export const iconRegistry: Record<string, IconDef> = {
 	Scope: {
 		kind: 'scope',
 		samples: () => C.superposedSignal(),
-		yRange: [-1.05, 1.05],
-		gridX: 0,
-		gridY: 0
+		yRange: [-1.15, 1.15],
+		gridX: 4,
+		gridY: 2
 	},
-	Spectrum: { kind: 'scope', samples: () => C.spectrumBars(), yRange: [0, 1], gridX: 0, gridY: 0 }
+	Spectrum: {
+		kind: 'scope',
+		samples: () => C.spectrumBars(),
+		yRange: [0, 1.12],
+		gridX: 0,
+		gridY: 2,
+		bars: true
+	}
 };
 
 export function getIconDef(blockClass: string | undefined): IconDef | undefined {

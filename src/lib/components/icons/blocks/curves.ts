@@ -746,24 +746,24 @@ export function dampedOscillation(zeta = 0.06, cycles = 2.5, t0 = 0.05, n = 140)
 	return out;
 }
 
+/** Spectrum line heights — one entry per bin, rendered as bars by IconScope.
+ *  Shaped like a real spectrum: a dominant fundamental with decaying harmonics
+ *  sitting on a low noise floor. */
 export function spectrumBars(): Sample[] {
-	const peaks = [
-		[0.08, 0.15],
-		[0.18, 0.55],
-		[0.28, 0.85],
-		[0.38, 0.65],
-		[0.5, 0.4],
-		[0.62, 0.7],
-		[0.74, 0.3],
-		[0.86, 0.5],
-		[0.94, 0.18]
-	] as Array<[number, number]>;
-	const out: Sample[] = [[0, 0]];
-	for (const [t, h] of peaks) {
-		out.push([t, 0]);
-		out.push([t, h]);
-		out.push([t, 0]);
-	}
-	out.push([1, 0]);
-	return out;
+	return [
+		[0.1, 0.28],
+		[0.22, 1.0],
+		[0.34, 0.2],
+		[0.46, 0.62],
+		[0.58, 0.16],
+		[0.7, 0.4],
+		[0.82, 0.14],
+		[0.94, 0.24]
+	];
+}
+
+/** PID step response hitting an actuator limit — the flat top is the
+ *  saturation the anti-windup logic deals with. */
+export function antiWindupStepSamples(limit = 0.82, t0 = 0.12, n = 100): Sample[] {
+	return pt2StepSamples(0.4, 18, t0, n).map(([t, v]) => [t, Math.min(v, limit)] as Sample);
 }

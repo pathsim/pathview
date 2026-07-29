@@ -60,6 +60,7 @@
 				yRange={def.yRange}
 				gridX={def.gridX}
 				gridY={def.gridY}
+				bars={def.bars}
 			/>
 		{:else if def.kind === 'surface'}
 			<IconSurface fn={def.fn} rows={def.rows} cols={def.cols} />

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { AXIS_BOX, PLOT_BOX, mapX, mapY, buildPath, type Sample } from './curves';
 
-	type AxesMode = 'none' | 'baseline' | 'cross';
+	/** 'baseline' = x only, 'yaxis' = y only, 'cross' = both. */
+	type AxesMode = 'none' | 'baseline' | 'yaxis' | 'cross';
 	type Decoration = 'arrow-up' | 'arrow-down';
 
 	interface Props {
@@ -59,12 +60,13 @@
 
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" fill="none" stroke="currentColor"
 	stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-	<!-- Axes sit behind the trace and are deliberately lighter, so a curve
-	     running along an axis (Abs, Deadband) stays readable. -->
-	{#if axes === 'baseline' || axes === 'cross'}
+	<!-- Axes are drawn first so the trace stays on top where they cross. -->
+	{#if axes !== 'none'}
 		<g class="axis">
-			<line x1={AXIS_BOX.x0} y1={xAxisY} x2={AXIS_BOX.x1} y2={xAxisY} />
-			{#if axes === 'cross'}
+			{#if axes === 'baseline' || axes === 'cross'}
+				<line x1={AXIS_BOX.x0} y1={xAxisY} x2={AXIS_BOX.x1} y2={xAxisY} />
+			{/if}
+			{#if axes === 'yaxis' || axes === 'cross'}
 				<line x1={yAxisX} y1={AXIS_BOX.y0} x2={yAxisX} y2={AXIS_BOX.y1} />
 			{/if}
 		</g>
@@ -123,14 +125,15 @@
 		display: block;
 	}
 
+	/* Axes carry the same weight as the trace — at canvas scale anything
+	 * lighter disappears. */
 	.axis {
-		stroke-width: 0.9;
-		opacity: 0.42;
+		stroke-width: 1.6;
 	}
 
 	.asymptote {
-		stroke-width: 0.9;
-		opacity: 0.42;
+		stroke-width: 1.2;
+		opacity: 0.55;
 		stroke-dasharray: 3 3;
 	}
 
