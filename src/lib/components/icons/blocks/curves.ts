@@ -696,13 +696,52 @@ export function randomStemSamples(n = 11, seed = 7): Sample[] {
 	return out;
 }
 
-/** Reconstructed analog ramp for the DAC icon — the smooth counterpart to the
- *  quantizer staircase. */
+/** Reconstructed analog ramp — the smooth counterpart to a quantizer staircase. */
 export function rampBipolarSamples(): Sample[] {
 	return [
 		[-1, -1],
 		[1, 1]
 	];
+}
+
+/* --- Converters (ADC / DAC) --------------------------------------------
+ * Both icons show the same analog signal as a dashed ghost. The ADC adds the
+ * sample instants taken from it, the DAC the held signal reconstructed from
+ * them — so the pair reads as "sampling" versus "holding".
+ */
+
+const CONVERTER_AMP = 0.85;
+const CONVERTER_CYCLES = 1.15;
+
+function converterSignal(t: number): number {
+	return CONVERTER_AMP * Math.sin(2 * Math.PI * CONVERTER_CYCLES * t);
+}
+
+/** The continuous signal both converter icons reference. */
+export function converterAnalogSamples(n = 90): Sample[] {
+	return Array.from({ length: n }, (_, i) => {
+		const t = i / (n - 1);
+		return [t, converterSignal(t)] as Sample;
+	});
+}
+
+/** Sample instants taken from that signal — drawn as stems by the ADC icon. */
+export function converterSampleSamples(n = 7): Sample[] {
+	return Array.from({ length: n }, (_, i) => {
+		const t = (i + 0.5) / n;
+		return [t, converterSignal(t)] as Sample;
+	});
+}
+
+/** Zero-order-hold reconstruction of those samples — the DAC output. */
+export function converterHeldSamples(n = 7): Sample[] {
+	const out: Sample[] = [];
+	for (let i = 0; i < n; i++) {
+		const v = converterSignal((i + 0.5) / n);
+		out.push([i / n, v]);
+		out.push([(i + 1) / n, v]);
+	}
+	return out;
 }
 
 /* --- Scope-style display signals --------------------------------------- */

@@ -116,20 +116,19 @@ export const iconRegistry: Record<string, IconDef> = {
 	Atan2: { kind: 'plot', samples: () => C.atan2Samples(), xRange: X_BIPOLAR, yRange: [-1.25, 1.25] },
 
 	/* --- Quantisation / counters ---
-	 * ADC and DAC are mirror images: the ghost trace is the input, the solid
-	 * one the output — continuous in, stepped out for ADC and vice versa. */
+	 * ADC and DAC share the same dashed analog signal: the ADC adds the sample
+	 * instants taken from it, the DAC the held signal rebuilt from them. */
 	ADC: {
 		kind: 'plot',
-		samples: () => C.quantizerSamples(),
-		samplesDashed: () => C.rampBipolarSamples(),
-		xRange: X_BIPOLAR,
-		yRange: Y_BIPOLAR
+		samples: () => C.converterSampleSamples(),
+		samplesDashed: () => C.converterAnalogSamples(),
+		yRange: Y_BIPOLAR,
+		stems: true
 	},
 	DAC: {
 		kind: 'plot',
-		samples: () => C.rampBipolarSamples(),
-		samplesDashed: () => C.quantizerSamples(),
-		xRange: X_BIPOLAR,
+		samples: () => C.converterHeldSamples(),
+		samplesDashed: () => C.converterAnalogSamples(),
 		yRange: Y_BIPOLAR
 	},
 	Counter: { kind: 'plot', samples: () => C.counterUpSamples() },
@@ -153,7 +152,9 @@ export const iconRegistry: Record<string, IconDef> = {
 	Polynomial: { kind: 'math', latex: '\\sum c_k\\,u^{k}' },
 
 	/* --- Discrete-time blocks --- */
-	FirstOrderHold: { kind: 'plot', samples: () => C.firstOrderHoldSamples() },
+	// Markers make it read as interpolation between sample instants — the same
+	// instants SampleHold shows as a staircase.
+	FirstOrderHold: { kind: 'plot', samples: () => C.firstOrderHoldSamples(), markers: true },
 	DiscreteIntegrator: { kind: 'math', latex: '\\dfrac{T}{z-1}' },
 	DiscreteDerivative: { kind: 'math', latex: '\\dfrac{z-1}{T\\,z}' },
 	DiscreteStateSpace: { kind: 'math', latex: 'x_{k+1} = Ax_k{+}Bu_k' },
