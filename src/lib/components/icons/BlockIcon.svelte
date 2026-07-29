@@ -24,6 +24,7 @@
 	import IconGlyph from './blocks/IconGlyph.svelte';
 	import IconScope from './blocks/IconScope.svelte';
 	import IconSurface from './blocks/IconSurface.svelte';
+	import IconPoleZero from './blocks/IconPoleZero.svelte';
 
 	interface Props {
 		blockClass: string | undefined;
@@ -46,7 +47,12 @@
 				axes={def.axes}
 				markers={def.markers}
 				decoration={def.decoration}
+				asymptotes={def.asymptotes}
+				badge={def.badge}
+				stems={def.stems}
 			/>
+		{:else if def.kind === 'pz'}
+			<IconPoleZero poles={def.poles} zeros={def.zeros} />
 		{:else if def.kind === 'scope'}
 			<IconScope
 				samples={def.samples()}

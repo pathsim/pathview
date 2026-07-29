@@ -80,32 +80,29 @@ export function sineSamples(cycles = 1.5, n = 64): Sample[] {
 	return out;
 }
 
-export function squareSamples(cycles = 1.5): Sample[] {
+/** Square wave over whole periods, so the trace closes cleanly at both edges. */
+export function squareSamples(cycles = 2): Sample[] {
 	const out: Sample[] = [];
 	const period = 1 / cycles;
-	let t = 0;
-	out.push([0, 1]);
-	while (t < 1) {
-		const tHigh = Math.min(1, t + period / 2);
-		out.push([tHigh, 1]);
-		out.push([tHigh, -1]);
-		const tLow = Math.min(1, t + period);
-		out.push([tLow, -1]);
-		if (tLow < 1) {
-			out.push([tLow, 1]);
-		}
-		t += period;
+	for (let c = 0; c < cycles; c++) {
+		const t0 = c * period;
+		out.push([t0, 1]);
+		out.push([t0 + period / 2, 1]);
+		out.push([t0 + period / 2, -1]);
+		out.push([t0 + period, -1]);
+		if (c < cycles - 1) out.push([t0 + period, 1]);
 	}
 	return out;
 }
 
-export function triangleSamples(cycles = 1.5, n = 80): Sample[] {
+/** Triangle wave over whole periods, starting and ending at the zero crossing. */
+export function triangleSamples(cycles = 2, n = 81): Sample[] {
 	const out: Sample[] = [];
 	for (let i = 0; i < n; i++) {
 		const t = i / (n - 1);
-		const phase = (t * cycles * 2) % 2;
-		const v = phase < 1 ? phase : 2 - phase;
-		out.push([t, v * 2 - 1]);
+		const phase = (t * cycles * 4) % 4;
+		const v = phase < 1 ? phase : phase < 3 ? 2 - phase : phase - 4;
+		out.push([t, v]);
 	}
 	return out;
 }
@@ -423,6 +420,17 @@ export function cosFunctionSamples(n = 80): Sample[] {
 	return out;
 }
 
+/** atan2 characteristic — the arctan S-curve saturating towards ±π/2,
+ *  normalised so ±π/2 maps to ±1. */
+export function atan2Samples(gain = 4, n = 80): Sample[] {
+	const out: Sample[] = [];
+	for (let i = 0; i < n; i++) {
+		const x = -1 + (2 * i) / (n - 1);
+		out.push([x, Math.atan(x * gain) / (Math.PI / 2)]);
+	}
+	return out;
+}
+
 export function powSamples(exp = 2, n = 60): Sample[] {
 	const out: Sample[] = [];
 	for (let i = 0; i < n; i++) {
@@ -475,18 +483,16 @@ export function pidStepSamples(t0 = 0.12, n = 100): Sample[] {
 	return pt2StepSamples(0.4, 18, t0, n);
 }
 
-/** Modulo / sawtooth: y = x mod period over x ∈ [0, 1] */
-export function modSamples(period = 0.3): Sample[] {
+/** Modulo / sawtooth: y = x mod period, over a whole number of periods so no
+ *  tooth is cut off at the right edge. */
+export function modSamples(teeth = 3): Sample[] {
 	const out: Sample[] = [];
-	let t = 0;
-	while (t < 1) {
-		out.push([t, 0]);
-		const tEnd = Math.min(1, t + period);
-		out.push([tEnd, (tEnd - t) / period]);
-		if (tEnd < 1) {
-			out.push([tEnd, 0]);
-		}
-		t = tEnd;
+	const period = 1 / teeth;
+	for (let i = 0; i < teeth; i++) {
+		const t0 = i * period;
+		out.push([t0, 0]);
+		out.push([t0 + period, 1]);
+		if (i < teeth - 1) out.push([t0 + period, 0]);
 	}
 	return out;
 }
@@ -662,12 +668,40 @@ export function firstOrderHoldSamples(n = 6): Sample[] {
 	return out;
 }
 
-export function backlashSamples(): Sample[] {
+/** Backlash — closed hysteresis loop: the rising branch, then the falling one
+ *  traced back, so the dead zone between them is visible as an open shape. */
+export function backlashSamples(width = 0.42, gain = 0.8): Sample[] {
 	return [
-		[-1, -0.7],
-		[-0.3, -0.7],
-		[0.3, 0.7],
-		[1, 0.7]
+		// rising branch
+		[-1, -gain],
+		[-1 + 2 * width, -gain],
+		[1, gain],
+		// falling branch, traced back to the start
+		[1 - 2 * width, gain],
+		[-1, -gain]
+	];
+}
+
+/** Discrete random draws — one value per sample instant, rendered as stems. */
+export function randomStemSamples(n = 11, seed = 7): Sample[] {
+	let s = seed;
+	const rand = () => {
+		s = (s * 9301 + 49297) % 233280;
+		return s / 233280;
+	};
+	const out: Sample[] = [];
+	for (let i = 0; i < n; i++) {
+		out.push([(i + 0.5) / n, rand() * 1.8 - 0.9]);
+	}
+	return out;
+}
+
+/** Reconstructed analog ramp for the DAC icon — the smooth counterpart to the
+ *  quantizer staircase. */
+export function rampBipolarSamples(): Sample[] {
+	return [
+		[-1, -1],
+		[1, 1]
 	];
 }
 

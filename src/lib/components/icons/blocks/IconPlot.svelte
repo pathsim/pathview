@@ -16,6 +16,8 @@
 		asymptotes?: number[];
 		/** Small superscript label in the top-right corner (e.g. base of a log). */
 		badge?: string;
+		/** Draw samples as stems from the zero line instead of a connected line. */
+		stems?: boolean;
 	}
 
 	let {
@@ -27,7 +29,8 @@
 		markers = false,
 		decoration,
 		asymptotes,
-		badge
+		badge,
+		stems = false
 	}: Props = $props();
 
 	const path = $derived(buildPath(samples, xRange[0], xRange[1], yRange[0], yRange[1]));
@@ -72,7 +75,15 @@
 	{#if pathDashed}
 		<path d={pathDashed} class="ghost" stroke-dasharray="3.5 3" />
 	{/if}
-	<path d={path} />
+	{#if stems}
+		{#each finiteSamples as [x, v]}
+			{@const sx = mapX(x, xRange[0], xRange[1])}
+			<line x1={sx} y1={xAxisY} x2={sx} y2={mapY(v, yRange[0], yRange[1])} />
+			<circle cx={sx} cy={mapY(v, yRange[0], yRange[1])} r="2.4" fill="currentColor" stroke="none" />
+		{/each}
+	{:else}
+		<path d={path} />
+	{/if}
 	{#if markers}
 		{#each finiteSamples as [x, v]}
 			<circle
