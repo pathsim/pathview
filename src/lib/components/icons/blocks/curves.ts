@@ -707,16 +707,13 @@ export function rampBipolarSamples(): Sample[] {
 
 /* --- Scope-style display signals --------------------------------------- */
 
-/** Superposition of three sin/cos components — visually rich oscilloscope trace */
-export function superposedSignal(n = 220): Sample[] {
+/** Ringing step response — the Scope trace. A decaying oscillation reads as a
+ *  signal at any size and spans the screen without the noise of a superposition. */
+export function scopeTrace(decay = 1.45, cycles = 3, n = 200): Sample[] {
 	const out: Sample[] = [];
 	for (let i = 0; i < n; i++) {
 		const t = i / (n - 1);
-		const v =
-			0.55 * Math.sin(2 * Math.PI * 1.2 * t) +
-			0.4 * Math.sin(2 * Math.PI * 5.2 * t + 0.4) +
-			0.08 * Math.cos(2 * Math.PI * 11 * t);
-		out.push([t, v]);
+		out.push([t, Math.exp(-decay * t) * Math.sin(2 * Math.PI * cycles * t)]);
 	}
 	return out;
 }

@@ -179,7 +179,7 @@ export const iconRegistry: Record<string, IconDef> = {
 	Interface: { kind: 'svg', name: 'Interface' },
 	Scope: {
 		kind: 'scope',
-		samples: () => C.superposedSignal(),
+		samples: () => C.scopeTrace(),
 		yRange: [-1.15, 1.15],
 		gridX: 4,
 		gridY: 2
