@@ -12,7 +12,7 @@
 	import { themeStore, type Theme } from '$lib/stores/theme';
 	import { toggleThemeWithTransition } from '$lib/utils/themeTransition';
 	import { AUTOSAVE_KEY, kvGet, hasFileSystemAccess, type RecentFile } from '$lib/schema/handleStore';
-	import { loadGraphFile, listRecentFiles, openRecentFile, removeRecentFile } from '$lib/schema/fileOps';
+	import { loadGraphFile, restoreFileRef, listRecentFiles, openRecentFile, removeRecentFile } from '$lib/schema/fileOps';
 	import type { GraphFile } from '$lib/nodes/types';
 	import { triggerFitView } from '$lib/stores/viewActions';
 	import { consoleStore } from '$lib/stores/console';
@@ -105,6 +105,11 @@
 					// Python backend) deferred; missing blocks render as
 					// placeholders in the preview and upgrade in the editor.
 					await loadGraphFile(snapshot, { deferToolboxInstall: true, backendReady: new Promise(() => {}) });
+					// Re-attach the session's file reference (name + handle):
+					// clicking through to the editor skips the restore prompt
+					// (graph already populated), so this is where Save gets its
+					// target back.
+					await restoreFileRef(snapshot.metadata?.name !== 'Autosave' ? snapshot.metadata?.name : undefined);
 					preview = 'session';
 				} else {
 					const res = await fetch(`${base}/examples/${DEFAULT_EXAMPLE.filename}`);
