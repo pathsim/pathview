@@ -17,6 +17,9 @@ const RECENTS_STORE = 'recents';
 const RECENTS_LIMIT = 10;
 
 export const AUTOSAVE_KEY = 'autosave';
+// Name + handle of the file the user is working on, persisted next to the
+// autosave blob so a restored session keeps saving to the same file.
+export const LAST_FILE_KEY = 'lastFile';
 
 export interface RecentFile {
 	id: string;

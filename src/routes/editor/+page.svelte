@@ -48,7 +48,7 @@
 	import { resolveBackend } from '$lib/pyodide/backend';
 	import { runGraphStreamingSimulation, validateGraphSimulation, exportToPython } from '$lib/pyodide/pathsimRunner';
 	import { consoleStore } from '$lib/stores/console';
-	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName, loadGraphFile, listRecentFiles, openRecentFile, removeRecentFile, installToolboxesForCurrentGraph } from '$lib/schema/fileOps';
+	import { newGraph, saveFile, saveAsFile, setupAutoSave, clearAutoSave, debouncedAutoSave, openImportDialog, importFromUrl, currentFileName, loadGraphFile, restoreFileRef, listRecentFiles, openRecentFile, removeRecentFile, installToolboxesForCurrentGraph } from '$lib/schema/fileOps';
 	import { AUTOSAVE_KEY, kvGet, hasFileSystemAccess, type RecentFile } from '$lib/schema/handleStore';
 	import type { GraphFile } from '$lib/nodes/types';
 	import { confirmationStore } from '$lib/stores/confirmation';
@@ -730,6 +730,9 @@
 			if (ok) {
 				try {
 					await loadGraphFile(snapshot);
+					// Re-attach the file the session was working on (name +
+					// handle), so Save targets it again instead of a default.
+					await restoreFileRef(snapshot.metadata?.name !== 'Autosave' ? snapshot.metadata?.name : undefined);
 					setTimeout(() => triggerFitView(), 100);
 				} catch (e) {
 					console.warn('Failed to restore autosave:', e);

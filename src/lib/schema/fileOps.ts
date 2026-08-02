@@ -34,6 +34,7 @@ import { nodeRegistry } from '$lib/nodes';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import {
 	AUTOSAVE_KEY,
+	LAST_FILE_KEY,
 	kvDelete,
 	kvGet,
 	kvHas,
@@ -85,6 +86,40 @@ export function getCurrentFileName(): string | null {
 export function clearCurrentFile(): void {
 	currentFileHandle = null;
 	currentFileNameStore.set(null);
+	void kvDelete(LAST_FILE_KEY);
+}
+
+/**
+ * Persist the current file reference (name + handle, when one exists) so a
+ * restored session keeps saving to the file the user was working on. Handles
+ * are structured-cloneable, so IDB stores them as-is (same mechanism as the
+ * recents list); writing resumes after the browser's permission re-prompt.
+ */
+function persistFileRef(): void {
+	const name = getCurrentFileName();
+	if (!name && !currentFileHandle) return;
+	void kvSet(LAST_FILE_KEY, {
+		name,
+		handle: currentFileHandle ?? undefined
+	}).catch(() => {});
+}
+
+/**
+ * Restore the persisted file reference after an autosave snapshot was loaded.
+ * `fallbackName` (e.g. the snapshot's metadata name) applies when no
+ * reference was persisted. No-op when nothing is known.
+ */
+export async function restoreFileRef(fallbackName?: string): Promise<void> {
+	try {
+		const ref = await kvGet<{ name: string | null; handle?: FileSystemFileHandle }>(LAST_FILE_KEY);
+		const name = ref?.name || fallbackName;
+		if (ref?.handle && hasFileSystemAccess()) {
+			currentFileHandle = ref.handle;
+		}
+		if (name) currentFileNameStore.set(name);
+	} catch {
+		if (fallbackName) currentFileNameStore.set(fallbackName);
+	}
 }
 
 /**
@@ -355,7 +390,9 @@ export async function installToolboxesForCurrentGraph(): Promise<void> {
  */
 export async function autoSave(): Promise<void> {
 	try {
-		const file = createGraphFile('Autosave');
+		// Keep the working file's name in the snapshot so a restored session
+		// suggests it again ('Autosave' only for never-saved graphs).
+		const file = createGraphFile(getCurrentFileName() || 'Autosave');
 		await kvSet(AUTOSAVE_KEY, file);
 	} catch (error) {
 		console.warn('Autosave failed:', error);
@@ -412,6 +449,7 @@ export async function loadAutoSave(): Promise<boolean> {
 		}
 
 		await loadGraphFile(file);
+		await restoreFileRef(file.metadata?.name !== 'Autosave' ? file.metadata?.name : undefined);
 		return true;
 	} catch (error) {
 		console.warn('Failed to restore autosave, clearing:', error);
@@ -488,6 +526,7 @@ export async function saveAsFile(): Promise<boolean> {
 			// Update current file reference
 			currentFileHandle = handle;
 			currentFileNameStore.set(name);
+			persistFileRef();
 			void rememberRecent(handle);
 			return true;
 		} catch (error: any) {
@@ -514,6 +553,7 @@ function downloadGraphFile(filename: string): void {
 
 	// Set current file name for subsequent saves
 	currentFileNameStore.set(name);
+	persistFileRef();
 }
 
 /**
@@ -748,6 +788,7 @@ async function importModel(
 		componentFile.metadata.name ||
 		null
 	);
+	persistFileRef();
 	if (currentFileHandle) void rememberRecent(currentFileHandle);
 
 	return { success: true, type: 'model' };
