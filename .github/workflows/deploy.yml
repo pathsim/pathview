@@ -37,6 +37,13 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"  # Strip 'v' prefix if present
+          CURRENT="$(node -p "require('./package.json').version")"
+          # Idempotent: skip when the version was already bumped before the
+          # release was cut (npm version errors on an unchanged version).
+          if [[ "$CURRENT" == "$VERSION" ]]; then
+            echo "package.json already at $VERSION, skipping bump"
+            exit 0
+          fi
           echo "Updating package.json version to $VERSION"
           npm version $VERSION --no-git-tag-version
           git config user.name "github-actions[bot]"
