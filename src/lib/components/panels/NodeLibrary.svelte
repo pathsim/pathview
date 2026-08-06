@@ -346,6 +346,10 @@
 	.node-grid-container {
 		flex: 1;
 		overflow-y: auto;
+		/* Chromium scroll anchoring miscalculates the hover-driven layout
+		   changes (tile translateY, detail panel) and jumps the scroll
+		   position, see issue #329 */
+		overflow-anchor: none;
 		min-height: 0;
 		padding: var(--space-md);
 		background: var(--surface);
