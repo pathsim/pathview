@@ -1572,7 +1572,6 @@
 			{#snippet footer()}
 				<div class="library-footer">
 					<span>Click or drag to add</span>
-					<span>â†‘â†“ Enter</span>
 				</div>
 			{/snippet}
 			<NodeLibrary
