@@ -1,1 +1,0 @@
-function t(e){return null}const a={key:"pathsim",name:"PathView",logo:"pathview_logo.png",accent:"#0070C0",keywordColor:"#E57373",home:"https://pathsim.org",framework:"PathSim",tracePalette:t()??["#E57373","#81C784","#64B5F6","#BA68C8","#4DD0E1","#FFB74D","#F06292","#4DB6AC","#90A4AE"]};export{a as B};
