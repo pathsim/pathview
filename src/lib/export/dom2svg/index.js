@@ -2006,192 +2006,6 @@ function extractRotationDeg(transform) {
   return Math.atan2(b, a) * (180 / Math.PI);
 }
 
-// src/renderers/svg-element.ts
-function renderSvgElement(element, ctx) {
-  const computedColor = window.getComputedStyle(element).color || "rgb(0, 0, 0)";
-  const clone = cloneWithNamespace(element, ctx);
-  resolveCurrentColor(clone, computedColor);
-  rewriteIds(clone, ctx);
-  return clone;
-}
-function cloneWithNamespace(node, ctx, resolveDepth = 0) {
-  if (node.localName === "use" && resolveDepth < 5) {
-    const resolved = resolveUseElement(node, ctx, resolveDepth);
-    if (resolved) return resolved;
-  }
-  const flattenSvg = ctx.compat.flattenNestedSvg && node.localName === "svg" && node.ownerSVGElement !== null && !node.getAttribute("viewBox");
-  const clone = ctx.svgDocument.createElementNS(
-    node.namespaceURI || SVG_NS,
-    flattenSvg ? "g" : node.localName
-  );
-  const stripStyle = ctx.compat.avoidStyleAttributes;
-  const svgGeomAttrs = /* @__PURE__ */ new Set(["x", "y", "width", "height", "overflow", "viewBox"]);
-  for (const attr of Array.from(node.attributes)) {
-    if (stripStyle && (attr.localName === "style" || attr.localName === "class")) {
-      continue;
-    }
-    if (flattenSvg && svgGeomAttrs.has(attr.localName)) {
-      continue;
-    }
-    if (attr.namespaceURI === XLINK_NS) {
-      clone.setAttributeNS(XLINK_NS, attr.localName, attr.value);
-    } else if (attr.namespaceURI) {
-      clone.setAttributeNS(attr.namespaceURI, attr.localName, attr.value);
-    } else {
-      clone.setAttribute(attr.localName, attr.value);
-    }
-  }
-  if (flattenSvg) {
-    const x = parseFloat(node.getAttribute("x") || "0") || 0;
-    const y = parseFloat(node.getAttribute("y") || "0") || 0;
-    if (x !== 0 || y !== 0) {
-      clone.setAttribute("transform", `translate(${x},${y})`);
-    }
-  }
-  inlineSvgPresentationStyles(node, clone, ctx);
-  for (const child of Array.from(node.childNodes)) {
-    if (child.nodeType === Node.ELEMENT_NODE) {
-      clone.appendChild(cloneWithNamespace(child, ctx, resolveDepth));
-    } else if (child.nodeType === Node.TEXT_NODE) {
-      clone.appendChild(ctx.svgDocument.createTextNode(child.textContent || ""));
-    }
-  }
-  return clone;
-}
-function resolveUseElement(useEl, ctx, resolveDepth) {
-  const href = useEl.getAttribute("href") || useEl.getAttributeNS(XLINK_NS, "href");
-  if (!href || !href.startsWith("#")) return null;
-  const refId = href.slice(1);
-  const refEl = document.getElementById(refId);
-  if (!refEl) return null;
-  const group = ctx.svgDocument.createElementNS(SVG_NS, "g");
-  const skipAttrs = /* @__PURE__ */ new Set(["href", "xlink:href", "x", "y", "width", "height"]);
-  for (const attr of Array.from(useEl.attributes)) {
-    if (skipAttrs.has(attr.localName)) continue;
-    if (attr.namespaceURI === XLINK_NS) continue;
-    if (attr.namespaceURI) {
-      group.setAttributeNS(attr.namespaceURI, attr.localName, attr.value);
-    } else {
-      group.setAttribute(attr.localName, attr.value);
-    }
-  }
-  const x = parseFloat(useEl.getAttribute("x") || "0") || 0;
-  const y = parseFloat(useEl.getAttribute("y") || "0") || 0;
-  if (x !== 0 || y !== 0) {
-    const existing = group.getAttribute("transform") || "";
-    group.setAttribute("transform", `translate(${x},${y}) ${existing}`.trim());
-  }
-  inlineSvgPresentationStyles(useEl, group, ctx);
-  if (refEl.localName === "symbol") {
-    const viewBox = refEl.getAttribute("viewBox");
-    const width = useEl.getAttribute("width") || refEl.getAttribute("width");
-    const height = useEl.getAttribute("height") || refEl.getAttribute("height");
-    const wrapper = ctx.svgDocument.createElementNS(SVG_NS, "svg");
-    if (viewBox) wrapper.setAttribute("viewBox", viewBox);
-    if (width) wrapper.setAttribute("width", width);
-    if (height) wrapper.setAttribute("height", height);
-    wrapper.setAttribute("overflow", "hidden");
-    for (const child of Array.from(refEl.childNodes)) {
-      if (child.nodeType === Node.ELEMENT_NODE) {
-        wrapper.appendChild(cloneWithNamespace(child, ctx, resolveDepth + 1));
-      }
-    }
-    group.appendChild(wrapper);
-  } else {
-    group.appendChild(cloneWithNamespace(refEl, ctx, resolveDepth + 1));
-  }
-  return group;
-}
-function inlineSvgPresentationStyles(source, clone, ctx) {
-  const styles = window.getComputedStyle(source);
-  if (!clone.hasAttribute("fill")) {
-    const fill = styles.fill;
-    if (fill && fill !== "rgb(0, 0, 0)") {
-      clone.setAttribute("fill", fill);
-    }
-  }
-  if (!clone.hasAttribute("stroke")) {
-    const stroke = styles.stroke;
-    if (stroke && stroke !== "none") {
-      clone.setAttribute("stroke", stroke);
-    }
-  }
-  if (!clone.hasAttribute("opacity")) {
-    const opacity = styles.opacity;
-    if (opacity === "0") {
-      clone.setAttribute("opacity", "0");
-    } else if (!ctx.compat.stripGroupOpacity && opacity && opacity !== "1") {
-      clone.setAttribute("opacity", opacity);
-    }
-  }
-}
-function rewriteIds(root, ctx) {
-  const idMap = /* @__PURE__ */ new Map();
-  const allElements = root.querySelectorAll("[id]");
-  for (const el of Array.from(allElements)) {
-    const oldId = el.getAttribute("id");
-    const newId = ctx.idGenerator.next("svg");
-    idMap.set(oldId, newId);
-    el.setAttribute("id", newId);
-  }
-  if (root.hasAttribute("id")) {
-    const oldId = root.getAttribute("id");
-    if (!idMap.has(oldId)) {
-      const newId = ctx.idGenerator.next("svg");
-      idMap.set(oldId, newId);
-      root.setAttribute("id", newId);
-    }
-  }
-  if (idMap.size === 0) return;
-  rewriteUrlReferences(root, idMap);
-}
-function rewriteUrlReferences(element, idMap) {
-  for (const attr of Array.from(element.attributes)) {
-    if (attr.value.includes("url(#")) {
-      let newValue = attr.value;
-      for (const [oldId, newId] of idMap) {
-        newValue = newValue.replace(
-          new RegExp(`url\\(#${escapeRegex(oldId)}\\)`, "g"),
-          `url(#${newId})`
-        );
-      }
-      if (newValue !== attr.value) {
-        element.setAttribute(attr.localName, newValue);
-      }
-    }
-    if ((attr.localName === "href" || attr.localName === "xlink:href") && attr.value.startsWith("#")) {
-      const refId = attr.value.slice(1);
-      if (idMap.has(refId)) {
-        if (attr.namespaceURI === XLINK_NS) {
-          element.setAttributeNS(XLINK_NS, "href", `#${idMap.get(refId)}`);
-        } else {
-          element.setAttribute(attr.localName, `#${idMap.get(refId)}`);
-        }
-      }
-    }
-  }
-  for (const child of Array.from(element.children)) {
-    if (child instanceof SVGElement) {
-      rewriteUrlReferences(child, idMap);
-    }
-  }
-}
-function resolveCurrentColor(element, color) {
-  for (const attr of Array.from(element.attributes)) {
-    if (attr.value === "currentColor") {
-      element.setAttribute(attr.localName, color);
-    }
-  }
-  for (const child of Array.from(element.children)) {
-    if (child instanceof SVGElement) {
-      resolveCurrentColor(child, color);
-    }
-  }
-}
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 // src/assets/fonts.ts
 var FONT_TIMEOUT_MS = 1e4;
 function createFontCache(mapping) {
@@ -2276,6 +2090,349 @@ function textToPath(font, text, x, y, fontSize) {
 function cleanFontFamily(fontFamily) {
   const first = fontFamily.split(",")[0]?.trim() ?? fontFamily;
   return first.replace(/^["']|["']$/g, "");
+}
+
+// src/renderers/svg-presentation.ts
+var COMMON_PROPERTIES = [
+  ["fill", "rgb(0, 0, 0)"],
+  ["stroke", "none"],
+  ["fill-opacity", "1"],
+  ["fill-rule", "nonzero"],
+  ["clip-rule", "nonzero"],
+  ["paint-order", "normal"],
+  ["shape-rendering", "auto"],
+  ["vector-effect", "none"],
+  ["visibility", "visible"],
+  ["marker-start", "none"],
+  ["marker-mid", "none"],
+  ["marker-end", "none"]
+];
+var STROKE_PROPERTIES = [
+  ["stroke-width", "1"],
+  ["stroke-opacity", "1"],
+  ["stroke-linecap", "butt"],
+  ["stroke-linejoin", "miter"],
+  ["stroke-miterlimit", "4"],
+  ["stroke-dasharray", "none"],
+  ["stroke-dashoffset", "0"]
+];
+var TEXT_PROPERTIES = [
+  ["font-weight", "400"],
+  ["font-style", "normal"],
+  ["font-variant", "normal"],
+  ["letter-spacing", "normal"],
+  ["word-spacing", "normal"],
+  ["text-anchor", "start"],
+  ["dominant-baseline", "auto"],
+  // The `text-decoration` shorthand computes to a value like
+  // "underline solid rgb(0, 0, 0)", which no SVG attribute accepts
+  ["text-decoration-line", "none"]
+];
+var ATTRIBUTE_NAMES = {
+  "text-decoration-line": "text-decoration"
+};
+var TEXT_ELEMENTS = /* @__PURE__ */ new Set(["text", "tspan", "textPath", "tref", "altGlyph"]);
+var LENGTH_PROPERTIES = /* @__PURE__ */ new Set([
+  "stroke-width",
+  "stroke-dasharray",
+  "stroke-dashoffset",
+  "font-size",
+  "letter-spacing",
+  "word-spacing"
+]);
+function normalize(property, value) {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (!LENGTH_PROPERTIES.has(property)) return trimmed;
+  return trimmed.replace(/(-?[\d.]+)px/g, "$1");
+}
+function isTextContentElement(localName) {
+  return TEXT_ELEMENTS.has(localName);
+}
+function collectSvgPresentationAttributes(styles, localName) {
+  const attributes = {};
+  function take(property, initial) {
+    const raw = styles.getPropertyValue(property);
+    if (!raw) return;
+    const value = normalize(property, raw);
+    if (!value || initial !== null && value === initial) return;
+    attributes[ATTRIBUTE_NAMES[property] ?? property] = value;
+  }
+  for (const [property, initial] of COMMON_PROPERTIES) {
+    take(property, initial);
+  }
+  const stroke = styles.getPropertyValue("stroke").trim();
+  if (stroke && stroke !== "none") {
+    for (const [property, initial] of STROKE_PROPERTIES) {
+      take(property, initial);
+    }
+  }
+  if (isTextContentElement(localName)) {
+    take("font-family", null);
+    take("font-size", null);
+    for (const [property, initial] of TEXT_PROPERTIES) {
+      take(property, initial);
+    }
+  }
+  return attributes;
+}
+
+// src/renderers/svg-element.ts
+async function renderSvgElement(element, ctx) {
+  const computedColor = window.getComputedStyle(element).color || "rgb(0, 0, 0)";
+  const clone = await cloneWithNamespace(element, ctx);
+  resolveCurrentColor(clone, computedColor);
+  rewriteIds(clone, ctx);
+  return clone;
+}
+async function cloneWithNamespace(node, ctx, resolveDepth = 0) {
+  if (node.localName === "use" && resolveDepth < 5) {
+    const resolved = await resolveUseElement(node, ctx, resolveDepth);
+    if (resolved) return resolved;
+  }
+  if (node.localName === "text") {
+    const outlined = await textElementToPath(node, ctx);
+    if (outlined) return outlined;
+  }
+  const flattenSvg = ctx.compat.flattenNestedSvg && node.localName === "svg" && node.ownerSVGElement !== null && !node.getAttribute("viewBox");
+  const clone = ctx.svgDocument.createElementNS(
+    node.namespaceURI || SVG_NS,
+    flattenSvg ? "g" : node.localName
+  );
+  const stripStyle = ctx.compat.avoidStyleAttributes;
+  const svgGeomAttrs = /* @__PURE__ */ new Set(["x", "y", "width", "height", "overflow", "viewBox"]);
+  for (const attr of Array.from(node.attributes)) {
+    if (stripStyle && (attr.localName === "style" || attr.localName === "class")) {
+      continue;
+    }
+    if (flattenSvg && svgGeomAttrs.has(attr.localName)) {
+      continue;
+    }
+    if (attr.namespaceURI === XLINK_NS) {
+      clone.setAttributeNS(XLINK_NS, attr.localName, attr.value);
+    } else if (attr.namespaceURI) {
+      clone.setAttributeNS(attr.namespaceURI, attr.localName, attr.value);
+    } else {
+      clone.setAttribute(attr.localName, attr.value);
+    }
+  }
+  if (flattenSvg) {
+    const x = parseFloat(node.getAttribute("x") || "0") || 0;
+    const y = parseFloat(node.getAttribute("y") || "0") || 0;
+    if (x !== 0 || y !== 0) {
+      clone.setAttribute("transform", `translate(${x},${y})`);
+    }
+  }
+  inlineSvgPresentationStyles(node, clone, ctx);
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      clone.appendChild(await cloneWithNamespace(child, ctx, resolveDepth));
+    } else if (child.nodeType === Node.TEXT_NODE) {
+      clone.appendChild(ctx.svgDocument.createTextNode(child.textContent || ""));
+    }
+  }
+  return clone;
+}
+async function resolveUseElement(useEl, ctx, resolveDepth) {
+  const href = useEl.getAttribute("href") || useEl.getAttributeNS(XLINK_NS, "href");
+  if (!href || !href.startsWith("#")) return null;
+  const refId = href.slice(1);
+  const refEl = document.getElementById(refId);
+  if (!refEl) return null;
+  const group = ctx.svgDocument.createElementNS(SVG_NS, "g");
+  const skipAttrs = /* @__PURE__ */ new Set(["href", "xlink:href", "x", "y", "width", "height"]);
+  for (const attr of Array.from(useEl.attributes)) {
+    if (skipAttrs.has(attr.localName)) continue;
+    if (attr.namespaceURI === XLINK_NS) continue;
+    if (attr.namespaceURI) {
+      group.setAttributeNS(attr.namespaceURI, attr.localName, attr.value);
+    } else {
+      group.setAttribute(attr.localName, attr.value);
+    }
+  }
+  const x = parseFloat(useEl.getAttribute("x") || "0") || 0;
+  const y = parseFloat(useEl.getAttribute("y") || "0") || 0;
+  if (x !== 0 || y !== 0) {
+    const existing = group.getAttribute("transform") || "";
+    group.setAttribute("transform", `translate(${x},${y}) ${existing}`.trim());
+  }
+  inlineSvgPresentationStyles(useEl, group, ctx);
+  if (refEl.localName === "symbol") {
+    const viewBox = refEl.getAttribute("viewBox");
+    const width = useEl.getAttribute("width") || refEl.getAttribute("width");
+    const height = useEl.getAttribute("height") || refEl.getAttribute("height");
+    const wrapper = ctx.svgDocument.createElementNS(SVG_NS, "svg");
+    if (viewBox) wrapper.setAttribute("viewBox", viewBox);
+    if (width) wrapper.setAttribute("width", width);
+    if (height) wrapper.setAttribute("height", height);
+    wrapper.setAttribute("overflow", "hidden");
+    for (const child of Array.from(refEl.childNodes)) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        wrapper.appendChild(await cloneWithNamespace(child, ctx, resolveDepth + 1));
+      }
+    }
+    group.appendChild(wrapper);
+  } else {
+    group.appendChild(await cloneWithNamespace(refEl, ctx, resolveDepth + 1));
+  }
+  return group;
+}
+function inlineSvgPresentationStyles(source, clone, ctx) {
+  const styles = window.getComputedStyle(source);
+  const presentation = collectSvgPresentationAttributes(styles, source.localName);
+  for (const [name, value] of Object.entries(presentation)) {
+    if (!clone.hasAttribute(name)) {
+      clone.setAttribute(name, value);
+    }
+  }
+  if (!clone.hasAttribute("opacity")) {
+    const opacity = styles.opacity;
+    if (opacity === "0") {
+      clone.setAttribute("opacity", "0");
+    } else if (!ctx.compat.stripGroupOpacity && opacity && opacity !== "1") {
+      clone.setAttribute("opacity", opacity);
+    }
+  }
+}
+var TEXT_PAINT_ATTRIBUTES = [
+  "fill",
+  "fill-opacity",
+  "fill-rule",
+  "stroke",
+  "stroke-width",
+  "stroke-opacity",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-dasharray",
+  "paint-order",
+  "visibility"
+];
+async function textElementToPath(node, ctx) {
+  if (!ctx.options.textToPath || !ctx.fontCache) return null;
+  if (node.children.length > 0) return null;
+  const text = node.textContent ?? "";
+  if (!text.trim()) return null;
+  const styles = window.getComputedStyle(node);
+  const fontFamily = cleanFontFamily(styles.fontFamily);
+  if (!ctx.fontCache.has(fontFamily)) return null;
+  const spacing = [styles.letterSpacing, styles.wordSpacing];
+  if (spacing.some((value) => value && value !== "normal" && parseFloat(value) !== 0)) {
+    return null;
+  }
+  const font = await ctx.fontCache.getFont(fontFamily, styles.fontWeight, styles.fontStyle);
+  if (!font) return null;
+  let origin;
+  try {
+    const position = node.getStartPositionOfChar(0);
+    origin = { x: position.x, y: position.y };
+  } catch {
+    return null;
+  }
+  const fontSize = parseFloat(styles.fontSize) || 16;
+  const pathData = textToPath(font, text, origin.x, origin.y, fontSize);
+  if (!pathData) return null;
+  const presentation = collectSvgPresentationAttributes(styles, node.localName);
+  const paint = { fill: styles.fill || "rgb(0, 0, 0)" };
+  for (const name of TEXT_PAINT_ATTRIBUTES) {
+    const value = presentation[name];
+    if (value) paint[name] = value;
+  }
+  const outlined = paintsStrokeFirst(paint) ? haloedGlyphPaths(pathData, paint, ctx) : glyphPath(pathData, paint, ctx);
+  const transform = node.getAttribute("transform");
+  if (transform) outlined.setAttribute("transform", transform);
+  return outlined;
+}
+function paintsStrokeFirst(paint) {
+  const order = paint["paint-order"];
+  if (!order || !paint.stroke || paint.stroke === "none") return false;
+  return /^(markers\s+)?stroke\b/.test(order);
+}
+function glyphPath(pathData, paint, ctx) {
+  const path = ctx.svgDocument.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", pathData);
+  for (const [name, value] of Object.entries(paint)) {
+    path.setAttribute(name, value);
+  }
+  return path;
+}
+function haloedGlyphPaths(pathData, paint, ctx) {
+  const halo = { fill: "none" };
+  const glyphs = {};
+  for (const [name, value] of Object.entries(paint)) {
+    if (name === "paint-order") continue;
+    if (name.startsWith("stroke")) halo[name] = value;
+    else glyphs[name] = value;
+  }
+  if (paint.visibility) halo.visibility = paint.visibility;
+  const group = ctx.svgDocument.createElementNS(SVG_NS, "g");
+  group.appendChild(glyphPath(pathData, halo, ctx));
+  group.appendChild(glyphPath(pathData, glyphs, ctx));
+  return group;
+}
+function rewriteIds(root, ctx) {
+  const idMap = /* @__PURE__ */ new Map();
+  const allElements = root.querySelectorAll("[id]");
+  for (const el of Array.from(allElements)) {
+    const oldId = el.getAttribute("id");
+    const newId = ctx.idGenerator.next("svg");
+    idMap.set(oldId, newId);
+    el.setAttribute("id", newId);
+  }
+  if (root.hasAttribute("id")) {
+    const oldId = root.getAttribute("id");
+    if (!idMap.has(oldId)) {
+      const newId = ctx.idGenerator.next("svg");
+      idMap.set(oldId, newId);
+      root.setAttribute("id", newId);
+    }
+  }
+  if (idMap.size === 0) return;
+  rewriteUrlReferences(root, idMap);
+}
+function rewriteUrlReferences(element, idMap) {
+  for (const attr of Array.from(element.attributes)) {
+    if (attr.value.includes("url(#")) {
+      let newValue = attr.value;
+      for (const [oldId, newId] of idMap) {
+        newValue = newValue.replace(
+          new RegExp(`url\\(#${escapeRegex(oldId)}\\)`, "g"),
+          `url(#${newId})`
+        );
+      }
+      if (newValue !== attr.value) {
+        element.setAttribute(attr.localName, newValue);
+      }
+    }
+    if ((attr.localName === "href" || attr.localName === "xlink:href") && attr.value.startsWith("#")) {
+      const refId = attr.value.slice(1);
+      if (idMap.has(refId)) {
+        if (attr.namespaceURI === XLINK_NS) {
+          element.setAttributeNS(XLINK_NS, "href", `#${idMap.get(refId)}`);
+        } else {
+          element.setAttribute(attr.localName, `#${idMap.get(refId)}`);
+        }
+      }
+    }
+  }
+  for (const child of Array.from(element.children)) {
+    if (child instanceof SVGElement) {
+      rewriteUrlReferences(child, idMap);
+    }
+  }
+}
+function resolveCurrentColor(element, color) {
+  for (const attr of Array.from(element.attributes)) {
+    if (attr.value === "currentColor") {
+      element.setAttribute(attr.localName, color);
+    }
+  }
+  for (const child of Array.from(element.children)) {
+    if (child instanceof SVGElement) {
+      resolveCurrentColor(child, color);
+    }
+  }
+}
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // src/assets/text-shadow.ts
@@ -2672,7 +2829,7 @@ async function walkElement(element, rootElement, ctx) {
   }
   if (isSvgElement(element) && element !== rootElement) {
     const box = getRelativeBox(element, rootElement);
-    const clone = renderSvgElement(element, ctx);
+    const clone = await renderSvgElement(element, ctx);
     if (element.tagName.toLowerCase() === "svg") {
       clone.setAttribute("x", String(box.x));
       clone.setAttribute("y", String(box.y));
