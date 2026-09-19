@@ -2320,14 +2320,9 @@ async function textElementToPath(node, ctx) {
   }
   const font = await ctx.fontCache.getFont(fontFamily, styles.fontWeight, styles.fontStyle);
   if (!font) return null;
-  let origin;
-  try {
-    const position = node.getStartPositionOfChar(0);
-    origin = { x: position.x, y: position.y };
-  } catch {
-    return null;
-  }
   const fontSize = parseFloat(styles.fontSize) || 16;
+  const origin = glyphOrigin(node, font, fontSize);
+  if (!origin) return null;
   const pathData = textToPath(font, text, origin.x, origin.y, fontSize);
   if (!pathData) return null;
   const presentation = collectSvgPresentationAttributes(styles, node.localName);
@@ -2340,6 +2335,18 @@ async function textElementToPath(node, ctx) {
   const transform = node.getAttribute("transform");
   if (transform) outlined.setAttribute("transform", transform);
   return outlined;
+}
+function glyphOrigin(node, font, fontSize) {
+  const unitsPerEm = font?.unitsPerEm;
+  const ascender = font?.ascender;
+  if (!unitsPerEm || typeof ascender !== "number") return null;
+  try {
+    const start = node.getStartPositionOfChar(0);
+    const box = node.getBBox();
+    return { x: start.x, y: box.y + ascender / unitsPerEm * fontSize };
+  } catch {
+    return null;
+  }
 }
 function paintsStrokeFirst(paint) {
   const order = paint["paint-order"];
