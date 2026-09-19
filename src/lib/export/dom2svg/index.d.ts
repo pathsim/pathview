@@ -8,18 +8,28 @@ interface FontConfig {
 type FontMapping = Record<string, string | FontConfig | FontConfig[]>;
 /** SVG compatibility configuration flags */
 interface SvgCompatConfig {
+    /** Use <clipPath> instead of <mask> for overflow clipping */
     useClipPathForOverflow: boolean;
+    /** Skip CSS filter effects (blur, brightness, etc.) */
     stripFilters: boolean;
+    /** Skip box-shadow rendering */
     stripBoxShadows: boolean;
+    /** Skip CSS mask-image */
     stripMaskImage: boolean;
+    /** Skip text-shadow filters */
     stripTextShadows: boolean;
+    /** No style= attributes on SVG elements */
     avoidStyleAttributes: boolean;
+    /** No xml:space="preserve" on <text> elements */
     stripXmlSpace: boolean;
+    /** Skip group-level opacity (prevents Inkscape from rasterizing subtrees) */
     stripGroupOpacity: boolean;
+    /** Avoid transform attributes inside <clipPath> (Inkscape ignores them) */
     inlineClipPathTransforms: boolean;
+    /** Convert nested <svg> to <g> with translate (Inkscape clips overflow:visible) */
     flattenNestedSvg: boolean;
 }
-/** SVG compatibility preset */
+/** SVG compatibility preset: 'full' (default), 'inkscape' (LaTeX/Inkscape safe), or custom config */
 type SvgCompat = 'full' | 'inkscape' | SvgCompatConfig;
 /** Options for domToSvg() */
 interface DomToSvgOptions {
