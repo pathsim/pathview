@@ -13,6 +13,7 @@ import type { ComponentFile, ComponentType, BlockContent, SubsystemContent } fro
 import type { Position } from '$lib/types';
 import { ALL_COMPONENT_EXTENSIONS, COMPONENT_VERSION } from '$lib/types/component';
 import { cleanNodeForExport } from './cleanParams';
+import { migrateGraphFile } from './migrate';
 import { graphStore, cloneNodeForPaste } from '$lib/stores/graph';
 import { eventStore } from '$lib/stores/events';
 import { settingsStore } from '$lib/stores/settings';
@@ -162,48 +163,6 @@ export function createGraphFile(name?: string): GraphFile {
 		},
 		simulationSettings: cleanedSettings,
 		...(requiredToolboxes.length > 0 ? { requiredToolboxes } : {})
-	};
-}
-
-/**
- * Migrate old node type format to new format
- * Old: 'pathsim.sources.StepSource' -> New: 'StepSource'
- */
-function migrateNodeType(type: string): string {
-	if (type.startsWith('pathsim.')) {
-		// Extract the last part after the final dot
-		const parts = type.split('.');
-		return parts[parts.length - 1];
-	}
-	return type;
-}
-
-/**
- * Migrate a GraphFile from old format to new format
- */
-function migrateGraphFile(file: GraphFile): GraphFile {
-	const migrateNodes = (nodes: NodeInstance[]): NodeInstance[] => {
-		return nodes.map(node => {
-			const migratedNode = { ...node, type: migrateNodeType(node.type) };
-			// Recursively migrate subsystem graphs (preserving connections, annotations, and events)
-			if (migratedNode.graph) {
-				migratedNode.graph = {
-					nodes: migrateNodes(migratedNode.graph.nodes || []),
-					connections: migratedNode.graph.connections || [],
-					annotations: migratedNode.graph.annotations,
-					events: migratedNode.graph.events
-				};
-			}
-			return migratedNode;
-		});
-	};
-
-	return {
-		...file,
-		graph: file.graph ? {
-			...file.graph,
-			nodes: migrateNodes(file.graph.nodes || [])
-		} : file.graph
 	};
 }
 
