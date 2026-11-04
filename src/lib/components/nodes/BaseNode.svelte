@@ -10,7 +10,7 @@
 	import { pinnedPreviewsStore } from '$lib/stores/pinnedPreviews';
 	import { portLabelsStore } from '$lib/stores/portLabels';
 	import { iconModeStore } from '$lib/stores/iconMode';
-	import BlockIcon, { hasBlockIcon } from '$lib/components/icons/BlockIcon.svelte';
+	import BlockIcon from '$lib/components/icons/BlockIcon.svelte';
 	import { PREVIEW_GAP, previewSideForRotation } from '$lib/utils/previewBounds';
 	import { selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { paramInput } from '$lib/actions/paramInput';
@@ -88,10 +88,9 @@
 	const nodeShowOutputLabels = $derived(data.params?.['_showOutputLabels'] as boolean | undefined);
 	const nodeIconMode = $derived(data.params?.['_iconMode'] as boolean | undefined);
 
-	// Effective icon-mode and whether an icon exists for this block class
+	// Effective icon-mode and whether the block class has an icon
 	const effectiveIconMode = $derived(nodeIconMode ?? globalIconMode);
-	const blockIconKey = $derived(typeDef?.blockClass ?? typeDef?.type);
-	const showIcon = $derived(effectiveIconMode && hasBlockIcon(blockIconKey));
+	const showIcon = $derived(effectiveIconMode && !!typeDef?.icon);
 
 	// Effective visibility settings (per-node overrides global)
 	const showInputLabels = $derived(nodeShowInputLabels ?? globalShowPortLabels);
@@ -332,7 +331,7 @@
 			{/if}
 			{#if showIcon}
 				<div class="node-icon">
-					<BlockIcon blockClass={blockIconKey} title={typeDef?.name} />
+					<BlockIcon icon={typeDef?.icon ?? ''} title={typeDef?.name} />
 				</div>
 			{:else if typeDef}
 				<span class="node-type">{typeDef.name}</span>
@@ -537,14 +536,6 @@
 		align-items: center;
 		justify-content: center;
 		color: var(--node-color);
-	}
-
-	.node-icon :global(svg) {
-		width: 100%;
-		height: 100%;
-		max-width: 100%;
-		max-height: 100%;
-		display: block;
 	}
 
 	.node-type.missing {

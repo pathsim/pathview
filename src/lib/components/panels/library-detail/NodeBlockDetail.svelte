@@ -35,7 +35,7 @@
 			{/if}
 		</div>
 		<div class="detail-preview">
-			<CanvasBlockPreview {node} />
+			<CanvasBlockPreview {node} showIcon />
 		</div>
 	</div>
 

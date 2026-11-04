@@ -226,9 +226,12 @@ function createNodeFromExtracted(
 		params
 	});
 
-	// Add docstringHtml from extracted data
+	// Add docstringHtml and icon from extracted data
 	if (extracted.docstringHtml) {
 		definition.docstring = extracted.docstringHtml;
+	}
+	if (extracted.icon) {
+		definition.icon = extracted.icon;
 	}
 
 	nodeRegistry.register(definition, BUILTIN_SOURCE);

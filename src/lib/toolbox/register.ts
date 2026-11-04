@@ -120,6 +120,9 @@ function buildBlockDefinition(
 	if (block.docstringHtml) {
 		definition.docstring = block.docstringHtml;
 	}
+	if (block.icon) {
+		definition.icon = block.icon;
+	}
 
 	return definition;
 }

@@ -32,11 +32,8 @@ from pathview_introspect import (  # noqa: E402
     first_line as extract_first_line,
     param_desc as extract_param_description,
     infer_type as infer_param_type,
-    format_default,
-    process_port_labels,
     extract_block,
-    extract_event,
-    extract_params_from_signature,
+    block_icon,
 )
 
 
@@ -231,7 +228,8 @@ class BlockExtractor:
                             "docstringHtml": rst_to_html(cls.__doc__),
                             "params": {},
                             "inputs": [],
-                            "outputs": []
+                            "outputs": [],
+                            "icon": block_icon(cls)
                         }
                         print(f"    Extracted {class_name} (docstring only)")
                 except Exception as e:
@@ -240,96 +238,21 @@ class BlockExtractor:
         return all_blocks, block_config, block_import_paths
 
     def _extract_block(self, cls, config: dict) -> dict:
-        """Extract metadata from a single block class using .info()."""
-        # Try to use .info() classmethod first
-        if hasattr(cls, 'info'):
-            try:
-                info = cls.info()
-                return self._extract_from_info(cls, info)
-            except Exception as e:
-                print(f"      Warning: .info() failed for {cls.__name__}, falling back to introspection: {e}")
-
-        # Fallback to direct introspection
-        return self._extract_from_introspection(cls)
-
-    def _extract_from_info(self, cls, info: dict) -> dict:
-        """Extract metadata using Block.info() return value."""
-        inputs = self._process_port_labels(info.get("input_port_labels"))
-        outputs = self._process_port_labels(info.get("output_port_labels"))
-
-        # Process parameters
-        params = {}
-        for name, param_info in info.get("parameters", {}).items():
-            default = param_info.get("default")
-            params[name] = {
-                "type": infer_param_type(default, name),
-                "default": format_default(default),
-                "description": extract_param_description(info.get("description") or "", name)
-            }
-
+        """Extract metadata from a single block class with the canonical
+        `extract_block`, mapped to the schema of the generated blocks file."""
+        block = extract_block(cls)
         return {
-            "blockClass": info.get("type", cls.__name__),
-            "description": extract_first_line(info.get("description") or ""),
-            "docstringHtml": rst_to_html(info.get("description") or ""),
-            "params": params,
-            "inputs": inputs,
-            "outputs": outputs
+            "blockClass": block["className"],
+            "description": block["description"],
+            "docstringHtml": block["docstringHtml"],
+            "params": {
+                p["name"]: {k: p[k] for k in ("type", "default", "description")}
+                for p in block["params"]
+            },
+            "inputs": block["inputs"],
+            "outputs": block["outputs"],
+            "icon": block["icon"],
         }
-
-    def _extract_from_introspection(self, cls) -> dict:
-        """Extract metadata using Python introspection (fallback)."""
-        sig = inspect.signature(cls.__init__)
-        docstring = cls.__doc__ or ""
-
-        # Extract parameters
-        params = {}
-        for name, param in sig.parameters.items():
-            if name == "self":
-                continue
-            default = None if param.default is inspect.Parameter.empty else param.default
-            params[name] = {
-                "type": infer_param_type(default, name),
-                "default": format_default(default),
-                "description": extract_param_description(docstring, name)
-            }
-
-        # Try to instantiate to get ports
-        try:
-            instance = cls()
-            inputs = list(getattr(instance.inputs, "_mapping", {}).keys()) if hasattr(instance, "inputs") else []
-            outputs = list(getattr(instance.outputs, "_mapping", {}).keys()) if hasattr(instance, "outputs") else []
-        except Exception:
-            inputs = []
-            outputs = []
-
-        return {
-            "blockClass": cls.__name__,
-            "description": extract_first_line(docstring),
-            "docstringHtml": rst_to_html(docstring),
-            "params": params,
-            "inputs": inputs,
-            "outputs": outputs
-        }
-
-    def _process_port_labels(self, labels: dict | None) -> list[str] | None:
-        """Convert port_labels dict to list of names.
-
-        Port label semantics from Block.info():
-        - None: Variable/unlimited ports -> return None
-        - {}: No ports of this type -> return []
-        - {"name": index, ...}: Fixed labeled ports -> return sorted list
-        """
-        if labels is None:
-            # Variable/unlimited ports - UI should allow add/remove
-            return None
-
-        if not labels:
-            # Empty dict - no ports of this type
-            return []
-
-        # Sort by index value and return names (fixed ports)
-        sorted_items = sorted(labels.items(), key=lambda x: x[1])
-        return [name for name, _ in sorted_items]
 
     def _import_module(self, import_path: str) -> Any:
         """Import and cache a module."""
@@ -747,6 +670,7 @@ class TypeScriptGenerator:
             "  params: Record<string, ExtractedParam>;",
             "  inputs: string[] | null;  // null = variable/unlimited, [] = none, [...] = fixed",
             "  outputs: string[] | null; // null = variable/unlimited, [] = none, [...] = fixed",
+            "  icon: string | null;      // SVG icon from Block.icon(), null if the block has none",
             "}",
             "",
             "export const extractedBlocks: Record<string, ExtractedBlock> = ",

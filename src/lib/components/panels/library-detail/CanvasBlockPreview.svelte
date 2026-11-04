@@ -4,12 +4,17 @@
 	import { busBlockDimensions, calculateNodeDimensions, getPortPositionCalc } from '$lib/constants/dimensions';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import BusWedge from '$lib/components/nodes/BusWedge.svelte';
+	import BlockIcon from '$lib/components/icons/BlockIcon.svelte';
 
 	interface Props {
 		node: NodeTypeDefinition;
+		/** Draw the block as in icon mode, if the block has an icon */
+		showIcon?: boolean;
 	}
 
-	let { node }: Props = $props();
+	let { node, showIcon = false }: Props = $props();
+
+	const withIcon = $derived(showIcon && !!node.icon);
 
 	const inputCount = $derived(node.ports?.inputs?.length ?? 0);
 	const outputCount = $derived(node.ports?.outputs?.length ?? 0);
@@ -21,7 +26,7 @@
 	const dimensions = $derived(
 		isBus
 			? busBlockDimensions(inputCount, outputCount, 0)
-			: calculateNodeDimensions(node.name, inputCount, outputCount, 0, 0, undefined, null, false)
+			: calculateNodeDimensions(node.name, inputCount, outputCount, 0, 0, undefined, null, withIcon)
 	);
 </script>
 
@@ -36,8 +41,11 @@
 			<BusWedge creator={node.type === NODE_TYPES.BUS_CREATOR} length={dimensions.height} />
 		</div>
 	{:else}
-		<div class="cbp-content">
+		<div class="cbp-content" class:has-icon={withIcon}>
 			<span class="cbp-name">{node.name}</span>
+			{#if withIcon}
+				<div class="cbp-icon"><BlockIcon icon={node.icon ?? ''} title={node.name} /></div>
+			{/if}
 		</div>
 	{/if}
 
@@ -102,6 +110,22 @@
 		align-items: center;
 		justify-content: center;
 		padding: 0 var(--space-sm);
+	}
+
+	.cbp-content.has-icon {
+		flex-direction: column;
+		padding: var(--space-xs) var(--space-sm);
+	}
+
+	.cbp-icon {
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+		color: var(--accent);
+	}
+
+	.cbp-content.has-icon .cbp-name {
+		font-size: 9px;
 	}
 
 	.cbp-name {

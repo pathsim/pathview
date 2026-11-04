@@ -25,6 +25,7 @@ export interface IntrospectedBlock {
 	inputs: Record<string, number> | string[] | null;
 	outputs: Record<string, number> | string[] | null;
 	params: IntrospectedParam[];
+	icon?: string | null;
 	error?: string;
 }
 
