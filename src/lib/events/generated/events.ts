@@ -14,20 +14,20 @@ export const extractedEvents: EventTypeDefinition[] =
     "params": [
       {
         "name": "func_evt",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": "event function, where zeros are events"
       },
       {
         "name": "func_act",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": "action function for event resolution"
       },
       {
         "name": "tolerance",
-        "type": "number",
         "default": "0.0001",
+        "type": "number",
         "description": "tolerance to check if detection is close to actual event"
       }
     ]
@@ -41,20 +41,20 @@ export const extractedEvents: EventTypeDefinition[] =
     "params": [
       {
         "name": "func_evt",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": ""
       },
       {
         "name": "func_act",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": ""
       },
       {
         "name": "tolerance",
-        "type": "number",
         "default": "0.0001",
+        "type": "number",
         "description": ""
       }
     ]
@@ -68,20 +68,20 @@ export const extractedEvents: EventTypeDefinition[] =
     "params": [
       {
         "name": "func_evt",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": ""
       },
       {
         "name": "func_act",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": ""
       },
       {
         "name": "tolerance",
-        "type": "number",
         "default": "0.0001",
+        "type": "number",
         "description": ""
       }
     ]
@@ -95,32 +95,32 @@ export const extractedEvents: EventTypeDefinition[] =
     "params": [
       {
         "name": "t_start",
-        "type": "number",
         "default": "0",
+        "type": "number",
         "description": "starting time for schedule"
       },
       {
         "name": "t_end",
+        "default": null,
         "type": "number",
-        "default": "None",
         "description": "termination time for schedule"
       },
       {
         "name": "t_period",
-        "type": "number",
         "default": "1",
+        "type": "number",
         "description": "time period of schedule, when events are triggered"
       },
       {
         "name": "func_act",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": "action function for event resolution"
       },
       {
         "name": "tolerance",
-        "type": "number",
         "default": "1e-16",
+        "type": "number",
         "description": "tolerance to check if detection is close to actual event"
       }
     ]
@@ -134,20 +134,20 @@ export const extractedEvents: EventTypeDefinition[] =
     "params": [
       {
         "name": "times_evt",
+        "default": null,
         "type": "array",
-        "default": "None",
         "description": "list of event times in ascending order"
       },
       {
         "name": "func_act",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": "action function for event resolution"
       },
       {
         "name": "tolerance",
-        "type": "number",
         "default": "1e-16",
+        "type": "number",
         "description": "tolerance to check if detection is close to actual event"
       }
     ]
@@ -161,20 +161,20 @@ export const extractedEvents: EventTypeDefinition[] =
     "params": [
       {
         "name": "func_evt",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": ""
       },
       {
         "name": "func_act",
+        "default": null,
         "type": "callable",
-        "default": "None",
         "description": ""
       },
       {
         "name": "tolerance",
-        "type": "number",
         "default": "0.0001",
+        "type": "number",
         "description": ""
       }
     ]

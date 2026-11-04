@@ -130,8 +130,10 @@ def format_default(value):
         return None
 
 
-def extract_params_from_signature(cls, docstring):
-    """Extract parameters by introspecting the class __init__ signature."""
+def extract_params_from_signature(cls, docstring, infer=None):
+    """Extract parameters by introspecting the class __init__ signature.
+    `infer(default, name)` gives the param type, `infer_type` by default."""
+    infer = infer or infer_type
     out = []
     try:
         sig = inspect.signature(cls.__init__)
@@ -148,7 +150,7 @@ def extract_params_from_signature(cls, docstring):
         out.append({
             "name": pname,
             "default": format_default(p.default),
-            "type": infer_type(p.default, pname),
+            "type": infer(None if p.default is inspect.Parameter.empty else p.default, pname),
             "description": param_desc(docstring, pname),
         })
     return out
@@ -267,6 +269,19 @@ def extract_block(cls):
     }
 
 
+def infer_event_type(value, name=""):
+    """Infer the param type of an event, matching EventParamType in TS."""
+    if name.startswith("func") or (callable(value) and not isinstance(value, type)):
+        return "callable"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, (list, tuple)) or (name.endswith("_evt") and "time" in name.lower()):
+        return "array"
+    return "number"
+
+
 def extract_event(cls):
     """Extract canonical event metadata from a class."""
     raw_doc = cls.__doc__ or ""
@@ -274,5 +289,5 @@ def extract_event(cls):
         "className": cls.__name__,
         "description": first_line(raw_doc),
         "docstringHtml": rst_to_html(raw_doc),
-        "params": extract_params_from_signature(cls, raw_doc),
+        "params": extract_params_from_signature(cls, raw_doc, infer=infer_event_type),
     }
