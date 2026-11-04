@@ -33,6 +33,7 @@ from pathview_introspect import (  # noqa: E402
     param_desc as extract_param_description,
     infer_type as infer_param_type,
     extract_block,
+    extract_event,
     block_icon,
 )
 
@@ -326,68 +327,17 @@ class EventExtractor:
         return all_events, event_import_paths
 
     def _extract_event(self, cls) -> dict:
-        """Extract metadata from a single event class."""
-        sig = inspect.signature(cls.__init__)
-        docstring = cls.__doc__ or ""
-
-        params = []
-        for name, param in sig.parameters.items():
-            if name == "self":
-                continue
-
-            default = None if param.default is inspect.Parameter.empty else param.default
-            params.append({
-                "name": name,
-                "type": self._infer_event_param_type(name, default),
-                "default": self._format_event_default(default),
-                "description": extract_param_description(docstring, name)
-            })
-
+        """Extract metadata from a single event class with the canonical
+        `extract_event`, mapped to the schema of the generated events file."""
+        event = extract_event(cls)
         return {
-            "type": f"pathsim.events.{cls.__name__}",
-            "name": cls.__name__,
-            "eventClass": cls.__name__,
-            "description": extract_first_line(docstring),
-            "docstringHtml": rst_to_html(docstring),
-            "params": params
+            "type": f"pathsim.events.{event['className']}",
+            "name": event["className"],
+            "eventClass": event["className"],
+            "description": event["description"],
+            "docstringHtml": event["docstringHtml"],
+            "params": event["params"],
         }
-
-    def _infer_event_param_type(self, param_name: str, value: Any) -> str:
-        """Infer event parameter type (uses EventParamType)."""
-        if param_name.startswith('func_'):
-            return "callable"
-        if callable(value) and not isinstance(value, type):
-            return "callable"
-        if isinstance(value, (int, float)):
-            return "number"
-        if isinstance(value, str):
-            return "string"
-        if isinstance(value, (list, tuple)):
-            return "array"
-        if param_name.endswith('_evt') and 'time' in param_name.lower():
-            return "array"
-        if value is None and param_name.startswith('func'):
-            return "callable"
-        if value is None and param_name == 'times_evt':
-            return "array"
-        return "number"
-
-    def _format_event_default(self, value: Any) -> str | None:
-        """Format default value for event parameters."""
-        if value is None:
-            return "None"
-        if callable(value) and not isinstance(value, type):
-            return format_default_py(value) or "lambda t: None"
-        if isinstance(value, bool):
-            return "True" if value else "False"
-        if isinstance(value, (int, float)):
-            return repr(value)
-        if isinstance(value, str):
-            return f'"{value}"'
-        if isinstance(value, (list, tuple)):
-            return repr(list(value))
-        return repr(value)
-
 
 # =============================================================================
 # Simulation Extraction
