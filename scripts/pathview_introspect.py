@@ -205,6 +205,19 @@ def is_event(cls):
 # --- Canonical extraction ------------------------------------------------
 
 
+def block_icon(cls):
+    """SVG icon of a block class from `cls.icon()`, None for pathsim versions
+    and classes without icons."""
+    icon_fn = getattr(cls, "icon", None)
+    if not callable(icon_fn):
+        return None
+    try:
+        icon = icon_fn()
+    except Exception:
+        return None
+    return icon if isinstance(icon, str) else None
+
+
 def extract_block(cls):
     """Extract canonical block metadata from a class.
 
@@ -239,6 +252,7 @@ def extract_block(cls):
             "inputs": process_port_labels(info.get("input_port_labels")),
             "outputs": process_port_labels(info.get("output_port_labels")),
             "params": params,
+            "icon": block_icon(cls),
         }
 
     # Fallback: signature introspection + class attribute port labels
@@ -249,6 +263,7 @@ def extract_block(cls):
         "inputs": process_port_labels(getattr(cls, "input_port_labels", None)),
         "outputs": process_port_labels(getattr(cls, "output_port_labels", None)),
         "params": extract_params_from_signature(cls, raw_doc),
+        "icon": block_icon(cls),
     }
 
 

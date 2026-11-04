@@ -83,6 +83,9 @@ export interface NodeTypeDefinition {
 	// Full RST docstring from PathSim (for documentation display)
 	docstring?: string;
 
+	// SVG icon from the block class, `Block.icon()` in pathsim and toolboxes
+	icon?: string;
+
 	// Shape override (defaults based on category if not specified)
 	shape?: NodeShape;
 }

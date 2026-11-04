@@ -53,7 +53,7 @@ export const InterfaceDefinition = defineNode({
 /**
  * Register subsystem nodes
  * Called after the main registry is initialized
- * Descriptions and docstrings are set here (not at module init time) to ensure extractedBlocks is loaded
+ * Descriptions, docstrings and icons are set here (not at module init time) to ensure extractedBlocks is loaded
  */
 export function registerSubsystemNodes(): void {
 	// Set descriptions and docstrings from extracted PathSim documentation
@@ -63,11 +63,13 @@ export function registerSubsystemNodes(): void {
 	if (subsystemData) {
 		SubsystemDefinition.description = subsystemData.description;
 		SubsystemDefinition.docstring = subsystemData.docstringHtml;
+		SubsystemDefinition.icon = subsystemData.icon ?? undefined;
 	}
 
 	if (interfaceData) {
 		InterfaceDefinition.description = interfaceData.description;
 		InterfaceDefinition.docstring = interfaceData.docstringHtml;
+		InterfaceDefinition.icon = interfaceData.icon ?? undefined;
 	}
 
 	nodeRegistry.register(SubsystemDefinition);

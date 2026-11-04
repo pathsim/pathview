@@ -4,6 +4,7 @@
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { busBlockDimensions } from '$lib/constants/dimensions';
 	import BusWedge from './BusWedge.svelte';
+	import BlockIcon from '$lib/components/icons/BlockIcon.svelte';
 
 	interface Props {
 		node: NodeTypeDefinition;
@@ -26,6 +27,9 @@
 	</div>
 {:else}
 	<div class="node-preview {shapeClass()}" class:subsystem-type={isSubsystemType}>
+		{#if node.icon}
+			<span class="preview-icon"><BlockIcon icon={node.icon} /></span>
+		{/if}
 		<span class="node-name">{node.name}</span>
 	</div>
 {/if}
@@ -40,7 +44,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		gap: var(--space-sm);
 		transition: all 0.15s ease;
+	}
+
+	.preview-icon {
+		height: var(--space-xl);
+		aspect-ratio: 3 / 2;
+		flex: none;
+		color: var(--accent);
 	}
 
 	.bus-preview {

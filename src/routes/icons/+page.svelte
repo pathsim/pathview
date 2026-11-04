@@ -3,13 +3,12 @@
 
 	Renders every registered block twice: once at true canvas scale (80×40 node)
 	and once enlarged, so icon legibility at real size can be judged directly.
-	Blocks without a registry entry are listed explicitly.
+	Icons come from the block classes (`Block.icon()`), blocks without one are
+	listed explicitly.
 -->
 <script lang="ts">
 	import { nodeRegistry } from '$lib/nodes/registry';
-	import BlockIcon, { hasBlockIcon } from '$lib/components/icons/BlockIcon.svelte';
-	import { getIconDef } from '$lib/components/icons/blocks/registry';
-	import { getKatexCssUrl } from '$lib/utils/katexLoader';
+	import BlockIcon from '$lib/components/icons/BlockIcon.svelte';
 
 	let theme = $state<'dark' | 'light'>('dark');
 	let showMissingOnly = $state(false);
@@ -23,7 +22,7 @@
 	const byCategory = $derived.by(() => {
 		const map = new Map<string, typeof defs>();
 		for (const d of defs) {
-			if (showMissingOnly && hasBlockIcon(d.blockClass)) continue;
+			if (showMissingOnly && d.icon) continue;
 			const list = map.get(d.category) ?? [];
 			list.push(d);
 			map.set(d.category, list);
@@ -34,19 +33,13 @@
 
 	const stats = $derived.by(() => {
 		const total = defs.length;
-		const withIcon = defs.filter((d) => hasBlockIcon(d.blockClass)).length;
-		const kinds = new Map<string, number>();
-		for (const d of defs) {
-			const k = getIconDef(d.blockClass)?.kind;
-			if (k) kinds.set(k, (kinds.get(k) ?? 0) + 1);
-		}
-		return { total, withIcon, missing: total - withIcon, kinds: Array.from(kinds.entries()) };
+		const withIcon = defs.filter((d) => d.icon).length;
+		return { total, withIcon, missing: total - withIcon };
 	});
 </script>
 
 <svelte:head>
 	<title>Block Icon Gallery</title>
-	<link rel="stylesheet" href={getKatexCssUrl()} />
 </svelte:head>
 
 <div class="page">
@@ -55,7 +48,6 @@
 		<div class="stats">
 			<span>{stats.withIcon}/{stats.total} mit Icon</span>
 			<span class="missing-count">{stats.missing} ohne</span>
-			{#each stats.kinds as [kind, n]}<span class="kind">{kind}: {n}</span>{/each}
 		</div>
 		<div class="controls">
 			<button onclick={() => (theme = theme === 'dark' ? 'light' : 'dark')}>
@@ -70,12 +62,11 @@
 			<h2>{category} <span class="n">({list.length})</span></h2>
 			<div class="grid">
 				{#each list as def}
-					{@const has = hasBlockIcon(def.blockClass)}
-					{@const kind = getIconDef(def.blockClass)?.kind}
+					{@const has = !!def.icon}
 					<div class="cell" class:no-icon={!has}>
 						<div class="big">
 							{#if has}
-								<BlockIcon blockClass={def.blockClass} />
+								<BlockIcon icon={def.icon ?? ''} />
 							{:else}
 								<span class="dash">—</span>
 							{/if}
@@ -85,7 +76,7 @@
 							<div class="node">
 								<span class="node-name">{def.name}</span>
 								{#if has}
-									<div class="node-icon"><BlockIcon blockClass={def.blockClass} /></div>
+									<div class="node-icon"><BlockIcon icon={def.icon ?? ''} /></div>
 								{:else}
 									<span class="node-type">{def.name}</span>
 								{/if}
@@ -93,7 +84,6 @@
 						</div>
 						<div class="label">
 							<span class="name">{def.name}</span>
-							{#if kind}<span class="badge">{kind}</span>{/if}
 						</div>
 					</div>
 				{/each}
@@ -143,10 +133,6 @@
 
 	.missing-count {
 		color: var(--error);
-	}
-
-	.kind {
-		font-family: var(--font-mono);
 	}
 
 	.controls {
@@ -281,10 +267,4 @@
 		word-break: break-word;
 	}
 
-	.badge {
-		font-size: 9px;
-		font-family: var(--font-mono);
-		color: var(--text-muted);
-		text-transform: uppercase;
-	}
 </style>

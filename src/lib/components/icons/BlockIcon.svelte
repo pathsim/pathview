@@ -1,93 +1,30 @@
-<script lang="ts" module>
-	import { getIconDef, hasBlockIcon as registryHas } from './blocks/registry';
+<!--
+	Block icon from the block class, `Block.icon()` in pathsim and toolboxes.
 
-	const svgModules = import.meta.glob('./blocks/svg/*.svg', {
-		query: '?raw',
-		import: 'default',
-		eager: true
-	}) as Record<string, string>;
-
-	const svgMap = new Map<string, string>();
-	for (const [path, raw] of Object.entries(svgModules)) {
-		const match = path.match(/\/([^/]+)\.svg$/);
-		if (match) svgMap.set(match[1], raw);
-	}
-
-	export function hasBlockIcon(blockClass: string | undefined): boolean {
-		return registryHas(blockClass);
-	}
-</script>
-
+	The SVG is used as a CSS mask over a `currentColor` fill, so the icon takes
+	the node color and the SVG markup of a toolbox is never inserted into the
+	document. Opacity in the SVG is kept, colors in it are not.
+-->
 <script lang="ts">
-	import IconPlot from './blocks/IconPlot.svelte';
-	import IconMath from './blocks/IconMath.svelte';
-	import IconGlyph from './blocks/IconGlyph.svelte';
-	import IconScope from './blocks/IconScope.svelte';
-	import IconSurface from './blocks/IconSurface.svelte';
-	import IconPoleZero from './blocks/IconPoleZero.svelte';
-
 	interface Props {
-		blockClass: string | undefined;
+		icon: string;
 		title?: string;
 	}
 
-	let { blockClass, title }: Props = $props();
-	const def = $derived(getIconDef(blockClass));
-	const svgRaw = $derived(def?.kind === 'svg' ? svgMap.get(def.name) : undefined);
+	let { icon, title }: Props = $props();
+
+	const mask = $derived(`url("data:image/svg+xml,${encodeURIComponent(icon)}")`);
 </script>
 
-{#if def}
-	<span class="block-icon" aria-label={title} role={title ? 'img' : undefined}>
-		{#if def.kind === 'plot'}
-			<IconPlot
-				samples={def.samples()}
-				samplesDashed={def.samplesDashed?.()}
-				xRange={def.xRange}
-				yRange={def.yRange}
-				axes={def.axes}
-				markers={def.markers}
-				decoration={def.decoration}
-				asymptotes={def.asymptotes}
-				badge={def.badge}
-				stems={def.stems}
-			/>
-		{:else if def.kind === 'pz'}
-			<IconPoleZero poles={def.poles} zeros={def.zeros} />
-		{:else if def.kind === 'scope'}
-			<IconScope
-				samples={def.samples()}
-				samples2={def.samples2?.()}
-				yRange={def.yRange}
-				gridX={def.gridX}
-				gridY={def.gridY}
-				bars={def.bars}
-			/>
-		{:else if def.kind === 'surface'}
-			<IconSurface fn={def.fn} rows={def.rows} cols={def.cols} />
-		{:else if def.kind === 'math'}
-			<IconMath latex={def.latex} />
-		{:else if def.kind === 'glyph'}
-			<IconGlyph text={def.text} size={def.size} />
-		{:else if def.kind === 'svg' && svgRaw}
-			{@html svgRaw}
-		{/if}
-	</span>
-{/if}
+<span class="block-icon" style:--icon-mask={mask} role={title ? 'img' : undefined} aria-label={title}></span>
 
 <style>
 	.block-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		height: 100%;
-		color: currentColor;
-	}
-
-	.block-icon :global(svg) {
-		width: 100%;
-		height: 100%;
 		display: block;
-		color: inherit;
+		width: 100%;
+		height: 100%;
+		background-color: currentColor;
+		-webkit-mask: var(--icon-mask) center / contain no-repeat;
+		mask: var(--icon-mask) center / contain no-repeat;
 	}
 </style>

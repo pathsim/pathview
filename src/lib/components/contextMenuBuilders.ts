@@ -29,7 +29,6 @@ import { plotSettingsStore, DEFAULT_BLOCK_SETTINGS } from '$lib/stores/plotSetti
 import { portLabelsStore } from '$lib/stores/portLabels';
 import { iconModeStore } from '$lib/stores/iconMode';
 import { getEffectivePortLabelVisibility } from '$lib/utils/portLabels';
-import { hasBlockIcon } from '$lib/components/icons/BlockIcon.svelte';
 import { nodeRegistry } from '$lib/nodes';
 import type { NodeInstance } from '$lib/types/nodes';
 
@@ -69,9 +68,7 @@ function buildPortLabelItems(nodeId: string, node: NodeInstance): MenuItemType[]
 
 /** Build icon-mode toggle menu item for a node, only when an icon exists */
 function buildIconModeItem(nodeId: string, node: NodeInstance): MenuItemType[] {
-	const typeDef = nodeRegistry.get(node.type);
-	const blockKey = typeDef?.blockClass ?? typeDef?.type;
-	if (!hasBlockIcon(blockKey)) return [];
+	if (!nodeRegistry.get(node.type)?.icon) return [];
 
 	const globalIconMode = get(iconModeStore);
 	const override = node.params?.['_iconMode'] as boolean | undefined;
