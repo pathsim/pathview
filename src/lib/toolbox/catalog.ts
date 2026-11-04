@@ -43,6 +43,14 @@ export const TOOLBOX_CATALOG: CatalogEntry[] = [
 		preloaded: true
 	},
 	{
+		id: 'pathsim-fusion',
+		displayName: 'pathsim-fusion',
+		source: { type: 'pypi', pkg: 'pathsim-fusion' },
+		importPath: 'pathsim_fusion',
+		defaultCategory: 'Fusion',
+		preloaded: true
+	},
+	{
 		id: 'pathsim-batt',
 		displayName: 'pathsim-batt',
 		source: { type: 'pypi', pkg: 'pathsim-batt' },
