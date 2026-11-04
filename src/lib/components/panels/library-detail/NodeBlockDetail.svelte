@@ -35,10 +35,7 @@
 			{/if}
 		</div>
 		<div class="detail-preview">
-			<CanvasBlockPreview {node} />
-			{#if node.icon}
-				<CanvasBlockPreview {node} showIcon />
-			{/if}
+			<CanvasBlockPreview {node} showIcon />
 		</div>
 	</div>
 
@@ -88,7 +85,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--space-xl);
 		padding: var(--space-lg) 0;
 	}
 
