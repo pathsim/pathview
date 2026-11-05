@@ -1245,7 +1245,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
       "in"
     ],
     "outputs": null,
-    "icon": null
+    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <path d=\"M 18 32 H 40 C 52 32 50 20 62 20 H 78\"/>\n  <path d=\"M 40 32 C 52 32 50 44 62 44 H 78\"/>\n  <circle cx=\"40\" cy=\"32\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>\n</svg>\n"
   },
   "LUT": {
     "blockClass": "LUT",
