@@ -1225,6 +1225,28 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
     ],
     "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <line x1=\"22\" y1=\"22\" x2=\"40\" y2=\"22\"/>\n  <line x1=\"22\" y1=\"42\" x2=\"40\" y2=\"42\"/>\n  <line x1=\"56\" y1=\"32\" x2=\"74\" y2=\"32\"/>\n  <line x1=\"40\" y1=\"22\" x2=\"56\" y2=\"32\"/>\n  <circle cx=\"40\" cy=\"22\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>\n  <circle cx=\"40\" cy=\"42\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>\n  <circle cx=\"56\" cy=\"32\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>\n</svg>\n"
   },
+  "Splitter": {
+    "blockClass": "Splitter",
+    "description": "Splits the input into multiple outputs, weighted with fractions (SIMO).",
+    "docstringHtml": "<p>Splits the input into multiple outputs, weighted with fractions (SIMO).</p>\n<div class=\"math\">\n\\begin{equation*}\ny_i(t) = f_i \\cdot u(t)\n\\end{equation*}\n</div>\n<p>The fractions have to sum up to one, so the splitter conserves what flows\nthrough it, for example a mass or molar flow.</p>\n<p>With a carrier, the input is a stream of multiple channels, for example\nthe flows of multiple species. Every output is a stream with the same\nlayout and each channel is split with the same fractions.</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>Split a flow into two outputs with 90 and 10 percent:</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">S</span> <span class=\"operator\">=</span> <span class=\"name\">Splitter</span><span class=\"punctuation\">([</span><span class=\"literal number float\">0.9</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">0.1</span><span class=\"punctuation\">])</span>\n</pre>\n<p>Split a stream of species flows, the ports 'in', 'out_0' and 'out_1'\nhave the layout of the carrier:</p>\n<pre class=\"code python literal-block\">\n<span class=\"keyword\">class</span><span class=\"whitespace\"> </span><span class=\"name class\">Species</span><span class=\"punctuation\">(</span><span class=\"name\">Carrier</span><span class=\"punctuation\">):</span><span class=\"whitespace\">\n</span>    <span class=\"name\">keys</span> <span class=\"operator\">=</span> <span class=\"punctuation\">(</span><span class=\"literal string double\">&quot;H&quot;</span><span class=\"punctuation\">,</span> <span class=\"literal string double\">&quot;D&quot;</span><span class=\"punctuation\">,</span> <span class=\"literal string double\">&quot;T&quot;</span><span class=\"punctuation\">)</span><span class=\"whitespace\">\n\n</span><span class=\"name\">S</span> <span class=\"operator\">=</span> <span class=\"name\">Splitter</span><span class=\"punctuation\">([</span><span class=\"literal number float\">0.9</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">0.1</span><span class=\"punctuation\">],</span> <span class=\"name\">carrier</span><span class=\"operator\">=</span><span class=\"name\">Species</span><span class=\"punctuation\">())</span><span class=\"whitespace\">\n\n</span><span class=\"name\">C</span> <span class=\"operator\">=</span> <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">S</span><span class=\"punctuation\">[</span><span class=\"literal string double\">&quot;out_1&quot;</span><span class=\"punctuation\">],</span> <span class=\"name\">B</span><span class=\"punctuation\">[</span><span class=\"literal string double\">&quot;in&quot;</span><span class=\"punctuation\">])</span>\n</pre>\n</div>\n<div class=\"section\" id=\"note\">\n<h3>Note</h3>\n<p>This block is purely algebraic and its operation (<cite>op_alg</cite>) will be called\nmultiple times per timestep, each time when <cite>Simulation._update(t)</cite> is\ncalled in the global simulation loop.</p>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>fractions <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">array_like</span></dt>\n<dd>fractions of the input for each output, must sum up to one</dd>\n<dt>carrier <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Carrier | None</span></dt>\n<dd>layout of the input and output streams, single channel if 'None'</dd>\n</dl>\n</div>\n<div class=\"section\" id=\"attributes\">\n<h3>Attributes</h3>\n<dl class=\"docutils\">\n<dt>op_alg <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">Operator</span></dt>\n<dd>internal algebraic operator</dd>\n</dl>\n</div>\n",
+    "params": {
+      "fractions": {
+        "type": "any",
+        "default": null,
+        "description": "fractions of the input for each output, must sum up to one"
+      },
+      "carrier": {
+        "type": "any",
+        "default": null,
+        "description": "layout of the input and output streams, single channel if 'None'"
+      }
+    },
+    "inputs": [
+      "in"
+    ],
+    "outputs": null,
+    "icon": null
+  },
   "LUT": {
     "blockClass": "LUT",
     "description": "N-dimensional lookup table with linear interpolation functionality.",
@@ -1844,7 +1866,7 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
 export const blockConfig: Record<string, string[]> = {
   Sources: ["Constant", "Source", "SinusoidalSource", "StepSource", "PulseSource", "TriangleWaveSource", "SquareWaveSource", "GaussianPulseSource", "ChirpPhaseNoiseSource", "ClockSource", "WhiteNoise", "PinkNoise", "RandomNumberGenerator"],
   Dynamic: ["Integrator", "Differentiator", "Delay", "ODE", "DynamicalSystem", "StateSpace", "PT1", "PT2", "LeadLag", "PID", "AntiWindupPID", "RateLimiter", "Backlash", "Deadband", "TransferFunctionNumDen", "TransferFunctionZPG", "ButterworthLowpassFilter", "ButterworthHighpassFilter", "ButterworthBandpassFilter", "ButterworthBandstopFilter"],
-  Algebraic: ["Adder", "Multiplier", "Divider", "Amplifier", "Function", "Polynomial", "Sin", "Cos", "Tan", "Tanh", "Abs", "Sqrt", "Exp", "Log", "Log10", "Mod", "Clip", "Pow", "Atan2", "Rescale", "Alias", "Switch", "LUT", "LUT1D"],
+  Algebraic: ["Adder", "Multiplier", "Divider", "Amplifier", "Function", "Polynomial", "Sin", "Cos", "Tan", "Tanh", "Abs", "Sqrt", "Exp", "Log", "Log10", "Mod", "Clip", "Pow", "Atan2", "Rescale", "Alias", "Switch", "Splitter", "LUT", "LUT1D"],
   Logic: ["GreaterThan", "LessThan", "Equal", "LogicAnd", "LogicOr", "LogicNot"],
   Discrete: ["SampleHold", "FirstOrderHold", "FIR", "DiscreteIntegrator", "DiscreteDerivative", "DiscreteStateSpace", "DiscreteTransferFunction", "TappedDelay", "ADC", "DAC", "Counter", "CounterUp", "CounterDown", "Relay", "Wrapper"],
   Recording: ["Scope", "Spectrum"],
@@ -1918,6 +1940,7 @@ export const blockImportPaths: Record<string, string> = {
   "SinusoidalSource": "pathsim.blocks",
   "Source": "pathsim.blocks",
   "Spectrum": "pathsim.blocks",
+  "Splitter": "pathsim.blocks",
   "Sqrt": "pathsim.blocks",
   "SquareWaveSource": "pathsim.blocks",
   "StateSpace": "pathsim.blocks",
