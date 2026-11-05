@@ -169,7 +169,10 @@
         "B",
         "C",
         "D",
-        "initial_value"
+        "initial_value",
+        "state_labels",
+        "input_labels",
+        "output_labels"
       ]
     },
     "PT1": {
@@ -327,6 +330,13 @@
         "func"
       ]
     },
+    "Polynomial": {
+      "blockClass": "Polynomial",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "coeffs"
+      ]
+    },
     "Sin": {
       "blockClass": "Sin",
       "importPath": "pathsim.blocks",
@@ -422,6 +432,14 @@
         "switch_state"
       ]
     },
+    "Splitter": {
+      "blockClass": "Splitter",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "fractions",
+        "carrier"
+      ]
+    },
     "LUT": {
       "blockClass": "LUT",
       "importPath": "pathsim.blocks",
@@ -479,11 +497,68 @@
         "tau"
       ]
     },
+    "FirstOrderHold": {
+      "blockClass": "FirstOrderHold",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "T",
+        "tau"
+      ]
+    },
     "FIR": {
       "blockClass": "FIR",
       "importPath": "pathsim.blocks",
       "params": [
         "coeffs",
+        "T",
+        "tau"
+      ]
+    },
+    "DiscreteIntegrator": {
+      "blockClass": "DiscreteIntegrator",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "T",
+        "tau",
+        "initial_value"
+      ]
+    },
+    "DiscreteDerivative": {
+      "blockClass": "DiscreteDerivative",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "T",
+        "tau"
+      ]
+    },
+    "DiscreteStateSpace": {
+      "blockClass": "DiscreteStateSpace",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "T",
+        "tau",
+        "initial_value"
+      ]
+    },
+    "DiscreteTransferFunction": {
+      "blockClass": "DiscreteTransferFunction",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "Num",
+        "Den",
+        "T",
+        "tau"
+      ]
+    },
+    "TappedDelay": {
+      "blockClass": "TappedDelay",
+      "importPath": "pathsim.blocks",
+      "params": [
+        "N",
         "T",
         "tau"
       ]

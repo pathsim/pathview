@@ -70,14 +70,16 @@ def first_line(docstring):
 
 
 def param_desc(docstring, name):
-    """Extract a `:param name:` description from an RST docstring."""
+    """Extract the description of parameter `name` from an RST docstring,
+    the indented lines below its `name : type` line (or `a, name : type`
+    for parameters documented together)."""
     if not docstring:
         return ""
     pattern = (
-        re.escape(name)
-        + r"\s*:\s*[^\n]*\n\s+(.+?)(?=\n\s*\w+\s*:|\n\n|$)"
+        r"^[ \t]*(?:\w+\s*,\s*)*" + re.escape(name)
+        + r"\s*:\s*[^\n]*\n\s+(.+?)(?=\n\s*\w+\s*:|\n\n|\Z)"
     )
-    m = re.search(pattern, docstring, re.DOTALL)
+    m = re.search(pattern, docstring, re.DOTALL | re.MULTILINE)
     if m:
         return re.sub(r"\s+", " ", m.group(1).strip())
     return ""
