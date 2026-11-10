@@ -220,6 +220,8 @@ function createNodeFromExtracted(
 		description: extracted.description,
 		inputs,
 		outputs,
+		inputBuses: extracted.inputBuses,
+		outputBuses: extracted.outputBuses,
 		maxInputs,
 		maxOutputs,
 		syncPorts: syncPortBlocks.has(name),
