@@ -597,7 +597,7 @@ function detectFileFormat(json: unknown): 'component' | 'legacy-model' | 'unknow
 /**
  * Parse file content and return normalized ComponentFile
  */
-function parseFileContent(text: string, fileName: string): ComponentFile {
+export function parseFileContent(text: string, fileName: string): ComponentFile {
 	const json = JSON.parse(text);
 	const format = detectFileFormat(json);
 
@@ -619,7 +619,8 @@ function parseFileContent(text: string, fileName: string): ComponentFile {
 				graph: json.graph,
 				events: json.events,
 				codeContext: json.codeContext,
-				simulationSettings: json.simulationSettings
+				simulationSettings: json.simulationSettings,
+				requiredToolboxes: json.requiredToolboxes
 			}
 		};
 	}
@@ -724,6 +725,7 @@ async function importModel(
 		events?: GraphFile['events'];
 		codeContext?: GraphFile['codeContext'];
 		simulationSettings?: GraphFile['simulationSettings'];
+		requiredToolboxes?: GraphFile['requiredToolboxes'];
 	};
 
 	const graphFile: GraphFile = {
@@ -732,7 +734,8 @@ async function importModel(
 		graph: content.graph || { nodes: [], connections: [] },
 		events: content.events,
 		codeContext: content.codeContext || { code: '' },
-		simulationSettings: content.simulationSettings || INITIAL_SIMULATION_SETTINGS
+		simulationSettings: content.simulationSettings || INITIAL_SIMULATION_SETTINGS,
+		requiredToolboxes: content.requiredToolboxes
 	};
 
 	await loadGraphFile(graphFile, {
