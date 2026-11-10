@@ -34,7 +34,7 @@
 	import { contextMenuStore } from '$lib/stores/contextMenu';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 	import { assemblyAnimationTrigger } from '$lib/animation/assemblyAnimation';
-		import { nodeRegistry } from '$lib/nodes';
+		import { nodeRegistry, registryVersion } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { GRID_SIZE, SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
 	import { createRoutingSync } from './canvas/routingSync';
@@ -646,6 +646,13 @@
 		rebuildEdges(get(graphStore.connections));
 	}));
 
+	// Carrier ports are buses by their type definition, so a toolbox registered
+	// after the model was loaded changes which wires carry a bus
+	cleanups.push(registryVersion.subscribe(() => {
+		if (isSyncing) return;
+		rebuildEdges(get(graphStore.connections));
+	}));
+
 	// Track last snapped positions during drag for discrete routing updates
 	let lastDraggedPositions = new Map<string, { x: number; y: number }>();
 
@@ -798,10 +805,11 @@
 		startConnectionDrag({ nodeId: params.nodeId, port, isOutput }, occupied);
 	}
 
-	// A bus may only enter bus blocks and subsystem ports, and a Bus Selector only takes a bus
+	// A bus may only enter bus blocks, subsystem ports and carrier ports, and a Bus Selector only takes a bus
 	function isValidConnection(connection: FlowConnection | Edge): boolean {
 		const sourcePort = HANDLE_ID.parseIndex(connection.sourceHandle ?? '', 'output');
-		return sourcePort === null || busWireAllowed(connection.source, sourcePort, connection.target);
+		const targetPort = HANDLE_ID.parseIndex(connection.targetHandle ?? '', 'input');
+		return sourcePort === null || targetPort === null || busWireAllowed(connection.source, sourcePort, connection.target, targetPort);
 	}
 
 	// Handle new connections

@@ -12,7 +12,7 @@ import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import {
 	analyzeBuses,
 	busWiringProblem,
-	containsBusBlocks,
+	containsBuses,
 	signalPaths,
 	type BusAnalysis,
 	type BusLevel
@@ -21,15 +21,18 @@ import {
 /** Wires carrying a bus */
 export const busWires = new SvelteSet<string>();
 
-/** Wires breaking the bus rules: a bus into a plain block, or a plain signal into a Bus Selector */
+/** Wires breaking the bus rules, see `busWiringProblem` */
 export const invalidBusWires = new SvelteSet<string>();
 
 /** Analysis of the model at the last update, reused to judge wires while connecting */
 let current: { analysis: BusAnalysis; level: BusLevel } | null = null;
 
-/** Whether a new wire from the source port to the target node keeps the bus rules */
-export function busWireAllowed(sourceNodeId: string, sourcePort: number, targetNodeId: string): boolean {
-	return !current || busWiringProblem(current.analysis, current.level, sourceNodeId, sourcePort, targetNodeId) === null;
+/** Whether a new wire from the source port to the target port keeps the bus rules */
+export function busWireAllowed(sourceNodeId: string, sourcePort: number, targetNodeId: string, targetPort: number): boolean {
+	return (
+		!current ||
+		busWiringProblem(current.analysis, current.level, sourceNodeId, sourcePort, targetNodeId, targetPort) === null
+	);
 }
 
 /** Bus Creator ID to the signal name of each of its inputs */
@@ -81,13 +84,14 @@ export function updateBusView(
 	const invalidWires = new Set<string>();
 	current = null;
 
-	if (containsBusBlocks(model.nodes)) {
+	if (containsBuses(model.nodes)) {
 		const analysis = analyzeBuses(model.nodes, model.connections);
 		const level = analysis.levelAt(path);
 		if (level) {
 			current = { analysis, level };
 			for (const connection of connections) {
-				if (busWiringProblem(analysis, level, connection.sourceNodeId, connection.sourcePortIndex, connection.targetNodeId)) {
+				const { sourceNodeId, sourcePortIndex, targetNodeId, targetPortIndex } = connection;
+				if (busWiringProblem(analysis, level, sourceNodeId, sourcePortIndex, targetNodeId, targetPortIndex)) {
 					invalidWires.add(connection.id);
 				}
 				if (analysis.structureOut(level, connection.sourceNodeId, connection.sourcePortIndex)) wires.add(connection.id);

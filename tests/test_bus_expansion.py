@@ -12,11 +12,17 @@ FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "bus_expansion.json"
 REGISTRY_PATH = Path(__file__).parent.parent / "pathview" / "data" / "registry.json"
 
 
+REGISTRY = FIXTURES["registry"]
+
+
+def _endpoint(connection, side):
+    channel = connection.get(f"{side}Channel")
+    port = f"{connection[f'{side}NodeId']}:{connection[f'{side}PortIndex']}"
+    return port if channel is None else f"{port}[{channel}]"
+
+
 def _wiring(connections):
-    return sorted(
-        f"{c['sourceNodeId']}:{c['sourcePortIndex']}>{c['targetNodeId']}:{c['targetPortIndex']}"
-        for c in connections
-    )
+    return sorted(f"{_endpoint(c, 'source')}>{_endpoint(c, 'target')}" for c in connections)
 
 
 def _levels(nodes, connections, path=""):
@@ -39,7 +45,7 @@ def _any_bus_block(nodes):
 
 @pytest.mark.parametrize("scenario", FIXTURES["scenarios"], ids=lambda s: s["name"])
 def test_expansion_matches_fixture(scenario):
-    nodes, connections = expand_buses(scenario["nodes"], scenario["connections"])
+    nodes, connections = expand_buses(scenario["nodes"], scenario["connections"], REGISTRY)
     expected = {key: sorted(value) for key, value in scenario["expected"].items()}
     assert _levels(nodes, connections) == expected
     assert not _any_bus_block(nodes)
@@ -47,7 +53,7 @@ def test_expansion_matches_fixture(scenario):
 
 def test_model_without_buses_is_unchanged():
     scenario = next(s for s in FIXTURES["scenarios"] if "without buses" in s["name"])
-    nodes, connections = expand_buses(scenario["nodes"], scenario["connections"])
+    nodes, connections = expand_buses(scenario["nodes"], scenario["connections"], REGISTRY)
     assert nodes is scenario["nodes"]
     assert connections is scenario["connections"]
 
