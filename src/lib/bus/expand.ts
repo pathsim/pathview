@@ -12,18 +12,8 @@
  * keeps both implementations in agreement.
  */
 
-import type { Connection, NodeInstance } from '$lib/types/nodes';
+import type { BusElement, BusStructure, Connection, NodeInstance } from '$lib/types/nodes';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
-
-/** Signal structure: null for a plain signal, else the named elements of a bus */
-export type BusStructure = BusElement[] | null;
-
-export interface BusElement {
-	name: string;
-	structure: BusStructure;
-	/** Bus Creator input the element was bundled at, to follow renames */
-	origin?: { creatorId: string; input: number };
-}
 
 /** One graph level: the root graph or the graph inside a subsystem */
 export interface BusLevel {

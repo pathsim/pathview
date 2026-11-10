@@ -191,14 +191,17 @@ def process_port_labels(labels):
     return None
 
 
-def process_port_carriers(labels):
-    """Channel layout of every port that is a carrier, by port name:
-    first channel, number of channels and channel names (empty for a
-    `Vector`). Empty without carriers."""
+def process_port_buses(labels):
+    """Bus structure of every port that is a carrier, by port name: one
+    plain signal per channel, named by its key, or by its position for a
+    `Vector`. Empty without carriers."""
     if not isinstance(labels, dict):
         return {}
     return {
-        name: {"start": int(value.start), "size": int(value.size), "keys": [str(k) for k in value.keys]}
+        name: [
+            {"name": str(key), "structure": None}
+            for key in (value.keys or range(value.size))
+        ]
         for name, value in labels.items()
         if is_carrier(value)
     }
@@ -279,8 +282,8 @@ def extract_block(cls):
             "docstringHtml": rst_to_html(rst),
             "inputs": process_port_labels(info.get("input_port_labels")),
             "outputs": process_port_labels(info.get("output_port_labels")),
-            "inputCarriers": process_port_carriers(info.get("input_port_labels")),
-            "outputCarriers": process_port_carriers(info.get("output_port_labels")),
+            "inputBuses": process_port_buses(info.get("input_port_labels")),
+            "outputBuses": process_port_buses(info.get("output_port_labels")),
             "params": params,
             "icon": block_icon(cls),
         }
@@ -292,8 +295,8 @@ def extract_block(cls):
         "docstringHtml": rst_to_html(raw_doc),
         "inputs": process_port_labels(getattr(cls, "input_port_labels", None)),
         "outputs": process_port_labels(getattr(cls, "output_port_labels", None)),
-        "inputCarriers": process_port_carriers(getattr(cls, "input_port_labels", None)),
-        "outputCarriers": process_port_carriers(getattr(cls, "output_port_labels", None)),
+        "inputBuses": process_port_buses(getattr(cls, "input_port_labels", None)),
+        "outputBuses": process_port_buses(getattr(cls, "output_port_labels", None)),
         "params": extract_params_from_signature(cls, raw_doc),
         "icon": block_icon(cls),
     }

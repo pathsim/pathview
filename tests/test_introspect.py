@@ -1,4 +1,4 @@
-"""Block introspection: ports that are carriers keep their channel layout."""
+"""Block introspection: ports that are carriers are buses of their channels."""
 
 import sys
 from pathlib import Path
@@ -24,12 +24,10 @@ def test_carrier_ports():
     assert block["inputs"] == ["stream", "Q"]
     assert block["outputs"] == ["stream", "x"]
 
-    #channel layout of the carriers, plain channels have none
-    assert block["inputCarriers"] == {"stream": {"start": 0, "size": 2, "keys": ["F", "T"]}}
-    assert block["outputCarriers"] == {
-        "stream": {"start": 0, "size": 3, "keys": ["F", "T", "P"]},
-        "x": {"start": 3, "size": 2, "keys": []},
-    }
+    #carriers as buses of their channels, by key or by position for a vector
+    signals = lambda *names: [{"name": n, "structure": None} for n in names]
+    assert block["inputBuses"] == {"stream": signals("F", "T")}
+    assert block["outputBuses"] == {"stream": signals("F", "T", "P"), "x": signals("0", "1")}
 
 
 def test_plain_ports():
@@ -40,5 +38,5 @@ def test_plain_ports():
     block = extract_block(Gain)
     assert block["inputs"] == ["in"]
     assert block["outputs"] is None
-    assert block["inputCarriers"] == {}
-    assert block["outputCarriers"] == {}
+    assert block["inputBuses"] == {}
+    assert block["outputBuses"] == {}

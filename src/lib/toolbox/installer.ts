@@ -6,7 +6,7 @@
  */
 
 import { exec, evaluate, getBackendType } from '$lib/pyodide/backend';
-import type { PortCarrier } from '$lib/types/nodes';
+import type { BusStructure } from '$lib/types/nodes';
 import { initPyodide } from '$lib/pyodide/bridge';
 import { TOOLBOX_PYTHON_HELPERS, TOOLBOX_HELPERS_SENTINEL } from './python';
 
@@ -25,8 +25,8 @@ export interface IntrospectedBlock {
 	docstringHtml: string;
 	inputs: Record<string, number> | string[] | null;
 	outputs: Record<string, number> | string[] | null;
-	inputCarriers?: Record<string, PortCarrier>;
-	outputCarriers?: Record<string, PortCarrier>;
+	inputBuses?: Record<string, BusStructure>;
+	outputBuses?: Record<string, BusStructure>;
 	params: IntrospectedParam[];
 	icon?: string | null;
 	error?: string;

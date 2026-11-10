@@ -3,7 +3,7 @@
  * Factory function for creating node type definitions
  */
 
-import type { NodeTypeDefinition, NodeCategory, ParamType, ParamDefinition, NodeShape, PortCarrier } from './types';
+import type { NodeTypeDefinition, NodeCategory, ParamType, ParamDefinition, NodeShape, BusStructure } from './types';
 import { PORT_COLORS } from '$lib/utils/colors';
 
 interface DefineNodeOptions {
@@ -19,9 +19,9 @@ interface DefineNodeOptions {
 	// Port configuration
 	inputs?: string[]; // Named input ports
 	outputs?: string[]; // Named output ports
-	/** Channel layouts of the ports that are carriers, by port name */
-	inputCarriers?: Record<string, PortCarrier>;
-	outputCarriers?: Record<string, PortCarrier>;
+	/** Signals of the ports that are carriers, by port name */
+	inputBuses?: Record<string, BusStructure>;
+	outputBuses?: Record<string, BusStructure>;
 	minInputs?: number; // minimum ports (default 1)
 	minOutputs?: number;
 	maxInputs?: number | null; // null = unlimited
@@ -57,8 +57,8 @@ export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
 		importPath,
 		inputs = ['in 0'],
 		outputs = ['out 0'],
-		inputCarriers = {},
-		outputCarriers = {},
+		inputBuses = {},
+		outputBuses = {},
 		minInputs = 1,
 		minOutputs = 1,
 		maxInputs = null,
@@ -93,13 +93,13 @@ export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
 				name: portName,
 				direction: 'input' as const,
 				color: PORT_COLORS.default,
-				...(inputCarriers[portName] ? { carrier: inputCarriers[portName] } : {})
+				...(inputBuses[portName] ? { bus: inputBuses[portName] } : {})
 			})),
 			outputs: outputs.map((portName) => ({
 				name: portName,
 				direction: 'output' as const,
 				color: PORT_COLORS.default,
-				...(outputCarriers[portName] ? { carrier: outputCarriers[portName] } : {})
+				...(outputBuses[portName] ? { bus: outputBuses[portName] } : {})
 			})),
 			minInputs,
 			minOutputs,

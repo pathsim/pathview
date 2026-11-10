@@ -7,7 +7,8 @@
 // Re-export all node-related types
 export type {
 	PortDirection,
-	PortCarrier,
+	BusStructure,
+	BusElement,
 	PortDefinition,
 	PortInstance,
 	ParamType,
