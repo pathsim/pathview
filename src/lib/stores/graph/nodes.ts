@@ -373,8 +373,11 @@ export function duplicateSelected(): string[] {
 	for (const node of nodesToAdd) {
 		queueAddBlock(node);
 	}
+	const added = new Map(nodesToAdd.map((n) => [n.id, n]));
 	for (const conn of newConnections) {
-		queueAddConnection(conn);
+		const source = added.get(conn.sourceNodeId);
+		const target = added.get(conn.targetNodeId);
+		if (source && target) queueAddConnection(conn, source, target);
 	}
 
 	// Add all nodes and connections in one update
@@ -469,8 +472,11 @@ export function pasteNodes(
 	for (const node of nodes) {
 		queueAddBlock(node);
 	}
+	const pasted = new Map(nodes.map((n) => [n.id, n]));
 	for (const conn of connections) {
-		queueAddConnection(conn);
+		const source = pasted.get(conn.sourceNodeId);
+		const target = pasted.get(conn.targetNodeId);
+		if (source && target) queueAddConnection(conn, source, target);
 	}
 
 	// Add all nodes and connections

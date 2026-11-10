@@ -24,7 +24,6 @@ import {
 } from './bridge';
 import {
 	generateParamString,
-	generateConnectionLines,
 	generateNamedConnections,
 	generateListDefinition,
 	sanitizeName
@@ -301,7 +300,7 @@ function generateSubsystemCode(
 
 	// Connection variables (named for mutation support)
 	const subConnPrefix = `${subsystemVarName}_conn`;
-	const subConnResult = generateNamedConnections(childConnections, internalNodeVars, subConnPrefix);
+	const subConnResult = generateNamedConnections(childConnections, childNodes, internalNodeVars, subConnPrefix);
 	for (const line of subConnResult.lines) {
 		lines.push(line);
 	}
@@ -506,7 +505,7 @@ export function generatePythonCode(
 
 	// 4. Connections (named variables for mutation support)
 	lines.push('# CONNECTIONS');
-	const connResult = generateNamedConnections(connections, nodeVars);
+	const connResult = generateNamedConnections(connections, nodes, nodeVars);
 	for (const line of connResult.lines) {
 		lines.push(line);
 	}
@@ -730,7 +729,7 @@ function generateFormattedPythonCode(
 	if (connections.length === 0) {
 		lines.push('connections = []');
 	} else {
-		const connResult = generateNamedConnections(connections, nodeVars);
+		const connResult = generateNamedConnections(connections, nodes, nodeVars);
 		for (const line of connResult.lines) {
 			lines.push(line);
 		}

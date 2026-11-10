@@ -21,7 +21,7 @@ import type { NodeInstance, Connection } from '$lib/nodes/types';
 import { nodeRegistry } from '$lib/nodes/registry';
 import { isSubsystem } from '$lib/nodes/shapes';
 import { isBusBlock } from '$lib/bus/expand';
-import { sanitizeName } from './codeBuilder';
+import { portKey, sanitizeName } from './codeBuilder';
 
 // --- Command types ---
 
@@ -30,7 +30,7 @@ type MutationCommand =
 	| { type: 'set_setting'; code: string }
 	| { type: 'add_block'; var: string; blockClass: string; params: Record<string, string>; nodeId: string; nodeName: string }
 	| { type: 'remove_block'; var: string; nodeId: string }
-	| { type: 'add_connection'; var: string; sourceVar: string; sourcePort: number; targetVar: string; targetPort: number }
+	| { type: 'add_connection'; var: string; sourceVar: string; sourcePort: string | number; targetVar: string; targetPort: string | number }
 	| { type: 'remove_connection'; var: string };
 
 // --- Internal state ---
@@ -201,9 +201,10 @@ export function queueRemoveBlock(nodeId: string): void {
 }
 
 /**
- * Queue adding a new connection to the simulation.
+ * Queue adding a new connection to the simulation, between the given source
+ * and target nodes.
  */
-export function queueAddConnection(conn: Connection): void {
+export function queueAddConnection(conn: Connection, source: NodeInstance, target: NodeInstance): void {
 	if (!isActive()) return;
 
 	const sourceVar = activeNodeVars.get(conn.sourceNodeId);
@@ -217,9 +218,9 @@ export function queueAddConnection(conn: Connection): void {
 		type: 'add_connection',
 		var: varName,
 		sourceVar,
-		sourcePort: conn.sourcePortIndex,
+		sourcePort: portKey(source.type, 'output', conn.sourcePortIndex),
 		targetVar,
-		targetPort: conn.targetPortIndex
+		targetPort: portKey(target.type, 'input', conn.targetPortIndex)
 	});
 	updateCount();
 }

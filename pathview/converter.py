@@ -70,10 +70,26 @@ def generate_param_string(params: dict, valid_params: set[str], multi_line: bool
     return ", ".join(parts)
 
 
+def port_key(registry: dict, node_type: str, direction: str, index: int) -> str | int:
+    """Key of a block port in pathsim: its label for a block type with fixed
+    ports, whose ports are the labels the pathsim block declares, else its
+    index. Labeled ports go by label because a label can span several
+    channels (a carrier), so the position of a port is not its channel index.
+    Same rule as `portKey` in the editor's code builder."""
+    names = (registry["blocks"].get(node_type) or {}).get(direction)
+    return names[index] if names is not None and index < len(names) else index
+
+
+def port_reference(var_name: str, registry: dict, node_type: str, direction: str, index: int) -> str:
+    """Python reference to a block port, e.g. `amp["in"]` or `scope[0]`."""
+    return f"{var_name}[{json.dumps(port_key(registry, node_type, direction, index))}]"
+
+
 def group_connections_by_source(
-    connections: list[dict], node_vars: dict[str, str]
+    connections: list[dict], nodes: list[dict], node_vars: dict[str, str], registry: dict
 ) -> list[dict]:
     """Group connections by source for multi-target Connection syntax."""
+    types = {n["id"]: n.get("type", "") for n in nodes}
     groups: dict[str, dict] = {}
     for conn in connections:
         source_var = node_vars.get(conn["sourceNodeId"])
@@ -83,28 +99,24 @@ def group_connections_by_source(
         key = f"{conn['sourceNodeId']}:{conn['sourcePortIndex']}"
         if key not in groups:
             groups[key] = {
-                "sourceVar": source_var,
-                "sourcePort": conn["sourcePortIndex"],
+                "source": port_reference(
+                    source_var, registry, types.get(conn["sourceNodeId"], ""), "outputs", conn["sourcePortIndex"]
+                ),
                 "targets": [],
             }
-        groups[key]["targets"].append({
-            "varName": target_var,
-            "port": conn["targetPortIndex"],
-        })
+        groups[key]["targets"].append(port_reference(
+            target_var, registry, types.get(conn["targetNodeId"], ""), "inputs", conn["targetPortIndex"]
+        ))
     return list(groups.values())
 
 
 def generate_connection_lines(
-    connections: list[dict], node_vars: dict[str, str], indent: str = "    "
+    connections: list[dict], nodes: list[dict], node_vars: dict[str, str], registry: dict, indent: str = "    "
 ) -> list[str]:
-    """Generate Connection() lines from connections."""
+    """Generate Connection() lines from the connections between the nodes."""
     lines = []
-    for group in group_connections_by_source(connections, node_vars):
-        source = f"{group['sourceVar']}[{group['sourcePort']}]"
-        targets = ", ".join(
-            f"{t['varName']}[{t['port']}]" for t in group["targets"]
-        )
-        lines.append(f"{indent}Connection({source}, {targets}),")
+    for group in group_connections_by_source(connections, nodes, node_vars, registry):
+        lines.append(f"{indent}Connection({group['source']}, {', '.join(group['targets'])}),")
     return lines
 
 
@@ -301,7 +313,7 @@ def generate_subsystem_code(
         lines.append(f"        {v},")
     lines.append("    ],")
     lines.append("    connections=[")
-    for line in generate_connection_lines(child_connections, internal_node_vars, "        "):
+    for line in generate_connection_lines(child_connections, child_nodes, internal_node_vars, registry, "        "):
         lines.append(line)
     lines.append("    ],")
     if child_events:
@@ -451,7 +463,7 @@ def generate_python(pvm: dict, registry: dict, source_name: str = "") -> str:
         lines.append("connections = []")
     else:
         lines.append("connections = [")
-        for line in generate_connection_lines(connections, node_vars, "    "):
+        for line in generate_connection_lines(connections, nodes, node_vars, registry, "    "):
             lines.append(line)
         lines.append("]")
     lines.append("")
