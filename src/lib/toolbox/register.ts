@@ -110,6 +110,8 @@ function buildBlockDefinition(
 		description: block.description,
 		inputs,
 		outputs,
+		inputCarriers: block.inputCarriers,
+		outputCarriers: block.outputCarriers,
 		maxInputs,
 		maxOutputs,
 		shape: asShape(selection.override?.shape),

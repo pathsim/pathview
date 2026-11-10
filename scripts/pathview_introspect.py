@@ -161,12 +161,23 @@ def extract_params_from_signature(cls, docstring, infer=None):
 # --- Port-label normalisation --------------------------------------------
 
 
+def is_carrier(value):
+    """A pathsim `Carrier` port label: a named range of channels, recognised
+    by its shape so that introspection needs no pathsim import."""
+    return all(hasattr(value, name) for name in ("start", "size", "keys"))
+
+
+def first_channel(value):
+    """Channel a port label starts at, a carrier's first channel."""
+    return value.start if is_carrier(value) else value
+
+
 def process_port_labels(labels):
     """Normalise the `*_port_labels` value into the canonical shape:
 
     - None -> None (variable/unlimited ports)
     - {}   -> []   (no ports of this type)
-    - dict -> sorted list of names
+    - dict -> list of names, in the order of their first channel
     - list -> the list itself
     """
     if labels is None:
@@ -174,10 +185,23 @@ def process_port_labels(labels):
     if isinstance(labels, dict):
         if not labels:
             return []
-        return [name for name, _ in sorted(labels.items(), key=lambda x: x[1])]
+        return [name for name, _ in sorted(labels.items(), key=lambda x: first_channel(x[1]))]
     if isinstance(labels, (list, tuple)):
         return list(labels)
     return None
+
+
+def process_port_carriers(labels):
+    """Channel layout of every port that is a carrier, by port name:
+    first channel, number of channels and channel names (empty for a
+    `Vector`). Empty without carriers."""
+    if not isinstance(labels, dict):
+        return {}
+    return {
+        name: {"start": int(value.start), "size": int(value.size), "keys": [str(k) for k in value.keys]}
+        for name, value in labels.items()
+        if is_carrier(value)
+    }
 
 
 # --- Class detection (runtime needs heuristics) --------------------------
@@ -255,6 +279,8 @@ def extract_block(cls):
             "docstringHtml": rst_to_html(rst),
             "inputs": process_port_labels(info.get("input_port_labels")),
             "outputs": process_port_labels(info.get("output_port_labels")),
+            "inputCarriers": process_port_carriers(info.get("input_port_labels")),
+            "outputCarriers": process_port_carriers(info.get("output_port_labels")),
             "params": params,
             "icon": block_icon(cls),
         }
@@ -266,6 +292,8 @@ def extract_block(cls):
         "docstringHtml": rst_to_html(raw_doc),
         "inputs": process_port_labels(getattr(cls, "input_port_labels", None)),
         "outputs": process_port_labels(getattr(cls, "output_port_labels", None)),
+        "inputCarriers": process_port_carriers(getattr(cls, "input_port_labels", None)),
+        "outputCarriers": process_port_carriers(getattr(cls, "output_port_labels", None)),
         "params": extract_params_from_signature(cls, raw_doc),
         "icon": block_icon(cls),
     }

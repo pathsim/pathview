@@ -9,10 +9,20 @@ import type { EventInstance } from './events';
 export type PortDirection = 'input' | 'output';
 
 /** Port definition for a node type (static metadata) */
+/** Channel layout of a port that is a pathsim `Carrier`: a named range of
+ *  channels of the block, `keys` empty for a `Vector` */
+export interface PortCarrier {
+	start: number;
+	size: number;
+	keys: string[];
+}
+
 export interface PortDefinition {
 	name: string;
 	direction: PortDirection;
 	color?: string;
+	/** Set for a port that is a carrier, a stream of channels */
+	carrier?: PortCarrier;
 }
 
 /** Port instance on a node (runtime) */
