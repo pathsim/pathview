@@ -4,16 +4,9 @@
  * signal paths after the rename
  */
 
-import type { Connection, NodeInstance } from '$lib/types/nodes';
+import type { BusStructure, Connection, NodeInstance } from '$lib/types/nodes';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
-import {
-	analyzeBuses,
-	levelPath,
-	selectedSignals,
-	SIGNAL_SEPARATOR,
-	type BusLevel,
-	type BusStructure
-} from './expand';
+import { analyzeBuses, levelPath, selectedSignals, SIGNAL_SEPARATOR, type BusLevel } from './expand';
 
 /** A Bus Creator input, located by the subsystem path of its level */
 export interface CreatorInput {

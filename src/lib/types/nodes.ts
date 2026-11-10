@@ -8,11 +8,23 @@ import type { EventInstance } from './events';
 /** Port direction */
 export type PortDirection = 'input' | 'output';
 
+/** Signal structure: null for a plain signal, else the named elements of a bus */
+export type BusStructure = BusElement[] | null;
+
+export interface BusElement {
+	name: string;
+	structure: BusStructure;
+	/** Bus Creator input the element was bundled at, to follow renames */
+	origin?: { creatorId: string; input: number };
+}
+
 /** Port definition for a node type (static metadata) */
 export interface PortDefinition {
 	name: string;
 	direction: PortDirection;
 	color?: string;
+	/** Signals of a port that is a pathsim `Carrier`, a bus of its channels */
+	bus?: BusStructure;
 }
 
 /** Port instance on a node (runtime) */
