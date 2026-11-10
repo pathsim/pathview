@@ -58,7 +58,7 @@ export function addConnection(
 	updateCurrentConnections(c => [...c, connection]);
 
 	// Queue mutation for runtime graph changes (no-op if no simulation active)
-	queueAddConnection(connection);
+	queueAddConnection(connection, sourceNode, targetNode);
 
 	return connection;
 }

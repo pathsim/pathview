@@ -561,7 +561,7 @@ class RegistryGenerator:
 
     def write_registry(self, blocks: dict, block_import_paths: dict[str, str],
                        events: list, event_import_paths: dict[str, str]) -> None:
-        """Write registry.json with import paths and valid param names."""
+        """Write registry.json with import paths, valid param names and port labels."""
         registry: dict[str, Any] = {"blocks": {}, "events": {}}
 
         for block_name, block_data in blocks.items():
@@ -570,6 +570,9 @@ class RegistryGenerator:
                 "blockClass": block_data["blockClass"],
                 "importPath": block_import_paths.get(block_name, "pathsim.blocks"),
                 "params": params,
+                #port labels, None for variable ports addressed by index
+                "inputs": block_data["inputs"],
+                "outputs": block_data["outputs"],
             }
 
         for event_data in events:
