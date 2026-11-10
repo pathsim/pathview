@@ -34,7 +34,7 @@
 	import { contextMenuStore } from '$lib/stores/contextMenu';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 	import { assemblyAnimationTrigger } from '$lib/animation/assemblyAnimation';
-		import { nodeRegistry } from '$lib/nodes';
+		import { nodeRegistry, registryVersion } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { GRID_SIZE, SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
 	import { createRoutingSync } from './canvas/routingSync';
@@ -642,6 +642,13 @@
 	// connections themselves are unchanged. Subscribe to the nodes store too
 	// and rebuild edges so newly hidden/visible nodes' edges follow along.
 	cleanups.push(graphStore.nodes.subscribe(() => {
+		if (isSyncing) return;
+		rebuildEdges(get(graphStore.connections));
+	}));
+
+	// Carrier ports are buses by their type definition, so a toolbox registered
+	// after the model was loaded changes which wires carry a bus
+	cleanups.push(registryVersion.subscribe(() => {
 		if (isSyncing) return;
 		rebuildEdges(get(graphStore.connections));
 	}));
