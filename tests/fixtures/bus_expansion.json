@@ -1,5 +1,21 @@
 {
-  "description": "Bus expansion cases shared by src/lib/bus/expand.test.ts and tests/test_bus_expansion.py. Expected wiring per level as source:port>target:port; level keys are subsystem ID paths joined by '/', the root is ''.",
+  "description": "Bus expansion cases shared by src/lib/bus/expand.test.ts and tests/test_bus_expansion.py. Expected wiring per level as source:port>target:port, with [channel] for a single channel of a carrier port; level keys are subsystem ID paths joined by '/', the root is ''. The registry holds the block types with carrier ports, in the format of registry.json.",
+  "registry": {
+    "blocks": {
+      "Stream": {
+        "inputs": [], "outputs": ["out"],
+        "outputBuses": { "out": [{ "name": "F", "structure": null }, { "name": "T", "structure": null }, { "name": "P", "structure": null }] }
+      },
+      "Tank": {
+        "inputs": ["in", "Q"], "outputs": [],
+        "inputBuses": { "in": [{ "name": "F", "structure": null }, { "name": "T", "structure": null }, { "name": "P", "structure": null }] }
+      },
+      "Vector": {
+        "inputs": [], "outputs": ["x"],
+        "outputBuses": { "x": [{ "name": "0", "structure": null }, { "name": "1", "structure": null }] }
+      }
+    }
+  },
   "scenarios": [
     {
       "name": "flat creator and selector",
@@ -216,6 +232,88 @@
         { "id": "c1", "sourceNodeId": "A", "sourcePortIndex": 0, "targetNodeId": "X", "targetPortIndex": 0 }
       ],
       "expected": { "": ["A:0>X:0"] }
+    },
+    {
+      "name": "carrier into a bus selector",
+      "nodes": [
+        { "id": "St", "type": "Stream", "inputs": [], "outputs": [{ "name": "out" }] },
+        { "id": "S", "type": "BusSelector", "inputs": [{ "name": "in 0" }], "outputs": [{ "name": "T" }, { "name": "P" }], "params": { "signals": ["T", "P"] } },
+        { "id": "Scope", "type": "Scope", "inputs": [{ "name": "in 0" }, { "name": "in 1" }], "outputs": [] }
+      ],
+      "connections": [
+        { "id": "c1", "sourceNodeId": "St", "sourcePortIndex": 0, "targetNodeId": "S", "targetPortIndex": 0 },
+        { "id": "c2", "sourceNodeId": "S", "sourcePortIndex": 0, "targetNodeId": "Scope", "targetPortIndex": 0 },
+        { "id": "c3", "sourceNodeId": "S", "sourcePortIndex": 1, "targetNodeId": "Scope", "targetPortIndex": 1 }
+      ],
+      "expected": { "": ["St:0[1]>Scope:0", "St:0[2]>Scope:1"] }
+    },
+    {
+      "name": "bus creator into a carrier port",
+      "nodes": [
+        { "id": "A", "type": "Constant", "inputs": [], "outputs": [{ "name": "out 0" }] },
+        { "id": "B", "type": "Constant", "inputs": [], "outputs": [{ "name": "out 0" }] },
+        { "id": "C", "type": "Constant", "inputs": [], "outputs": [{ "name": "out 0" }] },
+        { "id": "Q", "type": "Constant", "inputs": [], "outputs": [{ "name": "out 0" }] },
+        { "id": "Cr", "type": "BusCreator", "inputs": [{ "name": "in 0" }, { "name": "in 1" }, { "name": "in 2" }], "outputs": [{ "name": "out 0" }] },
+        { "id": "Tk", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] }
+      ],
+      "connections": [
+        { "id": "c1", "sourceNodeId": "A", "sourcePortIndex": 0, "targetNodeId": "Cr", "targetPortIndex": 0, "label": "F" },
+        { "id": "c2", "sourceNodeId": "B", "sourcePortIndex": 0, "targetNodeId": "Cr", "targetPortIndex": 1, "label": "T" },
+        { "id": "c3", "sourceNodeId": "C", "sourcePortIndex": 0, "targetNodeId": "Cr", "targetPortIndex": 2, "label": "P" },
+        { "id": "c4", "sourceNodeId": "Cr", "sourcePortIndex": 0, "targetNodeId": "Tk", "targetPortIndex": 0 },
+        { "id": "c5", "sourceNodeId": "Q", "sourcePortIndex": 0, "targetNodeId": "Tk", "targetPortIndex": 1 }
+      ],
+      "expected": { "": ["A:0>Tk:0[0]", "B:0>Tk:0[1]", "C:0>Tk:0[2]", "Q:0>Tk:1"] }
+    },
+    {
+      "name": "carrier to carrier stays one connection",
+      "nodes": [
+        { "id": "St", "type": "Stream", "inputs": [], "outputs": [{ "name": "out" }] },
+        { "id": "Tk", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] }
+      ],
+      "connections": [
+        { "id": "c1", "sourceNodeId": "St", "sourcePortIndex": 0, "targetNodeId": "Tk", "targetPortIndex": 0 }
+      ],
+      "expected": { "": ["St:0>Tk:0"] }
+    },
+    {
+      "name": "carrier through a subsystem",
+      "nodes": [
+        { "id": "St", "type": "Stream", "inputs": [], "outputs": [{ "name": "out" }] },
+        {
+          "id": "Sub", "type": "Subsystem", "inputs": [{ "name": "in 0" }], "outputs": [],
+          "graph": {
+            "nodes": [
+              { "id": "I", "type": "Interface", "inputs": [], "outputs": [{ "name": "in 0" }] },
+              { "id": "Tk", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] }
+            ],
+            "connections": [
+              { "id": "s1", "sourceNodeId": "I", "sourcePortIndex": 0, "targetNodeId": "Tk", "targetPortIndex": 0 }
+            ]
+          }
+        }
+      ],
+      "connections": [
+        { "id": "c1", "sourceNodeId": "St", "sourcePortIndex": 0, "targetNodeId": "Sub", "targetPortIndex": 0 }
+      ],
+      "expected": {
+        "": ["St:0[0]>Sub:0", "St:0[1]>Sub:1", "St:0[2]>Sub:2"],
+        "Sub": ["I:0>Tk:0[0]", "I:1>Tk:0[1]", "I:2>Tk:0[2]"]
+      }
+    },
+    {
+      "name": "single channel of a vector",
+      "nodes": [
+        { "id": "V", "type": "Vector", "inputs": [], "outputs": [{ "name": "x" }] },
+        { "id": "S", "type": "BusSelector", "inputs": [{ "name": "in 0" }], "outputs": [{ "name": "1" }], "params": { "signals": ["1"] } },
+        { "id": "Scope", "type": "Scope", "inputs": [{ "name": "in 0" }], "outputs": [] }
+      ],
+      "connections": [
+        { "id": "c1", "sourceNodeId": "V", "sourcePortIndex": 0, "targetNodeId": "S", "targetPortIndex": 0 },
+        { "id": "c2", "sourceNodeId": "S", "sourcePortIndex": 0, "targetNodeId": "Scope", "targetPortIndex": 0 }
+      ],
+      "expected": { "": ["V:0[1]>Scope:0"] }
     }
   ]
 }

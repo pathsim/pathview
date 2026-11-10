@@ -8,12 +8,32 @@
  * index per signal in the bus. Subsystem and Interface have no fixed port count
  * in pathsim, so only the port indices of connections change.
  *
+ * A block port that is a pathsim carrier is a bus of its channels: a carrier
+ * output is a bus source, a carrier input takes a bus with the same signals. A
+ * single channel of a carrier port is wired by its channel position.
+ *
  * pathview/converter.py implements the same rules; tests/fixtures/bus_expansion.json
  * keeps both implementations in agreement.
  */
 
-import type { BusElement, BusStructure, Connection, NodeInstance } from '$lib/types/nodes';
+import type { BusElement, BusStructure, Connection, NodeInstance, PortDirection } from '$lib/types/nodes';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
+import { nodeRegistry } from '$lib/nodes/registry';
+
+/** Signals of a block port that is a carrier, null for a plain port */
+export type PortBus = (node: NodeInstance, direction: PortDirection, index: number) => BusStructure;
+
+/** Carrier signals from the port definitions of the node types */
+export const definitionPortBus: PortBus = (node, direction, index) => {
+	const ports = nodeRegistry.get(node.type)?.ports;
+	return (direction === 'input' ? ports?.inputs : ports?.outputs)?.[index]?.bus ?? null;
+};
+
+/** A connection after bus expansion; a channel is the position of a single signal within a carrier port */
+export interface ExpandedConnection extends Connection {
+	sourceChannel?: number;
+	targetChannel?: number;
+}
 
 /** One graph level: the root graph or the graph inside a subsystem */
 export interface BusLevel {
@@ -29,7 +49,7 @@ export interface BusLevel {
 	children: Map<string, BusLevel>;
 }
 
-type Endpoint = { nodeId: string; port: number } | null;
+type Endpoint = { nodeId: string; port: number; channel?: number } | null;
 
 /** Separator of the names in a signal path such as "inner.b" */
 export const SIGNAL_SEPARATOR = '.';
@@ -84,15 +104,23 @@ export function elementAt(structure: BusStructure, path: string): BusElement | u
 	return current;
 }
 
-export function containsBusBlocks(nodes: NodeInstance[]): boolean {
-	return nodes.some((n) => isBusBlock(n) || (n.graph ? containsBusBlocks(n.graph.nodes) : false));
+/** Whether a model has buses: bus blocks or carrier ports, at any level */
+export function containsBuses(nodes: NodeInstance[], portBus: PortBus = definitionPortBus): boolean {
+	const carrier = (n: NodeInstance) =>
+		n.inputs.some((_, i) => portBus(n, 'input', i)) || n.outputs.some((_, i) => portBus(n, 'output', i));
+	return nodes.some((n) => isBusBlock(n) || carrier(n) || (n.graph ? containsBuses(n.graph.nodes, portBus) : false));
+}
+
+/** Blocks that wiring passes through unchanged: neither bus blocks nor subsystem boundaries */
+function isPlainBlock(node: NodeInstance): boolean {
+	return !isBusBlock(node) && node.type !== NODE_TYPES.SUBSYSTEM && node.type !== NODE_TYPES.INTERFACE;
 }
 
 /**
  * Signal structures of a whole model. Structures follow wires through Bus
  * Creators, Bus Selectors and subsystem boundaries in both directions.
  */
-export function analyzeBuses(nodes: NodeInstance[], connections: Connection[]) {
+export function analyzeBuses(nodes: NodeInstance[], connections: Connection[], portBus: PortBus = definitionPortBus) {
 	let nextLevelId = 0;
 
 	function buildLevel(nodeList: NodeInstance[], levelConnections: Connection[], parent: BusLevel['parent']): BusLevel {
@@ -182,7 +210,7 @@ export function analyzeBuses(nodes: NodeInstance[], connections: Connection[]) {
 			case NODE_TYPES.INTERFACE:
 				return level.parent ? structureIn(level.parent.level, level.parent.subsystem.id, port) : null;
 			default:
-				return null;
+				return portBus(node, 'output', port);
 		}
 	}
 
@@ -196,57 +224,70 @@ export function analyzeBuses(nodes: NodeInstance[], connections: Connection[]) {
 		return level;
 	}
 
-	return { root, levelAt, structureIn, structureOut, elementNames };
+	return { root, levelAt, structureIn, structureOut, elementNames, portBus };
 }
 
 export type BusAnalysis = ReturnType<typeof analyzeBuses>;
 
 /** Why a wire breaks the bus rules */
-export type BusWiringProblem = 'bus-into-block' | 'signal-into-selector';
+export type BusWiringProblem = 'bus-into-block' | 'signal-into-selector' | 'signal-into-carrier' | 'bus-mismatch';
 
 /**
- * A bus may only enter a Bus Creator, a Bus Selector or a subsystem port, and a
- * Bus Selector only takes a bus. Returns the rule a wire from the source port to
- * the target node breaks, or null if it keeps them.
+ * A bus may only enter a Bus Creator, a Bus Selector, a subsystem port or a
+ * carrier port, a Bus Selector only takes a bus, and a carrier port only a bus
+ * with its signals in its order. Returns the rule a wire from the source port to
+ * the target port breaks, or null if it keeps them.
  */
 export function busWiringProblem(
 	analysis: BusAnalysis,
 	level: BusLevel,
 	sourceNodeId: string,
 	sourcePort: number,
-	targetNodeId: string
+	targetNodeId: string,
+	targetPort: number
 ): BusWiringProblem | null {
 	const target = level.nodes.get(targetNodeId);
 	if (!target) return null;
-	const carriesBus = analysis.structureOut(level, sourceNodeId, sourcePort) !== null;
+	const structure = analysis.structureOut(level, sourceNodeId, sourcePort);
 	switch (target.type) {
 		case NODE_TYPES.BUS_CREATOR:
 		case NODE_TYPES.SUBSYSTEM:
 		case NODE_TYPES.INTERFACE:
 			return null;
 		case NODE_TYPES.BUS_SELECTOR:
-			return carriesBus ? null : 'signal-into-selector';
-		default:
-			return carriesBus ? 'bus-into-block' : null;
+			return structure ? null : 'signal-into-selector';
+		default: {
+			const carrier = analysis.portBus(target, 'input', targetPort);
+			if (!carrier) return structure ? 'bus-into-block' : null;
+			if (!structure) return 'signal-into-carrier';
+			return signalLeaves(structure).join() === signalLeaves(carrier).join() ? null : 'bus-mismatch';
+		}
 	}
 }
 
 /**
- * The model without bus blocks, for code generation. Models without bus blocks
- * are returned unchanged. Connections that carry several signals are split,
- * with IDs suffixed by the signal index. Wiring that cannot be resolved, such
- * as a bus into a plain block or a signal missing from a bus, is left out.
+ * The model without bus blocks, for code generation. Models without buses are
+ * returned unchanged. Connections that carry several signals are split, with
+ * IDs suffixed by the signal index. A wire between two plain blocks stays as it
+ * is, also from carrier to carrier. Wiring that cannot be resolved, such as a
+ * bus into a plain block or a signal missing from a bus, is left out.
  */
 export function expandBuses(
 	nodes: NodeInstance[],
-	connections: Connection[]
-): { nodes: NodeInstance[]; connections: Connection[] } {
-	if (!containsBusBlocks(nodes)) return { nodes, connections };
+	connections: Connection[],
+	portBus: PortBus = definitionPortBus
+): { nodes: NodeInstance[]; connections: ExpandedConnection[] } {
+	if (!containsBuses(nodes, portBus)) return { nodes, connections };
 
-	const { root, structureIn, structureOut } = analyzeBuses(nodes, connections);
+	const { root, structureIn, structureOut } = analyzeBuses(nodes, connections, portBus);
 	const count = (structure: BusStructure) => signalLeaves(structure).length;
 	const range = (nodeId: string, offset: number, length: number): Endpoint[] =>
 		Array.from({ length }, (_, j) => ({ nodeId, port: offset + j }));
+	/** A port of a plain block: all channels of a carrier, else the port itself */
+	const channels = (node: NodeInstance, direction: PortDirection, port: number): Endpoint[] => {
+		const carrier = portBus(node, direction, port);
+		return carrier ? carrier.map((_, channel) => ({ nodeId: node.id, port, channel })) : [{ nodeId: node.id, port }];
+	};
 
 	/** First expanded port index of each port of a subsystem */
 	const offsetMemo = new Map<string, number[]>();
@@ -305,7 +346,7 @@ export function expandBuses(
 				return range(node.id, offsets(outer, subsystem, 'in')[port] ?? port, count(structureIn(outer, subsystem.id, port)));
 			}
 			default:
-				return [{ nodeId, port }];
+				return channels(node, 'output', port);
 		}
 	}
 
@@ -323,11 +364,11 @@ export function expandBuses(
 				return range(node.id, offsets(outer, subsystem, 'out')[port] ?? port, count(structureOut(outer, subsystem.id, port)));
 			}
 			default:
-				return [{ nodeId: node.id, port }];
+				return channels(node, 'input', port);
 		}
 	}
 
-	function expandLevel(level: BusLevel): { nodes: NodeInstance[]; connections: Connection[] } {
+	function expandLevel(level: BusLevel): { nodes: NodeInstance[]; connections: ExpandedConnection[] } {
 		const expandedNodes: NodeInstance[] = [];
 		for (const node of level.nodeList) {
 			if (isBusBlock(node)) continue;
@@ -340,10 +381,11 @@ export function expandBuses(
 			}
 		}
 
-		const expandedConnections: Connection[] = [];
+		const expandedConnections: ExpandedConnection[] = [];
 		for (const connection of level.connections) {
 			const target = level.nodes.get(connection.targetNodeId);
-			if (!target || !level.nodes.has(connection.sourceNodeId)) {
+			const source = level.nodes.get(connection.sourceNodeId);
+			if (!target || !source || (isPlainBlock(source) && isPlainBlock(target))) {
 				expandedConnections.push(connection);
 				continue;
 			}
@@ -360,7 +402,9 @@ export function expandBuses(
 					sourceNodeId: source.nodeId,
 					sourcePortIndex: source.port,
 					targetNodeId: slot.nodeId,
-					targetPortIndex: slot.port
+					targetPortIndex: slot.port,
+					...(source.channel !== undefined ? { sourceChannel: source.channel } : {}),
+					...(slot.channel !== undefined ? { targetChannel: slot.channel } : {})
 				});
 			});
 		}

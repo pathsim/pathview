@@ -36,6 +36,6 @@ export function endConnectionDrag(): void {
 export function canTakeDraggedWire(nodeId: string, port: number, isOutput: boolean): boolean {
 	const from = connectionDrag.from;
 	if (!from || from.isOutput === isOutput) return false;
-	if (isOutput) return busWireAllowed(nodeId, port, from.nodeId);
-	return !connectionDrag.occupiedInputs.has(`${nodeId}:${port}`) && busWireAllowed(from.nodeId, from.port, nodeId);
+	if (isOutput) return busWireAllowed(nodeId, port, from.nodeId, from.port);
+	return !connectionDrag.occupiedInputs.has(`${nodeId}:${port}`) && busWireAllowed(from.nodeId, from.port, nodeId, port);
 }

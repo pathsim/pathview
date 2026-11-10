@@ -3,8 +3,9 @@
  * Low-level utilities for building Python code strings
  */
 
-import type { Connection, NodeInstance, PortDirection } from '$lib/nodes/types';
+import type { NodeInstance, PortDirection } from '$lib/nodes/types';
 import { nodeRegistry } from '$lib/nodes/registry';
+import { definitionPortBus, type ExpandedConnection } from '$lib/bus/expand';
 
 /** Options for parameter string generation */
 export interface ParamStringOptions {
@@ -66,9 +67,16 @@ export function portKey(type: string, direction: PortDirection, index: number): 
 	return fixed && name !== undefined ? name : index;
 }
 
-/** Python reference to a block port, e.g. `amp["in"]` or `scope[0]` */
-function portReference(varName: string, type: string, direction: PortDirection, index: number): string {
-	return `${varName}[${JSON.stringify(portKey(type, direction, index))}]`;
+/**
+ * Python reference to a block port, e.g. `amp["in"]` or `scope[0]`, or to a
+ * single channel of a carrier port, by its key (`heater["stream"]["T"]`), or
+ * by its position where the key is the position, as for a vector
+ */
+function portReference(node: NodeInstance, varName: string, direction: PortDirection, index: number, channel?: number): string {
+	const port = `${varName}[${JSON.stringify(portKey(node.type, direction, index))}]`;
+	if (channel === undefined) return port;
+	const name = definitionPortBus(node, direction, index)?.[channel]?.name;
+	return `${port}[${name === undefined || name === String(channel) ? channel : JSON.stringify(name)}]`;
 }
 
 /**
@@ -82,7 +90,7 @@ function portReference(varName: string, type: string, direction: PortDirection, 
  * @returns Object with definition lines, variable names list, and id-to-varname map
  */
 export function generateNamedConnections(
-	connections: Connection[],
+	connections: ExpandedConnection[],
 	nodes: NodeInstance[],
 	nodeVars: Map<string, string>,
 	prefix: string = 'conn'
@@ -90,19 +98,19 @@ export function generateNamedConnections(
 	const lines: string[] = [];
 	const varNames: string[] = [];
 	const connVars = new Map<string, string>();
-	const types = new Map(nodes.map((n) => [n.id, n.type]));
+	const byId = new Map(nodes.map((n) => [n.id, n]));
 
 	let idx = 0;
 	for (const conn of connections) {
 		const sourceVar = nodeVars.get(conn.sourceNodeId);
 		const targetVar = nodeVars.get(conn.targetNodeId);
-		const sourceType = types.get(conn.sourceNodeId);
-		const targetType = types.get(conn.targetNodeId);
-		if (!sourceVar || !targetVar || !sourceType || !targetType) continue;
+		const sourceNode = byId.get(conn.sourceNodeId);
+		const targetNode = byId.get(conn.targetNodeId);
+		if (!sourceVar || !targetVar || !sourceNode || !targetNode) continue;
 
 		const varName = `${prefix}_${idx}`;
-		const source = portReference(sourceVar, sourceType, 'output', conn.sourcePortIndex);
-		const target = portReference(targetVar, targetType, 'input', conn.targetPortIndex);
+		const source = portReference(sourceNode, sourceVar, 'output', conn.sourcePortIndex, conn.sourceChannel);
+		const target = portReference(targetNode, targetVar, 'input', conn.targetPortIndex, conn.targetChannel);
 		lines.push(`${varName} = Connection(${source}, ${target})`);
 		varNames.push(varName);
 		connVars.set(conn.id, varName);

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pathview.buses import expand_buses
+from pathview.buses import expand_buses, port_bus
 
 
 # =============================================================================
@@ -80,32 +80,44 @@ def port_key(registry: dict, node_type: str, direction: str, index: int) -> str 
     return names[index] if names is not None and index < len(names) else index
 
 
-def port_reference(var_name: str, registry: dict, node_type: str, direction: str, index: int) -> str:
-    """Python reference to a block port, e.g. `amp["in"]` or `scope[0]`."""
-    return f"{var_name}[{json.dumps(port_key(registry, node_type, direction, index))}]"
+def port_reference(
+    var_name: str, registry: dict, node: dict, direction: str, index: int, channel: int | None = None
+) -> str:
+    """Python reference to a block port, e.g. `amp["in"]` or `scope[0]`, or to
+    a single channel of a carrier port, by its key (`heater["stream"]["T"]`),
+    or by its position where the key is the position, as for a vector."""
+    port = f"{var_name}[{json.dumps(port_key(registry, node.get('type', ''), direction, index))}]"
+    if channel is None:
+        return port
+    carrier = port_bus(registry, node, direction, index) or []
+    name = carrier[channel]["name"] if channel < len(carrier) else None
+    return f"{port}[{channel if name is None or name == str(channel) else json.dumps(name)}]"
 
 
 def group_connections_by_source(
     connections: list[dict], nodes: list[dict], node_vars: dict[str, str], registry: dict
 ) -> list[dict]:
     """Group connections by source for multi-target Connection syntax."""
-    types = {n["id"]: n.get("type", "") for n in nodes}
+    by_id = {n["id"]: n for n in nodes}
     groups: dict[str, dict] = {}
     for conn in connections:
         source_var = node_vars.get(conn["sourceNodeId"])
         target_var = node_vars.get(conn["targetNodeId"])
         if not source_var or not target_var:
             continue
-        key = f"{conn['sourceNodeId']}:{conn['sourcePortIndex']}"
+        source_channel = conn.get("sourceChannel")
+        key = f"{conn['sourceNodeId']}:{conn['sourcePortIndex']}:{source_channel}"
         if key not in groups:
             groups[key] = {
                 "source": port_reference(
-                    source_var, registry, types.get(conn["sourceNodeId"], ""), "outputs", conn["sourcePortIndex"]
+                    source_var, registry, by_id.get(conn["sourceNodeId"], {}), "outputs",
+                    conn["sourcePortIndex"], source_channel,
                 ),
                 "targets": [],
             }
         groups[key]["targets"].append(port_reference(
-            target_var, registry, types.get(conn["targetNodeId"], ""), "inputs", conn["targetPortIndex"]
+            target_var, registry, by_id.get(conn["targetNodeId"], {}), "inputs",
+            conn["targetPortIndex"], conn.get("targetChannel"),
         ))
     return list(groups.values())
 
@@ -337,7 +349,7 @@ def generate_python(pvm: dict, registry: dict, source_name: str = "") -> str:
 
     graph = pvm.get("graph", {})
     # Bus Creator and Bus Selector exist only in the editor; wire their signals directly
-    nodes, connections = expand_buses(graph.get("nodes", []), graph.get("connections", []))
+    nodes, connections = expand_buses(graph.get("nodes", []), graph.get("connections", []), registry)
     events = pvm.get("events", [])
     code_context = pvm.get("codeContext", {}).get("code", "")
     settings = pvm.get("simulationSettings", {})

@@ -7,6 +7,10 @@ directly from its source, and a subsystem port carrying a bus becomes one port
 index per signal in the bus. Subsystem and Interface have no fixed port count
 in pathsim, so only the port indices of connections change.
 
+A block port that is a pathsim carrier is a bus of its channels: a carrier
+output is a bus source, a carrier input takes a bus with the same signals. A
+single channel of a carrier port is wired by its channel position.
+
 Mirrors src/lib/bus/expand.ts; tests/fixtures/bus_expansion.json keeps both
 implementations in agreement.
 """
@@ -21,7 +25,16 @@ SUBSYSTEM = "Subsystem"
 INTERFACE = "Interface"
 SEPARATOR = "."
 
-# A signal structure is None for a plain signal, else a list of (name, structure) elements
+# A signal structure is None for a plain signal, else a list of {"name", "structure"} elements
+
+
+def port_bus(registry: dict, node: dict, direction: str, index: int):
+    """Signals of a block port that is a carrier, None for a plain port. The
+    direction is "inputs" or "outputs", as in the registry."""
+    block = registry["blocks"].get(node.get("type", "")) or {}
+    names = block.get(direction) or []
+    buses = block.get("inputBuses" if direction == "inputs" else "outputBuses") or {}
+    return buses.get(names[index]) if index < len(names) else None
 
 
 def is_bus_block(node: dict) -> bool:
@@ -39,9 +52,9 @@ def signal_leaves(structure) -> list[str]:
     if structure is None:
         return [""]
     leaves = []
-    for name, sub in structure:
-        for path in signal_leaves(sub):
-            leaves.append(f"{name}{SEPARATOR}{path}" if path else name)
+    for element in structure:
+        for path in signal_leaves(element["structure"]):
+            leaves.append(f"{element['name']}{SEPARATOR}{path}" if path else element["name"])
     return leaves
 
 
@@ -50,7 +63,7 @@ def element_at(structure, path: str):
     current = structure
     found = False
     for name in path.split(SEPARATOR):
-        match = next((sub for element, sub in (current or []) if element == name), _MISSING)
+        match = next((e["structure"] for e in (current or []) if e["name"] == name), _MISSING)
         if match is _MISSING:
             return False, None
         current = match
@@ -61,11 +74,23 @@ def element_at(structure, path: str):
 _MISSING = object()
 
 
-def _contains_bus_blocks(nodes: list[dict]) -> bool:
+def contains_buses(nodes: list[dict], registry: dict) -> bool:
+    """Whether a model has buses: bus blocks or carrier ports, at any level."""
+    def carrier(node):
+        return any(
+            port_bus(registry, node, direction, i)
+            for direction in ("inputs", "outputs")
+            for i in range(len(node.get(direction, [])))
+        )
     return any(
-        is_bus_block(n) or (bool(n.get("graph")) and _contains_bus_blocks(n["graph"].get("nodes", [])))
+        is_bus_block(n) or carrier(n) or (bool(n.get("graph")) and contains_buses(n["graph"].get("nodes", []), registry))
         for n in nodes
     )
+
+
+def _is_plain_block(node: dict) -> bool:
+    """Blocks that wiring passes through unchanged: neither bus blocks nor subsystem boundaries."""
+    return not is_bus_block(node) and node.get("type") not in (SUBSYSTEM, INTERFACE)
 
 
 @dataclass(eq=False)
@@ -84,7 +109,8 @@ class BusLevel:
 class BusModel:
     """Signal structures of a whole model, following wires through bus blocks and subsystems."""
 
-    def __init__(self, nodes: list[dict], connections: list[dict]):
+    def __init__(self, nodes: list[dict], connections: list[dict], registry: dict):
+        self.registry = registry
         self._next_id = 0
         self._memo: dict[str, object] = {}
         self._visiting: set[str] = set()
@@ -170,7 +196,7 @@ class BusModel:
         kind = node.get("type")
         if kind == BUS_CREATOR:
             return [
-                (name, self.structure_in(level, node_id, i))
+                {"name": name, "structure": self.structure_in(level, node_id, i)}
                 for i, name in enumerate(self._element_names(level, node))
             ]
         if kind == BUS_SELECTOR:
@@ -182,23 +208,26 @@ class BusModel:
             inner = level.children.get(node_id)
             iface = next((n for n in inner.node_list if n.get("type") == INTERFACE), None) if inner else None
             return self.structure_in(inner, iface["id"], port) if iface else None
-        if kind == INTERFACE and level.parent:
+        if kind == INTERFACE:
+            if not level.parent:
+                return None
             outer, subsystem = level.parent
             return self.structure_in(outer, subsystem["id"], port)
-        return None
+        return port_bus(self.registry, node, "outputs", port)
 
 
-def expand_buses(nodes: list[dict], connections: list[dict]) -> tuple[list[dict], list[dict]]:
+def expand_buses(nodes: list[dict], connections: list[dict], registry: dict) -> tuple[list[dict], list[dict]]:
     """The model without bus blocks, for code generation.
 
-    Models without bus blocks are returned unchanged. Connections that carry
-    several signals are split, with IDs suffixed by the signal index. Wiring
-    that cannot be resolved, such as a bus into a plain block or a signal
-    missing from a bus, is left out.
+    Models without buses are returned unchanged. Connections that carry
+    several signals are split, with IDs suffixed by the signal index. A wire
+    between two plain blocks stays as it is, also from carrier to carrier.
+    Wiring that cannot be resolved, such as a bus into a plain block or a
+    signal missing from a bus, is left out.
     """
-    if not _contains_bus_blocks(nodes):
+    if not contains_buses(nodes, registry):
         return nodes, connections
-    return _Expansion(BusModel(nodes, connections)).expand()
+    return _Expansion(BusModel(nodes, connections, registry)).expand()
 
 
 class _Expansion:
@@ -212,8 +241,15 @@ class _Expansion:
         return len(signal_leaves(structure))
 
     @staticmethod
-    def _range(node_id: str, offset: int, length: int) -> list[tuple[str, int] | None]:
-        return [(node_id, offset + j) for j in range(length)]
+    def _range(node_id: str, offset: int, length: int) -> list[tuple[str, int, int | None] | None]:
+        return [(node_id, offset + j, None) for j in range(length)]
+
+    def _channels(self, node: dict, direction: str, port: int):
+        """A port of a plain block: all channels of a carrier, else the port itself."""
+        carrier = port_bus(self.model.registry, node, direction, port)
+        if carrier is None:
+            return [(node["id"], port, None)]
+        return [(node["id"], port, channel) for channel in range(len(carrier))]
 
     def _offsets_of(self, level: BusLevel, subsystem: dict, direction: str) -> list[int]:
         key = f"{level.id}:{subsystem['id']}:{direction}"
@@ -276,14 +312,14 @@ class _Expansion:
             )
         if kind == INTERFACE:
             if not level.parent:
-                return [(node_id, port)]
+                return [(node_id, port, None)]
             outer, subsystem = level.parent
             return self._range(
                 node_id,
                 self._offset(outer, subsystem, "in", port),
                 self._count(model.structure_in(outer, subsystem["id"], port)),
             )
-        return [(node_id, port)]
+        return self._channels(node, "outputs", port)
 
     def _input_slots(self, level: BusLevel, node: dict, port: int):
         """Expanded input slots a connection into a port lands on; bus blocks take none."""
@@ -295,14 +331,16 @@ class _Expansion:
             return self._range(
                 node["id"], self._offset(level, node, "in", port), self._count(model.structure_in(level, node["id"], port))
             )
-        if kind == INTERFACE and level.parent:
+        if kind == INTERFACE:
+            if not level.parent:
+                return [(node["id"], port, None)]
             outer, subsystem = level.parent
             return self._range(
                 node["id"],
                 self._offset(outer, subsystem, "out", port),
                 self._count(model.structure_out(outer, subsystem["id"], port)),
             )
-        return [(node["id"], port)]
+        return self._channels(node, "inputs", port)
 
     def expand(self) -> tuple[list[dict], list[dict]]:
         return self._expand_level(self.model.root)
@@ -322,7 +360,8 @@ class _Expansion:
         connections = []
         for connection in level.connections:
             target = level.nodes.get(connection["targetNodeId"])
-            if target is None or connection["sourceNodeId"] not in level.nodes:
+            source = level.nodes.get(connection["sourceNodeId"])
+            if target is None or source is None or (_is_plain_block(source) and _is_plain_block(target)):
                 connections.append(connection)
                 continue
             targets = self._input_slots(level, target, connection["targetPortIndex"])
@@ -331,15 +370,20 @@ class _Expansion:
             sources = self._resolve_out(level, connection["sourceNodeId"], connection["sourcePortIndex"])
             if len(sources) != len(targets):
                 continue
-            for i, (source, slot) in enumerate(zip(sources, targets)):
-                if source is None or slot is None:
+            for i, (endpoint, slot) in enumerate(zip(sources, targets)):
+                if endpoint is None or slot is None:
                     continue
-                connections.append({
+                expanded = {
                     **connection,
                     "id": connection["id"] if len(sources) == 1 else f"{connection['id']}{SEPARATOR}{i}",
-                    "sourceNodeId": source[0],
-                    "sourcePortIndex": source[1],
+                    "sourceNodeId": endpoint[0],
+                    "sourcePortIndex": endpoint[1],
                     "targetNodeId": slot[0],
                     "targetPortIndex": slot[1],
-                })
+                }
+                if endpoint[2] is not None:
+                    expanded["sourceChannel"] = endpoint[2]
+                if slot[2] is not None:
+                    expanded["targetChannel"] = slot[2]
+                connections.append(expanded)
         return nodes, connections

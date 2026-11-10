@@ -798,10 +798,11 @@
 		startConnectionDrag({ nodeId: params.nodeId, port, isOutput }, occupied);
 	}
 
-	// A bus may only enter bus blocks and subsystem ports, and a Bus Selector only takes a bus
+	// A bus may only enter bus blocks, subsystem ports and carrier ports, and a Bus Selector only takes a bus
 	function isValidConnection(connection: FlowConnection | Edge): boolean {
 		const sourcePort = HANDLE_ID.parseIndex(connection.sourceHandle ?? '', 'output');
-		return sourcePort === null || busWireAllowed(connection.source, sourcePort, connection.target);
+		const targetPort = HANDLE_ID.parseIndex(connection.targetHandle ?? '', 'input');
+		return sourcePort === null || targetPort === null || busWireAllowed(connection.source, sourcePort, connection.target, targetPort);
 	}
 
 	// Handle new connections

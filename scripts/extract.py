@@ -573,6 +573,8 @@ class RegistryGenerator:
                 #port labels, None for variable ports addressed by index
                 "inputs": block_data["inputs"],
                 "outputs": block_data["outputs"],
+                #signals of the ports that are carriers
+                **{key: block_data[key] for key in ("inputBuses", "outputBuses") if key in block_data},
             }
 
         for event_data in events:
