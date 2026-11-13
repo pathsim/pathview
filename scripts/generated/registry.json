@@ -641,8 +641,7 @@
       "blockClass": "Splitter",
       "importPath": "pathsim.blocks",
       "params": [
-        "fractions",
-        "carrier"
+        "fractions"
       ],
       "inputs": [
         "in"
