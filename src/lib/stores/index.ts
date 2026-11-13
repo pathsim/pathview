@@ -18,7 +18,7 @@ export { eventDialogStore, openEventDialog, closeEventDialog } from './eventDial
 export { contextMenuStore } from './contextMenu';
 export { nodeUpdatesStore } from './nodeUpdates';
 export { pinnedPreviewsStore } from './pinnedPreviews';
-export { hoveredHandle, selectedNodeHighlight } from './hoveredHandle';
+export { hoveredHandle } from './hoveredHandle';
 export { portLabelsStore } from './portLabels';
 export { iconModeStore } from './iconMode';
 
