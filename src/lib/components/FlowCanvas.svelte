@@ -34,7 +34,7 @@
 	import { contextMenuStore } from '$lib/stores/contextMenu';
 	import { nodeUpdatesStore } from '$lib/stores/nodeUpdates';
 	import { assemblyAnimationTrigger } from '$lib/animation/assemblyAnimation';
-		import { nodeRegistry, registryVersion } from '$lib/nodes';
+		import { nodeRegistry, registryVersion, nodeColor } from '$lib/nodes';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { GRID_SIZE, SNAP_GRID, BACKGROUND_GAP } from '$lib/constants/grid';
 	import { createRoutingSync } from './canvas/routingSync';
@@ -872,6 +872,7 @@
 	function handleSelectionChange({ nodes: selectedNodes }: { nodes: Node[]; edges: Edge[] }) {
 		const selectedBlockIds = new Set<string>();
 		const selectedEventIdSet = new Set<string>();
+		const selectedColors = new Map<string, string>();
 
 		selectedNodes?.forEach((node) => {
 			if (node.type === 'eventNode') {
@@ -879,8 +880,10 @@
 			} else {
 				// Both regular nodes and annotations go into selectedBlockIds
 				selectedBlockIds.add(node.id);
+				if (node.type !== 'annotation') selectedColors.set(node.id, nodeColor(node.data as NodeInstance));
 			}
 		});
+		edgeHighlighter.select(selectedColors);
 
 		// Update stores directly (bypasses trigger-based functions)
 		graphSelectedNodeIds.set(selectedBlockIds);

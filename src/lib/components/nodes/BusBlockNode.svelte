@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
 	import { useUpdateNodeInternals } from '@xyflow/svelte';
-	import type { NodeInstance, PortDirection } from '$lib/nodes';
+	import { nodeColor as colorOf, type NodeInstance, type PortDirection } from '$lib/nodes';
 	import InlineInput from '$lib/components/InlineInput.svelte';
 	import { graphStore } from '$lib/stores/graph';
 	import { historyStore } from '$lib/stores/history';
@@ -14,7 +14,6 @@
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { busBlockDimensions } from '$lib/constants/dimensions';
 	import { openNodeDialog } from '$lib/stores/nodeDialog';
-	import { selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import NodePorts from './NodePorts.svelte';
 	import BusWedge from './BusWedge.svelte';
 
@@ -36,7 +35,7 @@
 	const rotation = $derived((data.params?.['_rotation'] as number) || 0);
 	const isCreator = $derived(data.type === NODE_TYPES.BUS_CREATOR);
 	const size = $derived(busBlockDimensions(data.inputs.length, data.outputs.length, rotation));
-	const nodeColor = $derived(data.color || 'var(--accent)');
+	const nodeColor = $derived(colorOf(data));
 
 	// Port labels follow the global setting unless the block overrides it, like blocks
 	const showInputLabels = $derived((data.params?.['_showInputLabels'] as boolean | undefined) ?? $portLabelsStore);
@@ -46,15 +45,6 @@
 	$effect(() => {
 		void size;
 		updateNodeInternals(id);
-	});
-
-	// Highlight connected edges when selected, like blocks do
-	$effect(() => {
-		if (selected) {
-			selectedNodeHighlight.set({ nodeId: id, color: nodeColor });
-		} else {
-			selectedNodeHighlight.update((current) => (current?.nodeId === id ? null : current));
-		}
 	});
 
 	// Signal names are edited inline like connection labels, addressed as "<node>:<direction>:<index>"

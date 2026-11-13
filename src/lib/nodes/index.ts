@@ -9,6 +9,9 @@ export * from './types';
 // Re-export registry (initializes blocks from generated data on import)
 export { nodeRegistry, registryVersion } from './registry';
 
+// Re-export node color
+export { nodeColor } from './color';
+
 // Re-export defineNode helper
 export { defineNode } from './defineNode';
 

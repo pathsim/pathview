@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useUpdateNodeInternals } from '@xyflow/svelte';
-	import { nodeRegistry, registryVersion, type NodeInstance } from '$lib/nodes';
+	import { nodeRegistry, registryVersion, nodeColor as colorOf, type NodeInstance } from '$lib/nodes';
 	import { getShapeCssClass, isSubsystem } from '$lib/nodes/shapes/index';
 	import { NODE_TYPES } from '$lib/constants/nodeTypes';
 	import { openNodeDialog } from '$lib/stores/nodeDialog';
@@ -12,7 +12,6 @@
 	import { iconModeStore } from '$lib/stores/iconMode';
 	import BlockIcon from '$lib/components/icons/BlockIcon.svelte';
 	import { PREVIEW_GAP, previewSideForRotation } from '$lib/utils/previewBounds';
-	import { selectedNodeHighlight } from '$lib/stores/hoveredHandle';
 	import { paramInput } from '$lib/actions/paramInput';
 	import { plotDataStore } from '$lib/plotting/processing/plotDataStore';
 	import { calculateNodeDimensions } from '$lib/constants/dimensions';
@@ -245,14 +244,11 @@
 	// Get shape class from unified shapes utility
 	const shapeClass = $derived(() => typeDef ? getShapeCssClass(typeDef) : 'shape-default');
 
-	// Custom node color (defaults to pathsim-blue)
-	// Missing blocks (type not registered) override any custom color so the
-	// whole block — name, handles, hover state — picks up the error red.
-	const nodeColor = $derived(
-		!typeDef && data.type !== NODE_TYPES.SUBSYSTEM && data.type !== NODE_TYPES.INTERFACE
-			? 'var(--error)'
-			: data.color || 'var(--accent)'
-	);
+	// Missing blocks take the error red for the whole block: name, handles, hover state
+	const nodeColor = $derived.by(() => {
+		registryTick; // dependency: re-read whenever the registry version bumps
+		return colorOf(data);
+	});
 
 	// Handle pinned param change
 	function handlePinnedParamChange(paramName: string, value: string) {
@@ -272,18 +268,6 @@
 		if (typeof value === 'object') return JSON.stringify(value);
 		return String(value);
 	}
-
-	// Highlight connected edges when node is selected
-	$effect(() => {
-		if (selected) {
-			selectedNodeHighlight.set({ nodeId: id, color: nodeColor });
-		} else {
-			selectedNodeHighlight.update((current) => {
-				if (current?.nodeId === id) return null;
-				return current;
-			});
-		}
-	});
 </script>
 
 <!-- Load KaTeX CSS for math rendering in node names -->
