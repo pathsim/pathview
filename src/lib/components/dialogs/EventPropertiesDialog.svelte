@@ -134,7 +134,7 @@
 						class="node-name-input"
 						type="text"
 						value={event.name}
-						oninput={(e) => handleNameChange(e.currentTarget.value)}
+						onchange={(e) => handleNameChange(e.currentTarget.value)}
 						use:paramInput
 					/>
 					<span class="node-type">{typeDef.name}</span>
@@ -196,7 +196,7 @@
 										type="text"
 										value={formatValue(value)}
 										placeholder={formatDefault(param.default)}
-										oninput={(e) => handleParamChange(param.name, e.currentTarget.value)}
+										onchange={(e) => handleParamChange(param.name, e.currentTarget.value)}
 										use:paramInput
 									/>
 								</div>

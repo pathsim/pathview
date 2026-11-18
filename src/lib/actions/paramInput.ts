@@ -1,18 +1,24 @@
 /**
- * Svelte action for consistent keyboard handling on parameter inputs.
+ * Svelte action for entry fields: parameters, names and settings.
+ *
+ * An entry is committed by the `change` event of the field, which fires on
+ * Enter or when the field is left, and only if the value changed. Fields
+ * listen to `onchange`, not `oninput`, so a half typed value is never
+ * committed: no undo step, live mutation or evaluation per keystroke.
  *
  * Features:
- * - Escape: unfocus (blur) the input, stops propagation
+ * - Escape: restore the value the field had when it was focused and unfocus
+ *   it, so no `change` fires and nothing is committed; stops propagation
  * - Enter: optionally blur (for single-line inputs, not textareas)
  *
  * Usage:
- *   <input use:paramInput />
+ *   <input onchange={(e) => commit(e.currentTarget.value)} use:paramInput />
  *   <input use:paramInput={{ blurOnEnter: true }} />
  *   <textarea use:paramInput />
  */
 
 export interface ParamInputOptions {
-	/** Blur input on Escape key (default: true) */
+	/** Restore and blur the input on Escape key (default: true) */
 	blurOnEscape?: boolean;
 	/** Blur input on Enter key - ignored for textareas (default: false) */
 	blurOnEnter?: boolean;
@@ -29,10 +35,18 @@ export function paramInput(
 ) {
 	const opts = { ...defaultOptions, ...options };
 
+	// Value at focus, restored on Escape
+	let focusValue = node.value;
+
+	function handleFocus() {
+		focusValue = node.value;
+	}
+
 	function handleKeydown(e: Event) {
 		const event = e as KeyboardEvent;
 		if (event.key === 'Escape' && opts.blurOnEscape) {
 			event.stopPropagation();
+			node.value = focusValue;
 			node.blur();
 		}
 
@@ -43,6 +57,7 @@ export function paramInput(
 		}
 	}
 
+	node.addEventListener('focus', handleFocus);
 	node.addEventListener('keydown', handleKeydown);
 	node.setAttribute('autocomplete', 'off');
 
@@ -51,6 +66,7 @@ export function paramInput(
 			Object.assign(opts, defaultOptions, newOptions);
 		},
 		destroy() {
+			node.removeEventListener('focus', handleFocus);
 			node.removeEventListener('keydown', handleKeydown);
 		}
 	};

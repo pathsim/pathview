@@ -60,7 +60,7 @@
 	import { iconModeStore } from '$lib/stores/iconMode';
 	import { clipboardStore } from '$lib/stores/clipboard';
 	import Tooltip, { tooltip } from '$lib/components/Tooltip.svelte';
-	import { isInputFocused } from '$lib/utils/focus';
+	import { isInputFocused, commitFocusedEntry } from '$lib/utils/focus';
 	import { isTourActive } from '$lib/tours/inputMode';
 	import { toggleThemeWithTransition } from '$lib/utils/themeTransition';
 	import { startGuidedTour } from '$lib/tours';
@@ -771,6 +771,7 @@
 		// Shift+Enter for continue simulation
 		if (event.shiftKey && event.key === 'Enter') {
 			event.preventDefault();
+			commitFocusedEntry(event);
 			if (hasRunSimulation && pyodideReady && !simRunning && !isContinuing) {
 				handleContinue();
 			}
@@ -782,6 +783,7 @@
 			switch (event.key.toLowerCase()) {
 				case 's':
 					event.preventDefault();
+					commitFocusedEntry(event);
 					if (event.shiftKey) {
 						handleSaveAs();
 					} else {
@@ -794,6 +796,7 @@
 					return;
 				case 'e':
 					event.preventDefault();
+					commitFocusedEntry(event);
 					exportDialogOpen = true;
 					return;
 				case 'f':
@@ -831,6 +834,7 @@
 					return;
 				case 'z':
 					event.preventDefault();
+					commitFocusedEntry(event);
 					if (event.shiftKey) {
 						historyStore.redo();
 					} else {
@@ -839,10 +843,12 @@
 					return;
 				case 'y':
 					event.preventDefault();
+					commitFocusedEntry(event);
 					historyStore.redo();
 					return;
 				case 'enter':
 					event.preventDefault();
+					commitFocusedEntry(event);
 					handleRun();
 					return;
 			}
