@@ -83,7 +83,7 @@
 					class="code-input"
 					value={settings.duration}
 					placeholder={DEFAULT_SIMULATION_SETTINGS.duration}
-					oninput={(e) => updateSetting('duration', e.currentTarget.value)}
+					onchange={(e) => updateSetting('duration', e.currentTarget.value)}
 					spellcheck="false"
 					use:paramInput
 				/>
@@ -103,7 +103,7 @@
 					class="code-input"
 					value={settings.dt}
 					placeholder={DEFAULT_SIMULATION_SETTINGS.dt}
-					oninput={(e) => updateSetting('dt', e.currentTarget.value)}
+					onchange={(e) => updateSetting('dt', e.currentTarget.value)}
 					spellcheck="false"
 					use:paramInput
 				/>
@@ -199,7 +199,7 @@
 				class="code-input"
 				value={settings.rtol}
 				placeholder={DEFAULT_SIMULATION_SETTINGS.rtol}
-				oninput={(e) => updateSetting('rtol', e.currentTarget.value)}
+				onchange={(e) => updateSetting('rtol', e.currentTarget.value)}
 				spellcheck="false"
 				use:paramInput
 			/>
@@ -215,7 +215,7 @@
 				class="code-input"
 				value={settings.atol}
 				placeholder={DEFAULT_SIMULATION_SETTINGS.atol}
-				oninput={(e) => updateSetting('atol', e.currentTarget.value)}
+				onchange={(e) => updateSetting('atol', e.currentTarget.value)}
 				spellcheck="false"
 				use:paramInput
 			/>
@@ -231,7 +231,7 @@
 				class="code-input"
 				value={settings.ftol}
 				placeholder={DEFAULT_SIMULATION_SETTINGS.ftol}
-				oninput={(e) => updateSetting('ftol', e.currentTarget.value)}
+				onchange={(e) => updateSetting('ftol', e.currentTarget.value)}
 				spellcheck="false"
 				use:paramInput
 			/>
@@ -252,7 +252,7 @@
 					class="code-input"
 					value={settings.dt_min}
 					placeholder={DEFAULT_SIMULATION_SETTINGS.dt_min}
-					oninput={(e) => updateSetting('dt_min', e.currentTarget.value)}
+					onchange={(e) => updateSetting('dt_min', e.currentTarget.value)}
 					spellcheck="false"
 					use:paramInput
 				/>
@@ -271,7 +271,7 @@
 					class="code-input"
 					value={settings.dt_max}
 					placeholder={DEFAULT_SIMULATION_SETTINGS.dt_max}
-					oninput={(e) => updateSetting('dt_max', e.currentTarget.value)}
+					onchange={(e) => updateSetting('dt_max', e.currentTarget.value)}
 					spellcheck="false"
 					use:paramInput
 				/>

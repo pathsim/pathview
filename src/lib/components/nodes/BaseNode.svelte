@@ -338,7 +338,7 @@
 								type="text"
 								value={formatParamValue(data.params[paramName])}
 								placeholder={formatDefault(paramDef.default)}
-								oninput={(e) => handlePinnedParamChange(paramName, e.currentTarget.value)}
+								onchange={(e) => handlePinnedParamChange(paramName, e.currentTarget.value)}
 								onmousedown={(e) => e.stopPropagation()}
 								onfocus={(e) => e.stopPropagation()}
 								use:paramInput

@@ -9,3 +9,12 @@ export function isInputFocused(event: KeyboardEvent): boolean {
 		!!(event.target as HTMLElement)?.closest?.('.cm-editor')
 	);
 }
+
+/**
+ * Commit the entry being edited before a shortcut acts on the model. Entry
+ * fields commit on their change event (see the paramInput action), which
+ * leaving the field fires.
+ */
+export function commitFocusedEntry(event: KeyboardEvent): void {
+	if (isInputFocused(event)) (event.target as HTMLElement).blur?.();
+}
