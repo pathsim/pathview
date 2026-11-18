@@ -28,6 +28,8 @@ interface DefineNodeOptions {
 	minOutputs?: number;
 	inputPolicy?: PortPolicy; // default 'variable'
 	outputPolicy?: PortPolicy;
+	/** Parameters the ports depend on, for 'derived' ports */
+	portParameters?: string[];
 	syncPorts?: boolean; // When true, output count always equals input count
 
 	// Shape override (defaults based on category)
@@ -49,10 +51,15 @@ interface DefineNodeOptions {
 
 /**
  * Ports of a pathsim block in one direction from its introspected port labels:
- * a list gives fixed ports named by their labels, `null` variable ports
+ * a list gives ports named by their labels, fixed, or derived for a block whose
+ * ports depend on its parameters, `null` variable ports
  */
-export function portsFromLabels(labels: string[] | null | undefined): { names: string[] | undefined; policy: PortPolicy } {
-	return labels == null ? { names: undefined, policy: 'variable' } : { names: labels, policy: 'fixed' };
+export function portsFromLabels(
+	labels: string[] | null | undefined,
+	portParameters?: string[]
+): { names: string[] | undefined; policy: PortPolicy } {
+	if (labels == null) return { names: undefined, policy: 'variable' };
+	return { names: labels, policy: portParameters?.length ? 'derived' : 'fixed' };
 }
 
 /**
@@ -74,6 +81,7 @@ export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
 		minOutputs = 1,
 		inputPolicy = 'variable',
 		outputPolicy = 'variable',
+		portParameters,
 		syncPorts,
 		shape,
 		params = {}
@@ -104,14 +112,14 @@ export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
 				name: portName,
 				direction: 'input' as const,
 				color: PORT_COLORS.default,
-				...(labeled && inputPolicy === 'fixed' ? { key: portName } : {}),
+				...(labeled && inputPolicy !== 'variable' ? { key: portName } : {}),
 				...(inputBuses[portName] ? { bus: inputBuses[portName] } : {})
 			})),
 			outputs: outputs.map((portName) => ({
 				name: portName,
 				direction: 'output' as const,
 				color: PORT_COLORS.default,
-				...(labeled && outputPolicy === 'fixed' ? { key: portName } : {}),
+				...(labeled && outputPolicy !== 'variable' ? { key: portName } : {}),
 				...(outputBuses[portName] ? { bus: outputBuses[portName] } : {})
 			})),
 			minInputs,
@@ -121,6 +129,7 @@ export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
 			syncPorts
 		},
 
-		params: paramDefs
+		params: paramDefs,
+		...(portParameters?.length ? { portParameters } : {})
 	};
 }

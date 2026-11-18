@@ -177,8 +177,8 @@ function createNodeFromExtracted(
 		};
 	}
 
-	const inputs = portsFromLabels(extracted.inputs);
-	const outputs = portsFromLabels(extracted.outputs);
+	const inputs = portsFromLabels(extracted.inputs, extracted.portParameters);
+	const outputs = portsFromLabels(extracted.outputs, extracted.portParameters);
 
 	const definition = defineNode({
 		name,
@@ -192,6 +192,7 @@ function createNodeFromExtracted(
 		outputBuses: extracted.outputBuses,
 		inputPolicy: inputs.policy,
 		outputPolicy: outputs.policy,
+		portParameters: extracted.portParameters,
 		syncPorts: syncPortBlocks.has(name),
 		params
 	});

@@ -207,6 +207,27 @@ def process_port_buses(labels):
     }
 
 
+def process_ports(input_labels, output_labels):
+    """Ports of a block from its input and output port labels, in the shape
+    the editor reads: the port names and the channels of carrier ports."""
+    return {
+        "inputs": process_port_labels(input_labels),
+        "outputs": process_port_labels(output_labels),
+        "inputBuses": process_port_buses(input_labels),
+        "outputBuses": process_port_buses(output_labels),
+    }
+
+
+def instance_ports(block):
+    """Ports of a block instance, which differ from those of its class for
+    blocks whose ports depend on their parameters (`port_parameters`).
+    None for a pathsim whose `info()` does not report instances."""
+    info = block.info()
+    if "port_parameters" not in info:
+        return None
+    return process_ports(info.get("input_port_labels"), info.get("output_port_labels"))
+
+
 # --- Class detection (runtime needs heuristics) --------------------------
 
 
@@ -267,6 +288,19 @@ def extract_block(cls):
 
     if info is not None:
         rst = (info.get("description") or raw_doc).strip()
+
+        #blocks whose ports depend on their parameters start with the ports
+        #of an instance with the default parameters
+        port_parameters = list(info.get("port_parameters") or ())
+        ports = None
+        if port_parameters:
+            try:
+                ports = instance_ports(cls())
+            except Exception:
+                ports = None
+        if ports is None:
+            ports = process_ports(info.get("input_port_labels"), info.get("output_port_labels"))
+
         params = []
         for pname, meta in (info.get("parameters") or {}).items():
             default = meta.get("default") if isinstance(meta, dict) else None
@@ -280,10 +314,8 @@ def extract_block(cls):
             "className": cls.__name__,
             "description": first_line(rst),
             "docstringHtml": rst_to_html(rst),
-            "inputs": process_port_labels(info.get("input_port_labels")),
-            "outputs": process_port_labels(info.get("output_port_labels")),
-            "inputBuses": process_port_buses(info.get("input_port_labels")),
-            "outputBuses": process_port_buses(info.get("output_port_labels")),
+            **ports,
+            "portParameters": port_parameters,
             "params": params,
             "icon": block_icon(cls),
         }
@@ -293,10 +325,8 @@ def extract_block(cls):
         "className": cls.__name__,
         "description": first_line(raw_doc),
         "docstringHtml": rst_to_html(raw_doc),
-        "inputs": process_port_labels(getattr(cls, "input_port_labels", None)),
-        "outputs": process_port_labels(getattr(cls, "output_port_labels", None)),
-        "inputBuses": process_port_buses(getattr(cls, "input_port_labels", None)),
-        "outputBuses": process_port_buses(getattr(cls, "output_port_labels", None)),
+        **process_ports(getattr(cls, "input_port_labels", None), getattr(cls, "output_port_labels", None)),
+        "portParameters": [],
         "params": extract_params_from_signature(cls, raw_doc),
         "icon": block_icon(cls),
     }

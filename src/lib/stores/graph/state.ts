@@ -295,8 +295,31 @@ export function updateCurrentNodesAndConnections(
 	nodeArrayUpdater: (nodes: NodeInstance[]) => NodeInstance[],
 	connectionUpdater: (connections: Connection[]) => Connection[]
 ): void {
-	const path = get(currentPath);
+	updateNodesAndConnectionsAt(get(currentPath), nodeMapUpdater, nodeArrayUpdater, connectionUpdater);
+}
 
+/**
+ * Nodes and connections of the level at a subsystem path, the root for an
+ * empty path, independent of the level shown
+ */
+export function graphAt(path: string[]): { nodes: NodeInstance[]; connections: Connection[] } {
+	if (path.length === 0) {
+		return { nodes: Array.from(get(rootNodes).values()), connections: get(rootConnections) };
+	}
+	const graph = getSubsystemByPath(path)?.graph;
+	return { nodes: graph?.nodes ?? [], connections: graph?.connections ?? [] };
+}
+
+/**
+ * Update nodes and connections of the level at a subsystem path, the root for
+ * an empty path, independent of the level shown
+ */
+export function updateNodesAndConnectionsAt(
+	path: string[],
+	nodeMapUpdater: (nodes: Map<string, NodeInstance>) => Map<string, NodeInstance>,
+	nodeArrayUpdater: (nodes: NodeInstance[]) => NodeInstance[],
+	connectionUpdater: (connections: Connection[]) => Connection[]
+): void {
 	if (path.length === 0) {
 		rootNodes.update(nodeMapUpdater);
 		rootConnections.update(connectionUpdater);

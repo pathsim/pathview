@@ -68,8 +68,8 @@ function buildBlockDefinition(
 	fallbackCategory: string,
 	importPath: string
 ) {
-	const inputs = portsFromLabels(block.inputs);
-	const outputs = portsFromLabels(block.outputs);
+	const inputs = portsFromLabels(block.inputs, block.portParameters);
+	const outputs = portsFromLabels(block.outputs, block.portParameters);
 
 	const params: Record<string, { type: ParamType; default: unknown; description?: string }> = {};
 	for (const p of block.params) {
@@ -93,6 +93,7 @@ function buildBlockDefinition(
 		outputBuses: block.outputBuses,
 		inputPolicy: inputs.policy,
 		outputPolicy: outputs.policy,
+		portParameters: block.portParameters,
 		shape: asShape(selection.override?.shape),
 		syncPorts: selection.override?.syncPorts || undefined,
 		params

@@ -22,26 +22,30 @@ export interface ExtractedBlock {
   icon: string | null;      // SVG icon from Block.icon(), null if the block has none
   inputBuses?: Record<string, BusStructure>;  // signals of the ports that are carriers, by name
   outputBuses?: Record<string, BusStructure>;
+  portParameters?: string[]; // parameters the ports depend on, the ports above are those of the defaults
 }
 
 export const extractedBlocks: Record<string, ExtractedBlock> = 
 {
   "Constant": {
     "blockClass": "Constant",
-    "description": "Produces a constant output signal (SISO).",
-    "docstringHtml": "<p>Produces a constant output signal (SISO).</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) = const.\n\\end{equation*}\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float</span></dt>\n<dd>constant defining block output</dd>\n</dl>\n</div>\n",
+    "description": "Produces a constant output signal.",
+    "docstringHtml": "<p>Produces a constant output signal.</p>\n<div class=\"math\">\n\\begin{equation*}\ny(t) = const.\n\\end{equation*}\n</div>\n<p>A scalar value gives a single output 'out', an array value one output\nper element, 'out_0', 'out_1', ...</p>\n<div class=\"section\" id=\"example\">\n<h3>Example</h3>\n<p>Constant boundary values for three channels, for example the inlet flows\nof a stream that is a carrier input of the block 'B':</p>\n<pre class=\"code python literal-block\">\n<span class=\"name\">C</span> <span class=\"operator\">=</span> <span class=\"name\">Constant</span><span class=\"punctuation\">([</span><span class=\"literal number float\">1.0</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">0.5</span><span class=\"punctuation\">,</span> <span class=\"literal number float\">0.0</span><span class=\"punctuation\">])</span><span class=\"whitespace\">\n\n</span><span class=\"name\">Con</span> <span class=\"operator\">=</span> <span class=\"name\">Connection</span><span class=\"punctuation\">(</span><span class=\"name\">C</span><span class=\"punctuation\">[</span><span class=\"literal number integer\">0</span><span class=\"punctuation\">:</span><span class=\"literal number integer\">3</span><span class=\"punctuation\">],</span> <span class=\"name\">B</span><span class=\"punctuation\">[</span><span class=\"literal string double\">&quot;in&quot;</span><span class=\"punctuation\">])</span>\n</pre>\n</div>\n<div class=\"section\" id=\"parameters\">\n<h3>Parameters</h3>\n<dl class=\"docutils\">\n<dt>value <span class=\"classifier-delimiter\">:</span> <span class=\"classifier\">float, array_like</span></dt>\n<dd>constant defining block output, scalar or 1d array</dd>\n</dl>\n</div>\n",
     "params": {
       "value": {
         "type": "integer",
         "default": "1",
-        "description": "constant defining block output"
+        "description": "constant defining block output, scalar or 1d array"
       }
     },
     "inputs": [],
     "outputs": [
       "out"
     ],
-    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"10\" y1=\"50\" x2=\"86\" y2=\"50\"/><line x1=\"10\" y1=\"10\" x2=\"10\" y2=\"54\"/><path d=\"M 14 14 L 82 14\"/></svg>\n"
+    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"10\" y1=\"50\" x2=\"86\" y2=\"50\"/><line x1=\"10\" y1=\"10\" x2=\"10\" y2=\"54\"/><path d=\"M 14 14 L 82 14\"/></svg>\n",
+    "portParameters": [
+      "value"
+    ]
   },
   "Source": {
     "blockClass": "Source",
@@ -1243,8 +1247,13 @@ export const extractedBlocks: Record<string, ExtractedBlock> =
     "inputs": [
       "in"
     ],
-    "outputs": null,
-    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <path d=\"M 18 32 H 40 C 52 32 50 20 62 20 H 78\"/>\n  <path d=\"M 40 32 C 52 32 50 44 62 44 H 78\"/>\n  <circle cx=\"40\" cy=\"32\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>\n</svg>\n"
+    "outputs": [
+      "out_0"
+    ],
+    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 64\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <path d=\"M 18 32 H 40 C 52 32 50 20 62 20 H 78\"/>\n  <path d=\"M 40 32 C 52 32 50 44 62 44 H 78\"/>\n  <circle cx=\"40\" cy=\"32\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>\n</svg>\n",
+    "portParameters": [
+      "fractions"
+    ]
   },
   "LUT": {
     "blockClass": "LUT",

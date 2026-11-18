@@ -46,10 +46,11 @@ export interface PortInstance {
 
 /**
  * Who sets the ports of a node in one direction: 'fixed' ports come from the
- * type definition (or the editor logic of the block), 'variable' ports are
- * added and removed by the user
+ * type definition (or the editor logic of the block), 'derived' ports from the
+ * pathsim block built with the parameters of the node (see `portParameters`),
+ * 'variable' ports are added and removed by the user
  */
-export type PortPolicy = 'fixed' | 'variable';
+export type PortPolicy = 'fixed' | 'derived' | 'variable';
 
 /** Parameter type annotation (mirrors Python type hints) */
 export type ParamType = 'number' | 'integer' | 'boolean' | 'string' | 'array' | 'callable' | 'any';
@@ -95,6 +96,9 @@ export interface NodeTypeDefinition {
 
 	// Parameter definitions
 	params: ParamDefinition[];
+
+	/** Parameters the ports of a pathsim block depend on, see the 'derived' port policy */
+	portParameters?: string[];
 
 	// PathSim block class name for export
 	blockClass: string;

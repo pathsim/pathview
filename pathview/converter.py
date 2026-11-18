@@ -71,7 +71,7 @@ def generate_param_string(params: dict, valid_params: set[str], multi_line: bool
 
 
 def with_port_structure(node: dict, registry: dict) -> dict:
-    """Fill the pathsim key and the carrier channels of the fixed ports of a
+    """Fill the pathsim key and the carrier channels of the labeled ports of a
     node from the registry, by index, recursing into subsystems. For files
     saved before ports carried their structure: the saved names are display
     names (e.g. "out 0" for the label "out") and do not tell the key. Ports

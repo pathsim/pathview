@@ -15,11 +15,12 @@ export function nodePort(node: NodeInstance, direction: PortDirection, index: nu
 }
 
 /**
- * Fill the pathsim key and the carrier channels of the fixed ports of a node
- * from its type definition, by index, recursing into subsystems. For nodes
- * saved before ports carried their structure: the saved names are display
- * names (e.g. "out 0" for the label "out") and do not tell the key. Ports that
- * have a key, variable ports and unknown types are left as they are.
+ * Fill the pathsim key and the carrier channels of the labeled ports of a node
+ * (fixed, or derived with the ports of the default parameters) from its type
+ * definition, by index, recursing into subsystems. For nodes saved before ports
+ * carried their structure: the saved names are display names (e.g. "out 0" for
+ * the label "out") and do not tell the key. Ports that have a key, variable
+ * ports and unknown types are left as they are.
  */
 export function withPortStructure(node: NodeInstance): NodeInstance {
 	let result = node;
@@ -28,7 +29,7 @@ export function withPortStructure(node: NodeInstance): NodeInstance {
 		for (const direction of ['input', 'output'] as const) {
 			const portsKey = direction === 'input' ? 'inputs' : 'outputs';
 			const policy = direction === 'input' ? typeDef.ports.inputPolicy : typeDef.ports.outputPolicy;
-			if (policy !== 'fixed') continue;
+			if (policy === 'variable') continue;
 			const defs = typeDef.ports[portsKey];
 			const ports = result[portsKey];
 			if (!ports.some((port, i) => port.key === undefined && (defs[i]?.key !== undefined || defs[i]?.bus))) continue;

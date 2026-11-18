@@ -10,6 +10,8 @@
  *   - module drop on uninstall
  *   - thin wrappers exposing introspect_blocks / introspect_events / etc.
  *     to the JS evaluate() bridge.
+ *   - the ports of a block built with the parameters of a node, evaluated in
+ *     the model's code context.
  */
 
 import INTROSPECT_PY from '../../../scripts/pathview_introspect.py?raw';
@@ -90,6 +92,35 @@ def pathview_introspect_events(import_path):
             continue
         events.append(extract_event(obj))
     return {"ok": True, "events": events}
+
+
+_pv_context = {"code": None, "namespace": None}
+
+
+def _pv_context_namespace(code):
+    """Namespace the model's code context ran in, kept until the code changes,
+    so parameter expressions can use what it defines."""
+    if _pv_context["code"] != code:
+        import numpy as _pv_np
+        namespace = {"np": _pv_np}
+        exec(code, namespace)
+        _pv_context.update(code=code, namespace=namespace)
+    return _pv_context["namespace"]
+
+
+def pathview_block_ports(import_path, class_name, args, code):
+    """Ports of a block built with the parameters of a node, 'args' as in the
+    generated constructor call, evaluated in the model's code context."""
+    try:
+        namespace = _pv_context_namespace(code)
+        cls = getattr(_pv_importlib.import_module(import_path), class_name)
+        block = eval(f"_pv_block_class({args})", namespace, {"_pv_block_class": cls})
+        ports = instance_ports(block)
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    if ports is None:
+        return {"ok": False, "error": "the installed pathsim does not report the ports of block instances"}
+    return {"ok": True, **ports}
 
 
 def pathview_uninstall(import_path):

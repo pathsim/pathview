@@ -18,15 +18,21 @@ export interface IntrospectedParam {
 	description: string;
 }
 
-/** Raw block metadata as returned by pathview_introspect_blocks. */
-export interface IntrospectedBlock {
-	className: string;
-	description: string;
-	docstringHtml: string;
+/** Ports of a block as the introspector reports them */
+export interface IntrospectedPorts {
 	inputs: string[] | null; // null = variable ports, else the port labels in channel order
 	outputs: string[] | null;
 	inputBuses?: Record<string, BusStructure>;
 	outputBuses?: Record<string, BusStructure>;
+}
+
+/** Raw block metadata as returned by pathview_introspect_blocks. */
+export interface IntrospectedBlock extends IntrospectedPorts {
+	className: string;
+	description: string;
+	docstringHtml: string;
+	/** Parameters the ports depend on, the ports above are those of the default parameters */
+	portParameters?: string[];
 	params: IntrospectedParam[];
 	icon?: string | null;
 	error?: string;
@@ -173,6 +179,26 @@ export async function introspectBlocks(importPath: string): Promise<Introspected
 		throw new Error(`Introspection failed for "${importPath}": ${result.error ?? 'unknown error'}`);
 	}
 	return result.blocks;
+}
+
+/**
+ * Ports of a block built with the parameters of a node: `args` as in the
+ * generated constructor call, evaluated in the model's code context `code`.
+ */
+export async function introspectBlockPorts(
+	importPath: string,
+	className: string,
+	args: string,
+	code: string
+): Promise<IntrospectedPorts> {
+	await ensureHelpers();
+	const result = await evaluate<{ ok: boolean; error?: string } & IntrospectedPorts>(
+		`pathview_block_ports(${pyStr(importPath)}, ${pyStr(className)}, ${pyStr(args)}, ${pyStr(code)})`
+	);
+	if (!result.ok) {
+		throw new Error(result.error ?? 'unknown error');
+	}
+	return result;
 }
 
 /** Import an events submodule and list event classes with their parameters. */

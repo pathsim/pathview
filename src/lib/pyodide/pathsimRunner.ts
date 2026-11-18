@@ -11,8 +11,7 @@ import { eventRegistry } from '$lib/events/registry';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import { BLOCK_CATEGORY_ORDER } from '$lib/constants/python';
 import { isSubsystem, isInterface } from '$lib/nodes/shapes';
-import { blockImportPaths } from '$lib/nodes/generated/blocks';
-import { ENGINE_MODULE, enginePath } from '$lib/constants/engine';
+import { ENGINE_MODULE } from '$lib/constants/engine';
 import { generateEngineSetup } from './engineCodegen';
 import { graphStore, findParentSubsystem } from '$lib/stores/graph';
 import { expandBuses, isBusBlock } from '$lib/bus/expand';
@@ -26,7 +25,8 @@ import {
 	generateParamString,
 	generateNamedConnections,
 	generateListDefinition,
-	sanitizeName
+	sanitizeName,
+	blockImportPath
 } from './codeBuilder';
 
 // Re-export sanitizeName for external use
@@ -165,13 +165,7 @@ function collectBlockImportGroups(nodes: NodeInstance[]): Map<string, Set<string
 		const typeDef = nodeRegistry.get(node.type);
 		if (!typeDef) continue;
 
-		// Toolbox-registered blocks carry their own importPath; built-ins
-		// fall back to the static map. Last fallback is core pathsim.blocks.
-		// enginePath() rewrites core pathsim paths to the active engine module
-		// (identity in the default pathsim build).
-		const importPath = enginePath(
-			typeDef.importPath ?? blockImportPaths[typeDef.blockClass] ?? 'pathsim.blocks'
-		);
+		const importPath = blockImportPath(typeDef.blockClass);
 		if (!groups.has(importPath)) groups.set(importPath, new Set());
 		groups.get(importPath)!.add(typeDef.blockClass);
 	}

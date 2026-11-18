@@ -646,7 +646,9 @@
       "inputs": [
         "in"
       ],
-      "outputs": null
+      "outputs": [
+        "out_0"
+      ]
     },
     "LUT": {
       "blockClass": "LUT",
