@@ -25,6 +25,16 @@ export function portBus(node: NodeInstance, direction: PortDirection, index: num
 	return nodePort(node, direction, index)?.bus ?? null;
 }
 
+/**
+ * Name of a channel of a carrier port in pathsim: its key, or null for a
+ * channel without key, as those of a pathsim `Vector`, whose signals are
+ * named by their position
+ */
+export function channelKey(carrier: BusStructure, channel: number): string | null {
+	const name = carrier?.[channel]?.name;
+	return name === undefined || name === String(channel) ? null : name;
+}
+
 /** A connection after bus expansion; a channel is the position of a single signal within a carrier port */
 export interface ExpandedConnection extends Connection {
 	sourceChannel?: number;
@@ -210,71 +220,6 @@ export function analyzeBuses(nodes: NodeInstance[], connections: Connection[]) {
 		}
 	}
 
-	/** Level at a subsystem path from the root, by subsystem IDs */
-	function levelAt(path: string[]): BusLevel | null {
-		let level: BusLevel | undefined = root;
-		for (const id of path) {
-			level = level?.children.get(id);
-			if (!level) return null;
-		}
-		return level;
-	}
-
-	return { root, levelAt, structureIn, structureOut, elementNames };
-}
-
-export type BusAnalysis = ReturnType<typeof analyzeBuses>;
-
-/** Why a wire breaks the bus rules */
-export type BusWiringProblem = 'bus-into-block' | 'signal-into-selector' | 'signal-into-carrier' | 'bus-mismatch';
-
-/**
- * A bus may only enter a Bus Creator, a Bus Selector, a subsystem port or a
- * carrier port, a Bus Selector only takes a bus, and a carrier port only a bus
- * with its signals in its order. Returns the rule a wire from the source port to
- * the target port breaks, or null if it keeps them.
- */
-export function busWiringProblem(
-	analysis: BusAnalysis,
-	level: BusLevel,
-	sourceNodeId: string,
-	sourcePort: number,
-	targetNodeId: string,
-	targetPort: number
-): BusWiringProblem | null {
-	const target = level.nodes.get(targetNodeId);
-	if (!target) return null;
-	const structure = analysis.structureOut(level, sourceNodeId, sourcePort);
-	switch (target.type) {
-		case NODE_TYPES.BUS_CREATOR:
-		case NODE_TYPES.SUBSYSTEM:
-		case NODE_TYPES.INTERFACE:
-			return null;
-		case NODE_TYPES.BUS_SELECTOR:
-			return structure ? null : 'signal-into-selector';
-		default: {
-			const carrier = portBus(target, 'input', targetPort);
-			if (!carrier) return structure ? 'bus-into-block' : null;
-			if (!structure) return 'signal-into-carrier';
-			return signalLeaves(structure).join() === signalLeaves(carrier).join() ? null : 'bus-mismatch';
-		}
-	}
-}
-
-/**
- * The model without bus blocks, for code generation. Models without buses are
- * returned unchanged. Connections that carry several signals are split, with
- * IDs suffixed by the signal index. A wire between two plain blocks stays as it
- * is, also from carrier to carrier. Wiring that cannot be resolved, such as a
- * bus into a plain block or a signal missing from a bus, is left out.
- */
-export function expandBuses(
-	nodes: NodeInstance[],
-	connections: Connection[]
-): { nodes: NodeInstance[]; connections: ExpandedConnection[] } {
-	if (!containsBuses(nodes)) return { nodes, connections };
-
-	const { root, structureIn, structureOut } = analyzeBuses(nodes, connections);
 	const count = (structure: BusStructure) => signalLeaves(structure).length;
 	const range = (nodeId: string, offset: number, length: number): Endpoint[] =>
 		Array.from({ length }, (_, j) => ({ nodeId, port: offset + j }));
@@ -362,6 +307,85 @@ export function expandBuses(
 				return channels(node, 'input', port);
 		}
 	}
+
+	/** Level at a subsystem path from the root, by subsystem IDs */
+	function levelAt(path: string[]): BusLevel | null {
+		let level: BusLevel | undefined = root;
+		for (const id of path) {
+			level = level?.children.get(id);
+			if (!level) return null;
+		}
+		return level;
+	}
+
+	return { root, levelAt, structureIn, structureOut, elementNames, resolveOut, inputSlots };
+}
+
+export type BusAnalysis = ReturnType<typeof analyzeBuses>;
+
+/** Why a wire breaks the bus rules */
+export type BusWiringProblem = 'bus-into-block' | 'signal-into-selector' | 'signal-into-carrier' | 'bus-mismatch';
+
+/**
+ * A bus may only enter a Bus Creator, a Bus Selector, a subsystem port or a
+ * carrier port, and a Bus Selector only takes a bus. A carrier port takes what
+ * pathsim connects to it (`Connection._validate_dimensions`): one signal per
+ * channel, and where a signal comes from a channel with a key and the channel
+ * it meets has one, the same key. Signals from plain ports, channels without
+ * key and signals through subsystem ports have none. Returns the rule a wire
+ * from the source port to the target port breaks, or null if it keeps them.
+ */
+export function busWiringProblem(
+	analysis: BusAnalysis,
+	level: BusLevel,
+	sourceNodeId: string,
+	sourcePort: number,
+	targetNodeId: string,
+	targetPort: number
+): BusWiringProblem | null {
+	const target = level.nodes.get(targetNodeId);
+	if (!target) return null;
+	const structure = analysis.structureOut(level, sourceNodeId, sourcePort);
+	switch (target.type) {
+		case NODE_TYPES.BUS_CREATOR:
+		case NODE_TYPES.SUBSYSTEM:
+		case NODE_TYPES.INTERFACE:
+			return null;
+		case NODE_TYPES.BUS_SELECTOR:
+			return structure ? null : 'signal-into-selector';
+		default: {
+			const carrier = portBus(target, 'input', targetPort);
+			if (!carrier) return structure ? 'bus-into-block' : null;
+			const sources = analysis.resolveOut(level, sourceNodeId, sourcePort);
+			if (sources.length !== carrier.length) return structure ? 'bus-mismatch' : 'signal-into-carrier';
+			const sourceKey = (endpoint: (typeof sources)[number]) => {
+				const node = endpoint && endpoint.channel !== undefined ? level.nodes.get(endpoint.nodeId) : undefined;
+				return node ? channelKey(portBus(node, 'output', endpoint!.port), endpoint!.channel!) : null;
+			};
+			const meets = sources.every((endpoint, i) => {
+				const a = sourceKey(endpoint);
+				const b = channelKey(carrier, i);
+				return a === null || b === null || a === b;
+			});
+			return meets ? null : 'bus-mismatch';
+		}
+	}
+}
+
+/**
+ * The model without bus blocks, for code generation. Models without buses are
+ * returned unchanged. Connections that carry several signals are split, with
+ * IDs suffixed by the signal index. A wire between two plain blocks stays as it
+ * is, also from carrier to carrier. Wiring that cannot be resolved, such as a
+ * bus into a plain block or a signal missing from a bus, is left out.
+ */
+export function expandBuses(
+	nodes: NodeInstance[],
+	connections: Connection[]
+): { nodes: NodeInstance[]; connections: ExpandedConnection[] } {
+	if (!containsBuses(nodes)) return { nodes, connections };
+
+	const { root, resolveOut, inputSlots } = analyzeBuses(nodes, connections);
 
 	function expandLevel(level: BusLevel): { nodes: NodeInstance[]; connections: ExpandedConnection[] } {
 		const expandedNodes: NodeInstance[] = [];

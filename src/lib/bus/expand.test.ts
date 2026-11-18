@@ -108,7 +108,7 @@ describe('bus expansion', () => {
 		expect(busWiringProblem(analysis, root, 'S', 0, 'Scope', 0)).toBeNull();
 	});
 
-	it('takes a bus into a carrier port only with the signals of the carrier', () => {
+	it('keeps buses and plain signals at the ports that take them', () => {
 		const creator = load(fixtures.scenarios.find((s) => s.name === 'bus creator into a carrier port')!);
 		const analysis = analyzeBuses(creator.nodes, creator.connections);
 		const root = analysis.root;
@@ -116,16 +116,23 @@ describe('bus expansion', () => {
 		expect(busWiringProblem(analysis, root, 'A', 0, 'Tk', 0)).toBe('signal-into-carrier');
 		expect(busWiringProblem(analysis, root, 'Cr', 0, 'Tk', 1)).toBe('bus-into-block');
 
-		// a bus missing a signal of the carrier
-		const partial = creator.connections.filter((c) => c.id !== 'c3');
-		const reduced = analyzeBuses(creator.nodes, partial);
-		expect(busWiringProblem(reduced, reduced.root, 'Cr', 0, 'Tk', 0)).toBe('bus-mismatch');
-
 		// a carrier output is a bus
 		const stream = load(fixtures.scenarios.find((s) => s.name === 'carrier into a bus selector')!);
 		const streams = analyzeBuses(stream.nodes, stream.connections);
 		expect(busWiringProblem(streams, streams.root, 'St', 0, 'S', 0)).toBeNull();
 		expect(busWiringProblem(streams, streams.root, 'St', 0, 'Scope', 0)).toBe('bus-into-block');
+	});
+
+	describe('wires into carrier ports, with the verdict of pathsim', () => {
+		const wiring = load(fixtures.wiring as unknown as Scenario);
+		const analysis = analyzeBuses(wiring.nodes, wiring.connections);
+		for (const { wire, accepted, name } of fixtures.wiring.cases) {
+			it(name, () => {
+				const c = wiring.connections.find((connection) => connection.id === wire)!;
+				const problem = busWiringProblem(analysis, analysis.root, c.sourceNodeId, c.sourcePortIndex, c.targetNodeId, c.targetPortIndex);
+				expect(problem === null).toBe(accepted);
+			});
+		}
 	});
 
 	it('applies the bus rules across subsystem ports', () => {

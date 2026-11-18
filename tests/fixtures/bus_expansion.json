@@ -1,5 +1,5 @@
 {
-  "description": "Bus expansion cases shared by src/lib/bus/expand.test.ts and tests/test_bus_expansion.py. Expected wiring per level as source:port>target:port, with [channel] for a single channel of a carrier port; level keys are subsystem ID paths joined by '/', the root is ''. The registry holds the block types with carrier ports, in the format of registry.json.",
+  "description": "Bus expansion cases shared by src/lib/bus/expand.test.ts and tests/test_bus_expansion.py. Expected wiring per level as source:port>target:port, with [channel] for a single channel of a carrier port; level keys are subsystem ID paths joined by '/', the root is ''. The registry holds the block types with carrier ports, in the format of registry.json. The wiring section holds wires into carrier ports with the verdict of pathsim.",
   "registry": {
     "blocks": {
       "Stream": {
@@ -315,5 +315,63 @@
       ],
       "expected": { "": ["V:0[1]>Scope:0"] }
     }
-  ]
+  ],
+  "wiring": {
+    "description": "Wires into carrier ports and whether pathsim accepts them (tests/test_bus_expansion.py builds the connections in pathsim, src/lib/bus/expand.test.ts checks busWiringProblem against the same verdict). Each Tank input 'in' takes one wire.",
+    "nodes": [
+      { "id": "A", "type": "Constant", "inputs": [], "outputs": [{ "name": "out 0" }] },
+      { "id": "B", "type": "Constant", "inputs": [], "outputs": [{ "name": "out 0" }] },
+      { "id": "C", "type": "Constant", "inputs": [], "outputs": [{ "name": "out 0" }] },
+      { "id": "St", "type": "Stream", "inputs": [], "outputs": [{ "name": "out" }] },
+      { "id": "Vc", "type": "Vector", "inputs": [], "outputs": [{ "name": "x" }] },
+      { "id": "S", "type": "BusSelector", "params": { "signals": ["F", "T", "P"] }, "inputs": [{ "name": "bus" }], "outputs": [{ "name": "F" }, { "name": "T" }, { "name": "P" }] },
+      { "id": "Cu", "type": "BusCreator", "inputs": [{ "name": "in 0" }, { "name": "in 1" }, { "name": "in 2" }], "outputs": [{ "name": "out 0" }] },
+      { "id": "Ck", "type": "BusCreator", "inputs": [{ "name": "in 0" }, { "name": "in 1" }, { "name": "in 2" }], "outputs": [{ "name": "out 0" }] },
+      { "id": "Cr", "type": "BusCreator", "inputs": [{ "name": "in 0" }, { "name": "in 1" }, { "name": "in 2" }], "outputs": [{ "name": "out 0" }] },
+      { "id": "C2", "type": "BusCreator", "inputs": [{ "name": "in 0" }, { "name": "in 1" }], "outputs": [{ "name": "out 0" }] },
+      { "id": "Cp", "type": "BusCreator", "inputs": [{ "name": "in 0" }, { "name": "in 1" }, { "name": "in 2" }], "outputs": [{ "name": "out 0" }] },
+      { "id": "T1", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] },
+      { "id": "T2", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] },
+      { "id": "T3", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] },
+      { "id": "T4", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] },
+      { "id": "T5", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] },
+      { "id": "T6", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] },
+      { "id": "T7", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] },
+      { "id": "T8", "type": "Tank", "inputs": [{ "name": "in" }, { "name": "Q" }], "outputs": [] }
+    ],
+    "connections": [
+      { "id": "st-s", "sourceNodeId": "St", "sourcePortIndex": 0, "targetNodeId": "S", "targetPortIndex": 0 },
+      { "id": "cu0", "sourceNodeId": "A", "sourcePortIndex": 0, "targetNodeId": "Cu", "targetPortIndex": 0, "label": "x" },
+      { "id": "cu1", "sourceNodeId": "B", "sourcePortIndex": 0, "targetNodeId": "Cu", "targetPortIndex": 1, "label": "y" },
+      { "id": "cu2", "sourceNodeId": "C", "sourcePortIndex": 0, "targetNodeId": "Cu", "targetPortIndex": 2, "label": "z" },
+      { "id": "ck0", "sourceNodeId": "S", "sourcePortIndex": 0, "targetNodeId": "Ck", "targetPortIndex": 0 },
+      { "id": "ck1", "sourceNodeId": "S", "sourcePortIndex": 1, "targetNodeId": "Ck", "targetPortIndex": 1 },
+      { "id": "ck2", "sourceNodeId": "S", "sourcePortIndex": 2, "targetNodeId": "Ck", "targetPortIndex": 2 },
+      { "id": "cr0", "sourceNodeId": "S", "sourcePortIndex": 1, "targetNodeId": "Cr", "targetPortIndex": 0 },
+      { "id": "cr1", "sourceNodeId": "S", "sourcePortIndex": 0, "targetNodeId": "Cr", "targetPortIndex": 1 },
+      { "id": "cr2", "sourceNodeId": "S", "sourcePortIndex": 2, "targetNodeId": "Cr", "targetPortIndex": 2 },
+      { "id": "c20", "sourceNodeId": "A", "sourcePortIndex": 0, "targetNodeId": "C2", "targetPortIndex": 0 },
+      { "id": "c21", "sourceNodeId": "B", "sourcePortIndex": 0, "targetNodeId": "C2", "targetPortIndex": 1 },
+      { "id": "cp0", "sourceNodeId": "A", "sourcePortIndex": 0, "targetNodeId": "Cp", "targetPortIndex": 0 },
+      { "id": "cp1", "sourceNodeId": "B", "sourcePortIndex": 0, "targetNodeId": "Cp", "targetPortIndex": 1 },
+      { "id": "w1", "sourceNodeId": "Cu", "sourcePortIndex": 0, "targetNodeId": "T1", "targetPortIndex": 0 },
+      { "id": "w2", "sourceNodeId": "Ck", "sourcePortIndex": 0, "targetNodeId": "T2", "targetPortIndex": 0 },
+      { "id": "w3", "sourceNodeId": "Cr", "sourcePortIndex": 0, "targetNodeId": "T3", "targetPortIndex": 0 },
+      { "id": "w4", "sourceNodeId": "C2", "sourcePortIndex": 0, "targetNodeId": "T4", "targetPortIndex": 0 },
+      { "id": "w5", "sourceNodeId": "Vc", "sourcePortIndex": 0, "targetNodeId": "T5", "targetPortIndex": 0 },
+      { "id": "w6", "sourceNodeId": "A", "sourcePortIndex": 0, "targetNodeId": "T6", "targetPortIndex": 0 },
+      { "id": "w7", "sourceNodeId": "St", "sourcePortIndex": 0, "targetNodeId": "T7", "targetPortIndex": 0 },
+      { "id": "w8", "sourceNodeId": "Cp", "sourcePortIndex": 0, "targetNodeId": "T8", "targetPortIndex": 0 }
+    ],
+    "cases": [
+      { "wire": "w1", "accepted": true, "name": "signals of plain ports into a carrier, whatever their names" },
+      { "wire": "w2", "accepted": true, "name": "channels of a carrier into channels of the same keys" },
+      { "wire": "w3", "accepted": false, "name": "channels of a carrier into channels of other keys" },
+      { "wire": "w4", "accepted": false, "name": "fewer signals than channels" },
+      { "wire": "w5", "accepted": false, "name": "a vector of another width" },
+      { "wire": "w6", "accepted": false, "name": "a single signal into a carrier of several channels" },
+      { "wire": "w7", "accepted": true, "name": "carrier to carrier of the same keys" },
+      { "wire": "w8", "accepted": true, "name": "a bus with an unconnected signal leaves its channel unconnected" }
+    ]
+  }
 }

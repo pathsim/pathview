@@ -323,9 +323,11 @@ In PathSim Python code, subsystems map to `Subsystem(blocks=[...], connections=[
 - A subsystem port carrying a bus becomes one port index per leaf signal, in bus order, on the Subsystem and on its Interface. Port indices after it shift accordingly.
 - Wiring that cannot be resolved is left out: a bus into a block that is not a bus block or subsystem, a picked signal missing from the bus, or a wire loop through bus blocks.
 
-Editors should not create such wiring: a bus may only enter a Bus Creator, a Bus Selector or a subsystem port, and a Bus Selector only takes a bus. PathView rejects these wires while connecting and draws existing ones as errors.
+A port with `bus` is a PathSim carrier: a bus into it is resolved to one connection per channel, a wire from a carrier port to a carrier port stays one connection.
 
-The reference implementations are `src/lib/bus/expand.ts` and `pathview/buses.py`; `tests/fixtures/bus_expansion.json` lists the expected wiring for each case.
+Editors should not create such wiring: a bus may only enter a Bus Creator, a Bus Selector, a subsystem port or a carrier port, and a Bus Selector only takes a bus. A carrier port takes what PathSim connects to it: one signal per channel, and where a signal comes from a channel with a key and meets a channel with a key, the same key. Signals from ports without `bus`, from channels named by their position and through subsystem ports have no key. PathView rejects these wires while connecting and draws existing ones as errors.
+
+The reference implementations are `src/lib/bus/expand.ts` and `pathview/buses.py`; `tests/fixtures/bus_expansion.json` lists the expected wiring for each case, and wires into carrier ports with the verdict of PathSim.
 
 ---
 

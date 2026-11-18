@@ -8,7 +8,7 @@ import { nodePort } from '$lib/nodes/ports';
 import { nodeRegistry } from '$lib/nodes/registry';
 import { blockImportPaths } from '$lib/nodes/generated/blocks';
 import { enginePath } from '$lib/constants/engine';
-import type { ExpandedConnection } from '$lib/bus/expand';
+import { channelKey, type ExpandedConnection } from '$lib/bus/expand';
 
 /** Options for parameter string generation */
 export interface ParamStringOptions {
@@ -84,8 +84,8 @@ export function portKey(node: NodeInstance, direction: PortDirection, index: num
 function portReference(node: NodeInstance, varName: string, direction: PortDirection, index: number, channel?: number): string {
 	const port = `${varName}[${JSON.stringify(portKey(node, direction, index))}]`;
 	if (channel === undefined) return port;
-	const name = nodePort(node, direction, index)?.bus?.[channel]?.name;
-	return `${port}[${name === undefined || name === String(channel) ? channel : JSON.stringify(name)}]`;
+	const key = channelKey(nodePort(node, direction, index)?.bus ?? null, channel);
+	return `${port}[${key === null ? channel : JSON.stringify(key)}]`;
 }
 
 /**
