@@ -5,6 +5,7 @@
 
 import { writable, get } from 'svelte/store';
 import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
+import { withPortStructure } from '$lib/nodes/ports';
 import type { EventInstance } from '$lib/events/types';
 import type { Position } from '$lib/types';
 import { graphStore, cloneNodeForPaste } from '$lib/stores/graph';
@@ -324,7 +325,7 @@ async function paste(targetPosition: Position): Promise<{ nodeIds: string[]; eve
 			});
 
 			// Use shared utility for node cloning (handles subsystem ID regeneration)
-			const newNode = cloneNodeForPaste(node, newPosition, newId);
+			const newNode = withPortStructure(cloneNodeForPaste(node, newPosition, newId));
 			nodesToPaste.push(newNode);
 		}
 

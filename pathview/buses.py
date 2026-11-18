@@ -28,13 +28,11 @@ SEPARATOR = "."
 # A signal structure is None for a plain signal, else a list of {"name", "structure"} elements
 
 
-def port_bus(registry: dict, node: dict, direction: str, index: int):
-    """Signals of a block port that is a carrier, None for a plain port. The
-    direction is "inputs" or "outputs", as in the registry."""
-    block = registry["blocks"].get(node.get("type", "")) or {}
-    names = block.get(direction) or []
-    buses = block.get("inputBuses" if direction == "inputs" else "outputBuses") or {}
-    return buses.get(names[index]) if index < len(names) else None
+def port_bus(node: dict, direction: str, index: int):
+    """Signals of a block port that is a carrier, None for a plain port, from
+    the port of the node. The direction is "inputs" or "outputs"."""
+    ports = node.get(direction) or []
+    return ports[index].get("bus") if index < len(ports) else None
 
 
 def is_bus_block(node: dict) -> bool:
@@ -74,16 +72,16 @@ def element_at(structure, path: str):
 _MISSING = object()
 
 
-def contains_buses(nodes: list[dict], registry: dict) -> bool:
+def contains_buses(nodes: list[dict]) -> bool:
     """Whether a model has buses: bus blocks or carrier ports, at any level."""
     def carrier(node):
         return any(
-            port_bus(registry, node, direction, i)
+            port_bus(node, direction, i)
             for direction in ("inputs", "outputs")
             for i in range(len(node.get(direction, [])))
         )
     return any(
-        is_bus_block(n) or carrier(n) or (bool(n.get("graph")) and contains_buses(n["graph"].get("nodes", []), registry))
+        is_bus_block(n) or carrier(n) or (bool(n.get("graph")) and contains_buses(n["graph"].get("nodes", [])))
         for n in nodes
     )
 
@@ -109,8 +107,7 @@ class BusLevel:
 class BusModel:
     """Signal structures of a whole model, following wires through bus blocks and subsystems."""
 
-    def __init__(self, nodes: list[dict], connections: list[dict], registry: dict):
-        self.registry = registry
+    def __init__(self, nodes: list[dict], connections: list[dict]):
         self._next_id = 0
         self._memo: dict[str, object] = {}
         self._visiting: set[str] = set()
@@ -213,10 +210,10 @@ class BusModel:
                 return None
             outer, subsystem = level.parent
             return self.structure_in(outer, subsystem["id"], port)
-        return port_bus(self.registry, node, "outputs", port)
+        return port_bus(node, "outputs", port)
 
 
-def expand_buses(nodes: list[dict], connections: list[dict], registry: dict) -> tuple[list[dict], list[dict]]:
+def expand_buses(nodes: list[dict], connections: list[dict]) -> tuple[list[dict], list[dict]]:
     """The model without bus blocks, for code generation.
 
     Models without buses are returned unchanged. Connections that carry
@@ -225,9 +222,9 @@ def expand_buses(nodes: list[dict], connections: list[dict], registry: dict) -> 
     Wiring that cannot be resolved, such as a bus into a plain block or a
     signal missing from a bus, is left out.
     """
-    if not contains_buses(nodes, registry):
+    if not contains_buses(nodes):
         return nodes, connections
-    return _Expansion(BusModel(nodes, connections, registry)).expand()
+    return _Expansion(BusModel(nodes, connections)).expand()
 
 
 class _Expansion:
@@ -246,7 +243,7 @@ class _Expansion:
 
     def _channels(self, node: dict, direction: str, port: int):
         """A port of a plain block: all channels of a carrier, else the port itself."""
-        carrier = port_bus(self.model.registry, node, direction, port)
+        carrier = port_bus(node, direction, port)
         if carrier is None:
             return [(node["id"], port, None)]
         return [(node["id"], port, channel) for channel in range(len(carrier))]

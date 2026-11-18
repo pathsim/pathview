@@ -3,7 +3,7 @@
  * Factory function for creating node type definitions
  */
 
-import type { NodeTypeDefinition, NodeCategory, ParamType, ParamDefinition, NodeShape, BusStructure } from './types';
+import type { NodeTypeDefinition, NodeCategory, ParamType, ParamDefinition, NodeShape, BusStructure, PortPolicy } from './types';
 import { PORT_COLORS } from '$lib/utils/colors';
 
 interface DefineNodeOptions {
@@ -19,13 +19,15 @@ interface DefineNodeOptions {
 	// Port configuration
 	inputs?: string[]; // Named input ports
 	outputs?: string[]; // Named output ports
+	/** The names of the fixed ports are the labels pathsim addresses them by */
+	labeled?: boolean;
 	/** Signals of the ports that are carriers, by port name */
 	inputBuses?: Record<string, BusStructure>;
 	outputBuses?: Record<string, BusStructure>;
 	minInputs?: number; // minimum ports (default 1)
 	minOutputs?: number;
-	maxInputs?: number | null; // null = unlimited
-	maxOutputs?: number | null;
+	inputPolicy?: PortPolicy; // default 'variable'
+	outputPolicy?: PortPolicy;
 	syncPorts?: boolean; // When true, output count always equals input count
 
 	// Shape override (defaults based on category)
@@ -46,6 +48,14 @@ interface DefineNodeOptions {
 }
 
 /**
+ * Ports of a pathsim block in one direction from its introspected port labels:
+ * a list gives fixed ports named by their labels, `null` variable ports
+ */
+export function portsFromLabels(labels: string[] | null | undefined): { names: string[] | undefined; policy: PortPolicy } {
+	return labels == null ? { names: undefined, policy: 'variable' } : { names: labels, policy: 'fixed' };
+}
+
+/**
  * Create a node type definition
  */
 export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
@@ -57,12 +67,13 @@ export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
 		importPath,
 		inputs = ['in 0'],
 		outputs = ['out 0'],
+		labeled = false,
 		inputBuses = {},
 		outputBuses = {},
 		minInputs = 1,
 		minOutputs = 1,
-		maxInputs = null,
-		maxOutputs = null,
+		inputPolicy = 'variable',
+		outputPolicy = 'variable',
 		syncPorts,
 		shape,
 		params = {}
@@ -93,18 +104,20 @@ export function defineNode(options: DefineNodeOptions): NodeTypeDefinition {
 				name: portName,
 				direction: 'input' as const,
 				color: PORT_COLORS.default,
+				...(labeled && inputPolicy === 'fixed' ? { key: portName } : {}),
 				...(inputBuses[portName] ? { bus: inputBuses[portName] } : {})
 			})),
 			outputs: outputs.map((portName) => ({
 				name: portName,
 				direction: 'output' as const,
 				color: PORT_COLORS.default,
+				...(labeled && outputPolicy === 'fixed' ? { key: portName } : {}),
 				...(outputBuses[portName] ? { bus: outputBuses[portName] } : {})
 			})),
 			minInputs,
 			minOutputs,
-			maxInputs,
-			maxOutputs,
+			inputPolicy,
+			outputPolicy,
 			syncPorts
 		},
 

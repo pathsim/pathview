@@ -70,33 +70,55 @@ def generate_param_string(params: dict, valid_params: set[str], multi_line: bool
     return ", ".join(parts)
 
 
-def port_key(registry: dict, node_type: str, direction: str, index: int) -> str | int:
-    """Key of a block port in pathsim: its label for a block type with fixed
-    ports, whose ports are the labels the pathsim block declares, else its
-    index. Labeled ports go by label because a label can span several
-    channels (a carrier), so the position of a port is not its channel index.
-    Same rule as `portKey` in the editor's code builder."""
-    names = (registry["blocks"].get(node_type) or {}).get(direction)
-    return names[index] if names is not None and index < len(names) else index
+def with_port_structure(node: dict, registry: dict) -> dict:
+    """Fill the pathsim key and the carrier channels of the fixed ports of a
+    node from the registry, by index, recursing into subsystems. For files
+    saved before ports carried their structure: the saved names are display
+    names (e.g. "out 0" for the label "out") and do not tell the key. Ports
+    that have a key, variable ports and unknown types are left as they are.
+    Same rule as `withPortStructure` in the editor."""
+    block = registry["blocks"].get(node.get("type", "")) or {}
+    node = dict(node)
+    for direction in ("inputs", "outputs"):
+        names = block.get(direction)
+        if names is None:
+            continue
+        buses = block.get("inputBuses" if direction == "inputs" else "outputBuses") or {}
+        ports = []
+        for i, port in enumerate(node.get(direction) or []):
+            if "key" not in port and i < len(names):
+                port = {**port, "key": names[i], **({"bus": buses[names[i]]} if names[i] in buses else {})}
+            ports.append(port)
+        node[direction] = ports
+    if node.get("graph"):
+        node["graph"] = {**node["graph"], "nodes": [with_port_structure(n, registry) for n in node["graph"].get("nodes", [])]}
+    return node
 
 
-def port_reference(
-    var_name: str, registry: dict, node: dict, direction: str, index: int, channel: int | None = None
-) -> str:
+def port_key(node: dict, direction: str, index: int) -> str | int:
+    """Key of a block port in pathsim: the label the port carries, for the
+    fixed ports of a pathsim block, else its index. Labeled ports go by label
+    because a label can span several channels (a carrier), so the position of
+    a port is not its channel index. Same rule as `portKey` in the editor's
+    code builder."""
+    ports = node.get(direction) or []
+    key = ports[index].get("key") if index < len(ports) else None
+    return index if key is None else key
+
+
+def port_reference(var_name: str, node: dict, direction: str, index: int, channel: int | None = None) -> str:
     """Python reference to a block port, e.g. `amp["in"]` or `scope[0]`, or to
     a single channel of a carrier port, by its key (`heater["stream"]["T"]`),
     or by its position where the key is the position, as for a vector."""
-    port = f"{var_name}[{json.dumps(port_key(registry, node.get('type', ''), direction, index))}]"
+    port = f"{var_name}[{json.dumps(port_key(node, direction, index))}]"
     if channel is None:
         return port
-    carrier = port_bus(registry, node, direction, index) or []
+    carrier = port_bus(node, direction, index) or []
     name = carrier[channel]["name"] if channel < len(carrier) else None
     return f"{port}[{channel if name is None or name == str(channel) else json.dumps(name)}]"
 
 
-def group_connections_by_source(
-    connections: list[dict], nodes: list[dict], node_vars: dict[str, str], registry: dict
-) -> list[dict]:
+def group_connections_by_source(connections: list[dict], nodes: list[dict], node_vars: dict[str, str]) -> list[dict]:
     """Group connections by source for multi-target Connection syntax."""
     by_id = {n["id"]: n for n in nodes}
     groups: dict[str, dict] = {}
@@ -110,24 +132,24 @@ def group_connections_by_source(
         if key not in groups:
             groups[key] = {
                 "source": port_reference(
-                    source_var, registry, by_id.get(conn["sourceNodeId"], {}), "outputs",
+                    source_var, by_id.get(conn["sourceNodeId"], {}), "outputs",
                     conn["sourcePortIndex"], source_channel,
                 ),
                 "targets": [],
             }
         groups[key]["targets"].append(port_reference(
-            target_var, registry, by_id.get(conn["targetNodeId"], {}), "inputs",
+            target_var, by_id.get(conn["targetNodeId"], {}), "inputs",
             conn["targetPortIndex"], conn.get("targetChannel"),
         ))
     return list(groups.values())
 
 
 def generate_connection_lines(
-    connections: list[dict], nodes: list[dict], node_vars: dict[str, str], registry: dict, indent: str = "    "
+    connections: list[dict], nodes: list[dict], node_vars: dict[str, str], indent: str = "    "
 ) -> list[str]:
     """Generate Connection() lines from the connections between the nodes."""
     lines = []
-    for group in group_connections_by_source(connections, nodes, node_vars, registry):
+    for group in group_connections_by_source(connections, nodes, node_vars):
         lines.append(f"{indent}Connection({group['source']}, {', '.join(group['targets'])}),")
     return lines
 
@@ -325,7 +347,7 @@ def generate_subsystem_code(
         lines.append(f"        {v},")
     lines.append("    ],")
     lines.append("    connections=[")
-    for line in generate_connection_lines(child_connections, child_nodes, internal_node_vars, registry, "        "):
+    for line in generate_connection_lines(child_connections, child_nodes, internal_node_vars, "        "):
         lines.append(line)
     lines.append("    ],")
     if child_events:
@@ -348,8 +370,10 @@ def generate_python(pvm: dict, registry: dict, source_name: str = "") -> str:
     divider = "# " + "\u2500" * 76
 
     graph = pvm.get("graph", {})
+    # Ports of files saved before they carried their structure get it from the registry
+    nodes = [with_port_structure(n, registry) for n in graph.get("nodes", [])]
     # Bus Creator and Bus Selector exist only in the editor; wire their signals directly
-    nodes, connections = expand_buses(graph.get("nodes", []), graph.get("connections", []), registry)
+    nodes, connections = expand_buses(nodes, graph.get("connections", []))
     events = pvm.get("events", [])
     code_context = pvm.get("codeContext", {}).get("code", "")
     settings = pvm.get("simulationSettings", {})
@@ -475,7 +499,7 @@ def generate_python(pvm: dict, registry: dict, source_name: str = "") -> str:
         lines.append("connections = []")
     else:
         lines.append("connections = [")
-        for line in generate_connection_lines(connections, nodes, node_vars, registry, "    "):
+        for line in generate_connection_lines(connections, nodes, node_vars, "    "):
             lines.append(line)
         lines.append("]")
     lines.append("")

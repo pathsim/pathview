@@ -14,7 +14,7 @@
 
 import { writable, type Readable } from 'svelte/store';
 import type { NodeTypeDefinition, NodeCategory, ParamDefinition, ParamType } from './types';
-import { defineNode } from './defineNode';
+import { defineNode, portsFromLabels } from './defineNode';
 import { extractedBlocks, blockConfig, type ExtractedBlock } from './generated/blocks';
 import { syncPortBlocks } from './uiConfig';
 
@@ -177,53 +177,21 @@ function createNodeFromExtracted(
 		};
 	}
 
-	// Determine inputs from extracted data
-	let inputs: string[] | undefined;
-	let maxInputs: number | null;
-
-	if (extracted.inputs === null) {
-		// Variable ports - use default, UI will allow add/remove
-		inputs = undefined; // defineNode will use ['in 0']
-		maxInputs = null; // unlimited
-	} else if (extracted.inputs.length > 0) {
-		// Fixed labeled ports
-		inputs = extracted.inputs;
-		maxInputs = extracted.inputs.length;
-	} else {
-		// Empty array means no inputs
-		inputs = [];
-		maxInputs = 0;
-	}
-
-	// Determine outputs from extracted data
-	let outputs: string[] | undefined;
-	let maxOutputs: number | null;
-
-	if (extracted.outputs === null) {
-		// Variable ports - use default, UI will allow add/remove
-		outputs = undefined; // defineNode will use ['out 0']
-		maxOutputs = null; // unlimited
-	} else if (extracted.outputs.length > 0) {
-		// Fixed labeled ports
-		outputs = extracted.outputs;
-		maxOutputs = extracted.outputs.length;
-	} else {
-		// Empty array means no outputs
-		outputs = [];
-		maxOutputs = 0;
-	}
+	const inputs = portsFromLabels(extracted.inputs);
+	const outputs = portsFromLabels(extracted.outputs);
 
 	const definition = defineNode({
 		name,
 		category,
 		blockClass: extracted.blockClass,
 		description: extracted.description,
-		inputs,
-		outputs,
+		inputs: inputs.names,
+		outputs: outputs.names,
+		labeled: true,
 		inputBuses: extracted.inputBuses,
 		outputBuses: extracted.outputBuses,
-		maxInputs,
-		maxOutputs,
+		inputPolicy: inputs.policy,
+		outputPolicy: outputs.policy,
 		syncPorts: syncPortBlocks.has(name),
 		params
 	});

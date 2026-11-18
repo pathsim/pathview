@@ -4,8 +4,8 @@
  */
 
 import type { NodeInstance, PortDirection } from '$lib/nodes/types';
-import { nodeRegistry } from '$lib/nodes/registry';
-import { definitionPortBus, type ExpandedConnection } from '$lib/bus/expand';
+import { nodePort } from '$lib/nodes/ports';
+import type { ExpandedConnection } from '$lib/bus/expand';
 
 /** Options for parameter string generation */
 export interface ParamStringOptions {
@@ -54,17 +54,13 @@ export function generateParamString(
 }
 
 /**
- * Key of a block port in pathsim: its label for a block type with fixed ports,
- * whose ports are the labels the pathsim block declares, else its index.
- * Labeled ports go by label because a label can span several channels (a
- * carrier), so the position of a port is not its channel index.
+ * Key of a block port in pathsim: the label the port carries, for the fixed
+ * ports of a pathsim block, else its index. Labeled ports go by label because
+ * a label can span several channels (a carrier), so the position of a port is
+ * not its channel index.
  */
-export function portKey(type: string, direction: PortDirection, index: number): string | number {
-	const ports = nodeRegistry.get(type)?.ports;
-	if (!ports) return index;
-	const fixed = (direction === 'input' ? ports.maxInputs : ports.maxOutputs) !== null;
-	const name = (direction === 'input' ? ports.inputs : ports.outputs)[index]?.name;
-	return fixed && name !== undefined ? name : index;
+export function portKey(node: NodeInstance, direction: PortDirection, index: number): string | number {
+	return nodePort(node, direction, index)?.key ?? index;
 }
 
 /**
@@ -73,9 +69,9 @@ export function portKey(type: string, direction: PortDirection, index: number): 
  * by its position where the key is the position, as for a vector
  */
 function portReference(node: NodeInstance, varName: string, direction: PortDirection, index: number, channel?: number): string {
-	const port = `${varName}[${JSON.stringify(portKey(node.type, direction, index))}]`;
+	const port = `${varName}[${JSON.stringify(portKey(node, direction, index))}]`;
 	if (channel === undefined) return port;
-	const name = definitionPortBus(node, direction, index)?.[channel]?.name;
+	const name = nodePort(node, direction, index)?.bus?.[channel]?.name;
 	return `${port}[${name === undefined || name === String(channel) ? channel : JSON.stringify(name)}]`;
 }
 

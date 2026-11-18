@@ -131,7 +131,8 @@ Ports define the input/output connection points on a node.
   "name": "in 0",
   "direction": "input",
   "index": 0,
-  "color": "#969696"
+  "color": "#969696",
+  "key": "in"
 }
 ```
 
@@ -139,12 +140,14 @@ Ports define the input/output connection points on a node.
 |-------|------|----------|-------------|
 | `id` | string | yes | Unique port ID. Convention: `${nodeId}-${direction}-${index}`. |
 | `nodeId` | string | yes | ID of the owning node. |
-| `name` | string | yes | Port display name (e.g., `"in 0"`, `"out 0"`, or a custom label). |
+| `name` | string | yes | Port display name (e.g., `"in 0"`, `"out 0"`, or a custom label). Not used by code generation. |
 | `direction` | string | yes | `"input"` or `"output"`. |
 | `index` | number | yes | Zero-based port index within the direction. This is the index used by connections. |
 | `color` | string | no | Port color (hex). Default: `"#969696"`. UI-only. |
+| `key` | string | no | Label PathSim addresses the port by, for the fixed ports of a PathSim block. |
+| `bus` | array | no | Channels of a port that is a PathSim carrier, as a list of `{"name", "structure"}` signals like a bus (section 4.4). |
 
-**Port semantics for code generation:** The `index` field maps directly to PathSim's port indexing. In generated Python code, `node[0]` refers to the first output port, and connections use the syntax `Connection(source[sourcePortIndex], target[targetPortIndex])`.
+**Port semantics for code generation:** A port with a `key` is addressed by it, `node["out"]`, any other port by its `index`, `node[0]`. A single channel of a carrier port is addressed by its name in `bus`, `node["out"]["T"]`, or by its position where the name is the position. Files written before ports carried `key` and `bus` get them from the registry (section 8), by `index`, for block types whose ports are fixed; their `name` is a display name and does not tell the key.
 
 ### 3.3 Parameters
 
@@ -486,6 +489,7 @@ The file `scripts/generated/registry.json` maps block type names to their PathSi
 **For code generators:** Use this registry to:
 1. Resolve `node.type` to the correct PathSim class name and import path
 2. Filter `node.params` to only include keys listed in `registry.blocks[type].params` (skip `_`-prefixed keys and any keys not in the list)
+3. Fill `key` and `bus` of the ports of files written before ports carried them (section 3.2)
 
 The full registry is checked into the repo at `scripts/generated/registry.json`.
 

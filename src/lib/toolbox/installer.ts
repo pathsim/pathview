@@ -23,8 +23,8 @@ export interface IntrospectedBlock {
 	className: string;
 	description: string;
 	docstringHtml: string;
-	inputs: Record<string, number> | string[] | null;
-	outputs: Record<string, number> | string[] | null;
+	inputs: string[] | null; // null = variable ports, else the port labels in channel order
+	outputs: string[] | null;
 	inputBuses?: Record<string, BusStructure>;
 	outputBuses?: Record<string, BusStructure>;
 	params: IntrospectedParam[];

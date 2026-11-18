@@ -11,6 +11,7 @@ export type {
 	BusElement,
 	PortDefinition,
 	PortInstance,
+	PortPolicy,
 	ParamType,
 	ParamDefinition,
 	NodeCategory,

@@ -29,7 +29,7 @@ function getPortConfig(direction: PortDirection) {
 		portsKey: direction === 'input' ? 'inputs' : 'outputs',
 		oppositeKey: direction === 'input' ? 'outputs' : 'inputs',
 		minKey: direction === 'input' ? 'minInputs' : 'minOutputs',
-		maxKey: direction === 'input' ? 'maxInputs' : 'maxOutputs',
+		policyKey: direction === 'input' ? 'inputPolicy' : 'outputPolicy',
 		connectionKey: direction === 'input' ? 'targetNodeId' : 'sourceNodeId',
 		connectionIndexKey: direction === 'input' ? 'targetPortIndex' : 'sourcePortIndex',
 		defaultName: direction === 'input' ? 'in' : 'out'
@@ -108,11 +108,10 @@ function addPort(nodeId: string, direction: PortDirection, syncFollowUp = false)
 		return true;
 	}
 
-	// Normal node: check max ports limit
+	// Normal node: only variable ports are added by the user
 	const typeDef = nodeRegistry.get(node.type);
-	const maxPorts = typeDef?.ports[config.maxKey];
+	if (typeDef && typeDef.ports[config.policyKey] !== 'variable') return false;
 	const currentPorts = node[config.portsKey] as PortInstance[];
-	if (maxPorts != null && currentPorts.length >= maxPorts) return false;
 
 	// Create new port
 	const index = currentPorts.length;
