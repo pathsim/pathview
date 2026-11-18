@@ -59,11 +59,3 @@ export const TIMEOUTS = {
 	INIT: 120000, // 2 minutes
 	VALIDATION: 30000 // 30 seconds
 } as const;
-
-/**
- * Pause after the last edit of a parameter the ports of a block depend on,
- * before the ports are derived in Python (ms). Parameters are committed on
- * every keystroke, the pause is longer than the time between keystrokes
- * while typing.
- */
-export const PORT_DERIVATION_DELAY = 400;
