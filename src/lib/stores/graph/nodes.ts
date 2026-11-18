@@ -27,6 +27,7 @@ import { syncPortNamesFromLabels } from './ports';
 import { triggerSelectNodes } from '$lib/stores/viewActions';
 import { getPortLabelConfigs } from '$lib/nodes/uiConfig';
 import { queueAddBlock, queueRemoveBlock, queueAddConnection, queueRemoveConnection, queueUpdateParam } from '$lib/pyodide/mutationQueue';
+import { deriveChangedPorts } from './derivedPorts';
 
 /**
  * Add a new node to the current graph context
@@ -224,6 +225,9 @@ export function updateNodeParams(id: string, params: Record<string, unknown>): v
 		if (paramName.startsWith('_')) continue;
 		queueUpdateParam(id, paramName, String(value));
 	}
+
+	// Derive the ports of blocks whose ports depend on their parameters
+	deriveChangedPorts(id, Object.keys(params));
 
 	// Sync port names if this block has label-driven ports
 	const node = getCurrentGraph().nodes.get(id);

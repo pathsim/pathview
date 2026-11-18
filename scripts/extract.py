@@ -253,8 +253,9 @@ class BlockExtractor:
             "inputs": block["inputs"],
             "outputs": block["outputs"],
             "icon": block["icon"],
-            #only for blocks with carrier ports, the file stays as it was otherwise
-            **{key: block[key] for key in ("inputBuses", "outputBuses") if block[key]},
+            #only for blocks with carrier ports or parameter dependent ports,
+            #the file stays as it was otherwise
+            **{key: block[key] for key in ("inputBuses", "outputBuses", "portParameters") if block[key]},
         }
 
     def _import_module(self, import_path: str) -> Any:
@@ -632,6 +633,7 @@ class TypeScriptGenerator:
             "  icon: string | null;      // SVG icon from Block.icon(), null if the block has none",
             "  inputBuses?: Record<string, BusStructure>;  // signals of the ports that are carriers, by name",
             "  outputBuses?: Record<string, BusStructure>;",
+            "  portParameters?: string[]; // parameters the ports depend on, the ports above are those of the defaults",
             "}",
             "",
             "export const extractedBlocks: Record<string, ExtractedBlock> = ",

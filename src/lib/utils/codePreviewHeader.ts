@@ -6,8 +6,8 @@
 import { nodeRegistry, type NodeInstance } from '$lib/nodes';
 import { eventRegistry, type EventInstance } from '$lib/events';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
-import { blockImportPaths } from '$lib/nodes/generated/blocks';
-import { ENGINE_MODULE, enginePath } from '$lib/constants/engine';
+import { ENGINE_MODULE } from '$lib/constants/engine';
+import { blockImportPath } from '$lib/pyodide/codeBuilder';
 
 /**
  * Extract Python identifiers from a string (parameter values)
@@ -136,14 +136,10 @@ export function generateBlockCodeHeader(node: NodeInstance, codeContext: string)
 		const blockClasses = new Set<string>();
 		collectSubsystemBlockClasses(node, blockClasses);
 		if (blockClasses.size > 0) {
-			// Group block classes by import path. Toolbox-registered blocks
-			// carry their own importPath in the typeDef; built-ins fall back
-			// to the static map.
+			// Group block classes by import path
 			const importGroups = new Map<string, string[]>();
 			for (const cls of [...blockClasses].sort()) {
-				const def = nodeRegistry.get(cls);
-				const importPath =
-					enginePath(def?.importPath ?? blockImportPaths[cls] ?? 'pathsim.blocks');
+				const importPath = blockImportPath(cls);
 				const group = importGroups.get(importPath) || [];
 				group.push(cls);
 				importGroups.set(importPath, group);
@@ -153,8 +149,7 @@ export function generateBlockCodeHeader(node: NodeInstance, codeContext: string)
 			}
 		}
 	} else {
-		const importPath =
-			enginePath(typeDef.importPath ?? blockImportPaths[typeDef.blockClass] ?? 'pathsim.blocks');
+		const importPath = blockImportPath(typeDef.blockClass);
 		lines.push(`from ${importPath} import ${typeDef.blockClass}`);
 	}
 

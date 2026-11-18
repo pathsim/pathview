@@ -3,7 +3,7 @@
  */
 
 import { get } from 'svelte/store';
-import type { NodeInstance, PortInstance } from '$lib/nodes/types';
+import type { NodeInstance, PortInstance, Connection } from '$lib/nodes/types';
 import { nodeRegistry } from '$lib/nodes/registry';
 import { getPortLabelConfigs } from '$lib/nodes/uiConfig';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
@@ -15,9 +15,13 @@ import {
 	getCurrentGraph,
 	updateSubsystemGraph,
 	updateNodeById,
-	updateCurrentNodesAndConnections
+	updateCurrentNodesAndConnections,
+	graphAt,
+	updateNodesAndConnectionsAt
 } from './state';
 import { queueRemoveConnection } from '$lib/pyodide/mutationQueue';
+import type { IntrospectedPorts } from '$lib/toolbox/installer';
+import { createPorts } from './helpers';
 
 type PortDirection = 'input' | 'output';
 
@@ -219,6 +223,73 @@ function removePort(nodeId: string, direction: PortDirection, syncFollowUp = fal
 	}
 
 	return true;
+}
+
+/**
+ * Set the derived ports of a node (see the 'derived' port policy) from the
+ * ports its pathsim block reports. A port keeps the display name and color of
+ * the port it had with the same key, or at the same index for a port saved
+ * without key. Connections follow their port to its new index, connections to
+ * ports the block no longer has are removed, also from a running simulation.
+ *
+ * @param path - Subsystem path of the level the node is at, it need not be shown
+ */
+export function setDerivedPorts(path: string[], nodeId: string, ports: IntrospectedPorts): void {
+	const level = graphAt(path);
+	const node = level.nodes.find((n) => n.id === nodeId);
+	if (!node) return;
+
+	/** Index of the old port among the new ports, null if it is gone */
+	const matches = (old: PortInstance[], next: PortInstance[]) =>
+		old.map((port, index) => {
+			const i = port.key !== undefined ? next.findIndex((p) => p.key === port.key) : index < next.length ? index : -1;
+			return i < 0 ? null : i;
+		});
+
+	const derive = (direction: PortDirection) => {
+		const config = getPortConfig(direction);
+		const labels = (direction === 'input' ? ports.inputs : ports.outputs) ?? [];
+		const buses = (direction === 'input' ? ports.inputBuses : ports.outputBuses) ?? {};
+		const old = node[config.portsKey] as PortInstance[];
+		const next = createPorts(nodeId, direction, labels.map((label) => ({ name: label, key: label, bus: buses[label] })));
+		const index = matches(old, next);
+		index.forEach((i, j) => {
+			if (i !== null) next[i] = { ...next[i], name: old[j].name, color: old[j].color };
+		});
+		return { ports: next, index };
+	};
+	const inputs = derive('input');
+	const outputs = derive('output');
+
+	/** A connection with the new port indices of the node, null if its port is gone */
+	const follow = (c: Connection): Connection | null => {
+		let result = c;
+		if (c.sourceNodeId === nodeId) {
+			const i = outputs.index[c.sourcePortIndex];
+			if (i == null) return null;
+			result = { ...result, sourcePortIndex: i };
+		}
+		if (c.targetNodeId === nodeId) {
+			const i = inputs.index[c.targetPortIndex];
+			if (i == null) return null;
+			result = { ...result, targetPortIndex: i };
+		}
+		return result;
+	};
+	for (const c of level.connections) {
+		if (follow(c) === null) queueRemoveConnection(c.id);
+	}
+
+	const update = (n: NodeInstance) => ({ ...n, inputs: inputs.ports, outputs: outputs.ports });
+	updateNodesAndConnectionsAt(
+		path,
+		(nodes) => {
+			const n = nodes.get(nodeId);
+			return n ? new Map(nodes).set(nodeId, update(n)) : nodes;
+		},
+		(nodes) => nodes.map((n) => (n.id === nodeId ? update(n) : n)),
+		(conns) => conns.map(follow).filter((c): c is Connection => c !== null)
+	);
 }
 
 // ==================== PUBLIC API ====================

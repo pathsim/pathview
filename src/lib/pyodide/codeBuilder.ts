@@ -5,6 +5,9 @@
 
 import type { NodeInstance, PortDirection } from '$lib/nodes/types';
 import { nodePort } from '$lib/nodes/ports';
+import { nodeRegistry } from '$lib/nodes/registry';
+import { blockImportPaths } from '$lib/nodes/generated/blocks';
+import { enginePath } from '$lib/constants/engine';
 import type { ExpandedConnection } from '$lib/bus/expand';
 
 /** Options for parameter string generation */
@@ -51,6 +54,16 @@ export function generateParamString(
 		return '\n' + parts.map((p) => indent + p).join(',\n') + '\n';
 	}
 	return parts.join(', ');
+}
+
+/**
+ * Module a block class is imported from: toolbox blocks carry their own
+ * import path, built-ins come from the static map, else core pathsim.blocks.
+ * enginePath() rewrites core pathsim paths to the active engine module
+ * (identity in the default pathsim build).
+ */
+export function blockImportPath(blockClass: string): string {
+	return enginePath(nodeRegistry.get(blockClass)?.importPath ?? blockImportPaths[blockClass] ?? 'pathsim.blocks');
 }
 
 /**
