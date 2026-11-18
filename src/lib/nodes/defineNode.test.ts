@@ -19,6 +19,24 @@ describe('defineNode', () => {
 		expect(def.ports.outputs[0].bus).toEqual(signals('F', 'T', 'P'));
 	});
 
+	it('gives the fixed ports of a pathsim block their label as key', () => {
+		const def = defineNode({
+			name: 'Atan2',
+			category: 'Algebraic',
+			blockClass: 'Atan2',
+			inputs: ['a', 'b'],
+			outputs: ['y'],
+			labeled: true,
+			inputPolicy: 'fixed',
+			outputPolicy: 'fixed'
+		});
+		expect(def.ports.inputs.map((p) => p.key)).toEqual(['a', 'b']);
+
+		//variable ports and ports the editor names have none
+		expect(defineNode({ name: 'Gain', category: 'Algebraic', blockClass: 'Amplifier', labeled: true }).ports.inputs[0]).not.toHaveProperty('key');
+		expect(defineNode({ name: 'Bus', category: 'Buses', blockClass: 'BusCreator', outputs: ['bus'], outputPolicy: 'fixed' }).ports.outputs[0]).not.toHaveProperty('key');
+	});
+
 	it('leaves plain ports without a bus', () => {
 		const def = defineNode({ name: 'Gain', category: 'Algebraic', blockClass: 'Amplifier' });
 		expect(def.ports.inputs[0]).not.toHaveProperty('bus');

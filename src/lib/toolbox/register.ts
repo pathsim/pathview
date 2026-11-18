@@ -6,7 +6,7 @@
  * `unregisterSource(id)` is the clean uninstall path.
  */
 
-import { defineNode } from '$lib/nodes/defineNode';
+import { defineNode, portsFromLabels } from '$lib/nodes/defineNode';
 import { nodeRegistry } from '$lib/nodes/registry';
 import type { NodeShape, ParamType } from '$lib/nodes/types';
 import { eventRegistry } from '$lib/events/registry';
@@ -27,28 +27,6 @@ import {
 } from './installer';
 import { upsertToolbox } from './store';
 import type { BlockSelection, EventSelection, ToolboxConfig } from './types';
-
-/**
- * Resolve the port shape from introspected `input_port_labels` / `output_port_labels`.
- * Same semantics as the build-time pipeline.
- */
-function resolvePorts(
-	labels: Record<string, number> | string[] | null | undefined
-): { ports: string[] | undefined; max: number | null } {
-	if (labels === null || labels === undefined) {
-		return { ports: undefined, max: null }; // variable
-	}
-	if (Array.isArray(labels)) {
-		if (labels.length === 0) return { ports: [], max: 0 };
-		return { ports: labels, max: labels.length };
-	}
-	// Dict {name: index}
-	const entries = Object.entries(labels);
-	if (entries.length === 0) return { ports: [], max: 0 };
-	entries.sort((a, b) => (a[1] as number) - (b[1] as number));
-	const ports = entries.map(([name]) => name);
-	return { ports, max: ports.length };
-}
 
 const PARAM_TYPES: ReadonlySet<ParamType> = new Set([
 	'number',
@@ -90,8 +68,8 @@ function buildBlockDefinition(
 	fallbackCategory: string,
 	importPath: string
 ) {
-	const { ports: inputs, max: maxInputs } = resolvePorts(block.inputs);
-	const { ports: outputs, max: maxOutputs } = resolvePorts(block.outputs);
+	const inputs = portsFromLabels(block.inputs);
+	const outputs = portsFromLabels(block.outputs);
 
 	const params: Record<string, { type: ParamType; default: unknown; description?: string }> = {};
 	for (const p of block.params) {
@@ -108,12 +86,13 @@ function buildBlockDefinition(
 		blockClass: block.className,
 		importPath,
 		description: block.description,
-		inputs,
-		outputs,
+		inputs: inputs.names,
+		outputs: outputs.names,
+		labeled: true,
 		inputBuses: block.inputBuses,
 		outputBuses: block.outputBuses,
-		maxInputs,
-		maxOutputs,
+		inputPolicy: inputs.policy,
+		outputPolicy: outputs.policy,
 		shape: asShape(selection.override?.shape),
 		syncPorts: selection.override?.syncPorts || undefined,
 		params

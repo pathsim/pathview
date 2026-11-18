@@ -18,16 +18,12 @@
 
 import type { BusElement, BusStructure, Connection, NodeInstance, PortDirection } from '$lib/types/nodes';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
-import { nodeRegistry } from '$lib/nodes/registry';
+import { nodePort } from '$lib/nodes/ports';
 
 /** Signals of a block port that is a carrier, null for a plain port */
-export type PortBus = (node: NodeInstance, direction: PortDirection, index: number) => BusStructure;
-
-/** Carrier signals from the port definitions of the node types */
-export const definitionPortBus: PortBus = (node, direction, index) => {
-	const ports = nodeRegistry.get(node.type)?.ports;
-	return (direction === 'input' ? ports?.inputs : ports?.outputs)?.[index]?.bus ?? null;
-};
+export function portBus(node: NodeInstance, direction: PortDirection, index: number): BusStructure {
+	return nodePort(node, direction, index)?.bus ?? null;
+}
 
 /** A connection after bus expansion; a channel is the position of a single signal within a carrier port */
 export interface ExpandedConnection extends Connection {
@@ -105,10 +101,10 @@ export function elementAt(structure: BusStructure, path: string): BusElement | u
 }
 
 /** Whether a model has buses: bus blocks or carrier ports, at any level */
-export function containsBuses(nodes: NodeInstance[], portBus: PortBus = definitionPortBus): boolean {
+export function containsBuses(nodes: NodeInstance[]): boolean {
 	const carrier = (n: NodeInstance) =>
 		n.inputs.some((_, i) => portBus(n, 'input', i)) || n.outputs.some((_, i) => portBus(n, 'output', i));
-	return nodes.some((n) => isBusBlock(n) || carrier(n) || (n.graph ? containsBuses(n.graph.nodes, portBus) : false));
+	return nodes.some((n) => isBusBlock(n) || carrier(n) || (n.graph ? containsBuses(n.graph.nodes) : false));
 }
 
 /** Blocks that wiring passes through unchanged: neither bus blocks nor subsystem boundaries */
@@ -120,7 +116,7 @@ function isPlainBlock(node: NodeInstance): boolean {
  * Signal structures of a whole model. Structures follow wires through Bus
  * Creators, Bus Selectors and subsystem boundaries in both directions.
  */
-export function analyzeBuses(nodes: NodeInstance[], connections: Connection[], portBus: PortBus = definitionPortBus) {
+export function analyzeBuses(nodes: NodeInstance[], connections: Connection[]) {
 	let nextLevelId = 0;
 
 	function buildLevel(nodeList: NodeInstance[], levelConnections: Connection[], parent: BusLevel['parent']): BusLevel {
@@ -224,7 +220,7 @@ export function analyzeBuses(nodes: NodeInstance[], connections: Connection[], p
 		return level;
 	}
 
-	return { root, levelAt, structureIn, structureOut, elementNames, portBus };
+	return { root, levelAt, structureIn, structureOut, elementNames };
 }
 
 export type BusAnalysis = ReturnType<typeof analyzeBuses>;
@@ -257,7 +253,7 @@ export function busWiringProblem(
 		case NODE_TYPES.BUS_SELECTOR:
 			return structure ? null : 'signal-into-selector';
 		default: {
-			const carrier = analysis.portBus(target, 'input', targetPort);
+			const carrier = portBus(target, 'input', targetPort);
 			if (!carrier) return structure ? 'bus-into-block' : null;
 			if (!structure) return 'signal-into-carrier';
 			return signalLeaves(structure).join() === signalLeaves(carrier).join() ? null : 'bus-mismatch';
@@ -274,12 +270,11 @@ export function busWiringProblem(
  */
 export function expandBuses(
 	nodes: NodeInstance[],
-	connections: Connection[],
-	portBus: PortBus = definitionPortBus
+	connections: Connection[]
 ): { nodes: NodeInstance[]; connections: ExpandedConnection[] } {
-	if (!containsBuses(nodes, portBus)) return { nodes, connections };
+	if (!containsBuses(nodes)) return { nodes, connections };
 
-	const { root, structureIn, structureOut } = analyzeBuses(nodes, connections, portBus);
+	const { root, structureIn, structureOut } = analyzeBuses(nodes, connections);
 	const count = (structure: BusStructure) => signalLeaves(structure).length;
 	const range = (nodeId: string, offset: number, length: number): Endpoint[] =>
 		Array.from({ length }, (_, j) => ({ nodeId, port: offset + j }));

@@ -1,14 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import type { BusStructure, Connection, NodeInstance } from '$lib/types/nodes';
 import fixtures from '../../../tests/fixtures/bus_expansion.json';
+import { defineNode, portsFromLabels } from '$lib/nodes/defineNode';
+import { nodeRegistry } from '$lib/nodes/registry';
+import { withPortStructure } from '$lib/nodes/ports';
 import {
 	analyzeBuses,
 	busWiringProblem,
 	expandBuses,
 	isBusBlock,
 	signalLeaves,
-	type ExpandedConnection,
-	type PortBus
+	type ExpandedConnection
 } from './expand';
 
 type Scenario = (typeof fixtures.scenarios)[number];
@@ -19,13 +21,26 @@ type Block = {
 	outputBuses?: Record<string, BusStructure>;
 };
 
-/** Carrier signals from the block types of the fixture, in the format of registry.json */
-const blocks = fixtures.registry.blocks as Record<string, Block>;
-const portBus: PortBus = (node, direction, index) => {
-	const block = blocks[node.type];
-	const name = block?.[direction === 'input' ? 'inputs' : 'outputs'][index];
-	return (name !== undefined && block?.[direction === 'input' ? 'inputBuses' : 'outputBuses']?.[name]) || null;
-};
+/** The block types of the fixture, in the format of registry.json, registered like extracted blocks */
+const SOURCE = 'expand.test';
+for (const [name, block] of Object.entries(fixtures.registry.blocks as Record<string, Block>)) {
+	const inputs = portsFromLabels(block.inputs);
+	const outputs = portsFromLabels(block.outputs);
+	const definition = defineNode({
+		name,
+		category: 'Test',
+		blockClass: name,
+		inputs: inputs.names,
+		outputs: outputs.names,
+		labeled: true,
+		inputBuses: block.inputBuses,
+		outputBuses: block.outputBuses,
+		inputPolicy: inputs.policy,
+		outputPolicy: outputs.policy
+	});
+	nodeRegistry.register(definition, SOURCE);
+}
+afterAll(() => nodeRegistry.unregisterSource(SOURCE));
 
 const endpoint = (nodeId: string, port: number, channel?: number) =>
 	channel === undefined ? `${nodeId}:${port}` : `${nodeId}:${port}[${channel}]`;
@@ -51,9 +66,10 @@ function anyBusBlock(nodes: NodeInstance[]): boolean {
 	return nodes.some((n) => isBusBlock(n) || (n.graph ? anyBusBlock(n.graph.nodes) : false));
 }
 
+/** A scenario as a saved file is loaded: its ports get their structure from the type definitions */
 function load(scenario: Scenario) {
 	return {
-		nodes: scenario.nodes as unknown as NodeInstance[],
+		nodes: (scenario.nodes as unknown as NodeInstance[]).map(withPortStructure),
 		connections: scenario.connections as unknown as Connection[]
 	};
 }
@@ -62,7 +78,7 @@ describe('bus expansion', () => {
 	for (const scenario of fixtures.scenarios) {
 		it(scenario.name, () => {
 			const { nodes, connections } = load(scenario);
-			const expanded = expandBuses(nodes, connections, portBus);
+			const expanded = expandBuses(nodes, connections);
 			const expected = Object.fromEntries(
 				Object.entries(scenario.expected as unknown as Record<string, string[]>).map(([key, value]) => [
 					key,
@@ -76,14 +92,14 @@ describe('bus expansion', () => {
 
 	it('returns a model without bus blocks as it is', () => {
 		const { nodes, connections } = load(fixtures.scenarios.find((s) => s.name.includes('without buses'))!);
-		const expanded = expandBuses(nodes, connections, portBus);
+		const expanded = expandBuses(nodes, connections);
 		expect(expanded.nodes).toBe(nodes);
 		expect(expanded.connections).toBe(connections);
 	});
 
 	it('keeps buses out of plain blocks and plain signals out of selectors', () => {
 		const { nodes, connections } = load(fixtures.scenarios.find((s) => s.name === 'flat creator and selector')!);
-		const analysis = analyzeBuses(nodes, connections, portBus);
+		const analysis = analyzeBuses(nodes, connections);
 		const root = analysis.root;
 		expect(busWiringProblem(analysis, root, 'C', 0, 'Scope', 0)).toBe('bus-into-block');
 		expect(busWiringProblem(analysis, root, 'A', 0, 'S', 0)).toBe('signal-into-selector');
@@ -94,7 +110,7 @@ describe('bus expansion', () => {
 
 	it('takes a bus into a carrier port only with the signals of the carrier', () => {
 		const creator = load(fixtures.scenarios.find((s) => s.name === 'bus creator into a carrier port')!);
-		const analysis = analyzeBuses(creator.nodes, creator.connections, portBus);
+		const analysis = analyzeBuses(creator.nodes, creator.connections);
 		const root = analysis.root;
 		expect(busWiringProblem(analysis, root, 'Cr', 0, 'Tk', 0)).toBeNull();
 		expect(busWiringProblem(analysis, root, 'A', 0, 'Tk', 0)).toBe('signal-into-carrier');
@@ -102,19 +118,19 @@ describe('bus expansion', () => {
 
 		// a bus missing a signal of the carrier
 		const partial = creator.connections.filter((c) => c.id !== 'c3');
-		const reduced = analyzeBuses(creator.nodes, partial, portBus);
+		const reduced = analyzeBuses(creator.nodes, partial);
 		expect(busWiringProblem(reduced, reduced.root, 'Cr', 0, 'Tk', 0)).toBe('bus-mismatch');
 
 		// a carrier output is a bus
 		const stream = load(fixtures.scenarios.find((s) => s.name === 'carrier into a bus selector')!);
-		const streams = analyzeBuses(stream.nodes, stream.connections, portBus);
+		const streams = analyzeBuses(stream.nodes, stream.connections);
 		expect(busWiringProblem(streams, streams.root, 'St', 0, 'S', 0)).toBeNull();
 		expect(busWiringProblem(streams, streams.root, 'St', 0, 'Scope', 0)).toBe('bus-into-block');
 	});
 
 	it('applies the bus rules across subsystem ports', () => {
 		const { nodes, connections } = load(fixtures.scenarios.find((s) => s.name === 'bus into a subsystem')!);
-		const analysis = analyzeBuses(nodes, connections, portBus);
+		const analysis = analyzeBuses(nodes, connections);
 		const inner = analysis.levelAt(['Sub'])!;
 		expect(busWiringProblem(analysis, analysis.root, 'C', 0, 'Sub', 0)).toBeNull();
 		expect(busWiringProblem(analysis, inner, 'I', 0, 'G', 0)).toBe('bus-into-block');
@@ -123,7 +139,7 @@ describe('bus expansion', () => {
 
 	it('follows a bus structure into a subsystem', () => {
 		const { nodes, connections } = load(fixtures.scenarios.find((s) => s.name === 'bus into a subsystem')!);
-		const analysis = analyzeBuses(nodes, connections, portBus);
+		const analysis = analyzeBuses(nodes, connections);
 		const inner = analysis.levelAt(['Sub'])!;
 		expect(signalLeaves(analysis.structureOut(inner, 'I', 0))).toEqual(['a', 'b']);
 		expect(signalLeaves(analysis.structureIn(analysis.root, 'Scope', 0))).toEqual(['']);

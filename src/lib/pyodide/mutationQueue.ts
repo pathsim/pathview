@@ -218,9 +218,9 @@ export function queueAddConnection(conn: Connection, source: NodeInstance, targe
 		type: 'add_connection',
 		var: varName,
 		sourceVar,
-		sourcePort: portKey(source.type, 'output', conn.sourcePortIndex),
+		sourcePort: portKey(source, 'output', conn.sourcePortIndex),
 		targetVar,
-		targetPort: portKey(target.type, 'input', conn.targetPortIndex)
+		targetPort: portKey(target, 'input', conn.targetPortIndex)
 	});
 	updateCount();
 }

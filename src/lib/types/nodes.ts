@@ -23,6 +23,8 @@ export interface PortDefinition {
 	name: string;
 	direction: PortDirection;
 	color?: string;
+	/** Label pathsim addresses the port by, for the fixed ports of a pathsim block */
+	key?: string;
 	/** Signals of a port that is a pathsim `Carrier`, a bus of its channels */
 	bus?: BusStructure;
 }
@@ -31,11 +33,23 @@ export interface PortDefinition {
 export interface PortInstance {
 	id: string; // Unique port ID: `${nodeId}-${direction}-${index}`
 	nodeId: string;
+	/** Display name, editable by the user */
 	name: string;
 	direction: PortDirection;
 	index: number;
 	color: string;
+	/** Label pathsim addresses the port by; ports without one are addressed by index */
+	key?: string;
+	/** Signals of a port that is a pathsim `Carrier`, a bus of its channels */
+	bus?: BusStructure;
 }
+
+/**
+ * Who sets the ports of a node in one direction: 'fixed' ports come from the
+ * type definition (or the editor logic of the block), 'variable' ports are
+ * added and removed by the user
+ */
+export type PortPolicy = 'fixed' | 'variable';
 
 /** Parameter type annotation (mirrors Python type hints) */
 export type ParamType = 'number' | 'integer' | 'boolean' | 'string' | 'array' | 'callable' | 'any';
@@ -74,8 +88,8 @@ export interface NodeTypeDefinition {
 		outputs: PortDefinition[];
 		minInputs: number; // minimum number of input ports (default 1)
 		minOutputs: number; // minimum number of output ports (default 1)
-		maxInputs: number | null; // null = unlimited
-		maxOutputs: number | null;
+		inputPolicy: PortPolicy;
+		outputPolicy: PortPolicy;
 		syncPorts?: boolean; // When true, output count always equals input count (parallel paths)
 	};
 

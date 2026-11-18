@@ -9,6 +9,7 @@ import { tick } from 'svelte';
 import { writable, get } from 'svelte/store';
 import type { NodeInstance, Connection, SimulationSettings, GraphFile, SolverType } from '$lib/nodes/types';
 import { GRAPH_FILE_VERSION, INITIAL_SIMULATION_SETTINGS } from '$lib/nodes/types';
+import { withPortStructure } from '$lib/nodes/ports';
 import type { ComponentFile, ComponentType, BlockContent, SubsystemContent } from '$lib/types/component';
 import type { Position } from '$lib/types';
 import { ALL_COMPONENT_EXTENSIONS, COMPONENT_VERSION } from '$lib/types/component';
@@ -684,7 +685,7 @@ async function importComponent(
 	}
 
 	// Clone node with new IDs (handles subsystem graph regeneration automatically)
-	const newNode = cloneNodeForPaste(node, position);
+	const newNode = withPortStructure(cloneNodeForPaste(node, position));
 
 	// Clear selection and add node
 	historyStore.mutate(() => {

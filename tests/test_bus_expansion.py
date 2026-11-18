@@ -6,13 +6,18 @@ from pathlib import Path
 import pytest
 
 from pathview.buses import expand_buses, is_bus_block
-from pathview.converter import generate_python, load_registry
+from pathview.converter import generate_python, load_registry, with_port_structure
 
 FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "bus_expansion.json").read_text())
 REGISTRY_PATH = Path(__file__).parent.parent / "pathview" / "data" / "registry.json"
 
 
 REGISTRY = FIXTURES["registry"]
+
+
+def _load(scenario):
+    """A scenario as a saved file is loaded: its ports get their structure from the registry."""
+    return [with_port_structure(n, REGISTRY) for n in scenario["nodes"]], scenario["connections"]
 
 
 def _endpoint(connection, side):
@@ -45,7 +50,7 @@ def _any_bus_block(nodes):
 
 @pytest.mark.parametrize("scenario", FIXTURES["scenarios"], ids=lambda s: s["name"])
 def test_expansion_matches_fixture(scenario):
-    nodes, connections = expand_buses(scenario["nodes"], scenario["connections"], REGISTRY)
+    nodes, connections = expand_buses(*_load(scenario))
     expected = {key: sorted(value) for key, value in scenario["expected"].items()}
     assert _levels(nodes, connections) == expected
     assert not _any_bus_block(nodes)
@@ -53,9 +58,10 @@ def test_expansion_matches_fixture(scenario):
 
 def test_model_without_buses_is_unchanged():
     scenario = next(s for s in FIXTURES["scenarios"] if "without buses" in s["name"])
-    nodes, connections = expand_buses(scenario["nodes"], scenario["connections"], REGISTRY)
-    assert nodes is scenario["nodes"]
-    assert connections is scenario["connections"]
+    loaded, wires = _load(scenario)
+    nodes, connections = expand_buses(loaded, wires)
+    assert nodes is loaded
+    assert connections is wires
 
 
 def test_converter_generates_no_bus_blocks():

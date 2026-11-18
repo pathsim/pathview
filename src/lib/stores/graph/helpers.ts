@@ -3,7 +3,7 @@
  * Pure functions that don't depend on store state
  */
 
-import type { PortInstance, NodeInstance, SubsystemGraph, Connection } from '$lib/nodes/types';
+import type { PortInstance, PortDefinition, NodeInstance, SubsystemGraph, Connection } from '$lib/nodes/types';
 import { PORT_COLORS } from '$lib/utils/colors';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 
@@ -12,12 +12,13 @@ import { generateId } from '$lib/stores/utils';
 export { generateId };
 
 /**
- * Create port instances from port definitions
+ * Create port instances from port definitions, with the pathsim key and the
+ * carrier channels of the definitions
  */
 export function createPorts(
 	nodeId: string,
 	direction: 'input' | 'output',
-	portDefs: { name: string; color?: string }[]
+	portDefs: Pick<PortDefinition, 'name' | 'color' | 'key' | 'bus'>[]
 ): PortInstance[] {
 	return portDefs.map((def, index) => ({
 		id: `${nodeId}-${direction}-${index}`,
@@ -25,7 +26,9 @@ export function createPorts(
 		name: def.name,
 		direction,
 		index,
-		color: def.color || PORT_COLORS.default
+		color: def.color || PORT_COLORS.default,
+		...(def.key !== undefined ? { key: def.key } : {}),
+		...(def.bus ? { bus: def.bus } : {})
 	}));
 }
 
@@ -51,38 +54,6 @@ export function getSubsystemByPath(
 	}
 
 	return subsystem;
-}
-
-/**
- * Derive Interface node ports from parent Subsystem
- * Interface outputs = Subsystem inputs (signals coming in)
- * Interface inputs = Subsystem outputs (signals going out)
- */
-export function deriveInterfaceNode(
-	interfaceNode: NodeInstance,
-	parentSubsystem: NodeInstance
-): NodeInstance {
-	return {
-		...interfaceNode,
-		name: parentSubsystem.name,
-		color: parentSubsystem.color,
-		outputs: parentSubsystem.inputs.map((port, i) => ({
-			id: `${interfaceNode.id}-output-${i}`,
-			nodeId: interfaceNode.id,
-			name: port.name,
-			direction: 'output' as const,
-			index: i,
-			color: port.color
-		})),
-		inputs: parentSubsystem.outputs.map((port, i) => ({
-			id: `${interfaceNode.id}-input-${i}`,
-			nodeId: interfaceNode.id,
-			name: port.name,
-			direction: 'input' as const,
-			index: i,
-			color: port.color
-		}))
-	};
 }
 
 /**
@@ -165,73 +136,6 @@ export function findParentSubsystem(nodes: NodeInstance[], interfaceId: string):
 		}
 	}
 	return null;
-}
-
-/**
- * Clone a node for duplication
- * Creates a deep copy to avoid shared references
- */
-export function cloneNode(
-	node: NodeInstance,
-	newId: string,
-	positionOffset: { x: number; y: number }
-): NodeInstance {
-	return {
-		id: newId,
-		type: node.type,
-		name: node.name,
-		position: {
-			x: node.position.x + positionOffset.x,
-			y: node.position.y + positionOffset.y
-		},
-		inputs: createPorts(
-			newId,
-			'input',
-			node.inputs.map((p) => ({ name: p.name, color: p.color }))
-		),
-		outputs: createPorts(
-			newId,
-			'output',
-			node.outputs.map((p) => ({ name: p.name, color: p.color }))
-		),
-		// Deep clone params to avoid shared references
-		params: structuredClone(node.params),
-		// Copy pinnedParams array if present
-		pinnedParams: node.pinnedParams ? [...node.pinnedParams] : undefined,
-		color: node.color,
-		// Deep clone graph for subsystems
-		graph: node.graph ? structuredClone(node.graph) : undefined
-	};
-}
-
-/**
- * Update ports array with new port count
- */
-export function resizePorts(
-	nodeId: string,
-	currentPorts: PortInstance[],
-	newCount: number,
-	direction: 'input' | 'output'
-): PortInstance[] {
-	if (newCount < currentPorts.length) {
-		// Remove ports from the end
-		return currentPorts.slice(0, newCount);
-	} else if (newCount > currentPorts.length) {
-		// Add new ports
-		const newPorts = [...currentPorts];
-		for (let i = currentPorts.length; i < newCount; i++) {
-			newPorts.push({
-				id: `${nodeId}-${direction}-${i}`,
-				nodeId,
-				name: direction === 'input' ? `in ${i}` : `out ${i}`,
-				direction,
-				index: i,
-				color: PORT_COLORS.default
-			});
-		}
-		return newPorts;
-	}
-	return currentPorts;
 }
 
 /**

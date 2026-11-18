@@ -28,9 +28,9 @@ export const BusCreatorDefinition = defineNode({
 	inputs: ['in 0', 'in 1'],
 	outputs: ['bus'],
 	minInputs: 1,
-	maxInputs: null,
+	inputPolicy: 'variable',
 	minOutputs: 1,
-	maxOutputs: 1,
+	outputPolicy: 'fixed',
 	shape: 'rect',
 	params: {}
 });
@@ -44,9 +44,9 @@ export const BusSelectorDefinition = defineNode({
 	inputs: ['bus'],
 	outputs: [],
 	minInputs: 1,
-	maxInputs: 1,
+	inputPolicy: 'fixed',
 	minOutputs: 0,
-	maxOutputs: 0,
+	outputPolicy: 'fixed', // set by the picked signals
 	shape: 'rect',
 	params: {
 		signals: { type: 'any', default: [], description: 'Signal paths picked from the bus, one output each' }

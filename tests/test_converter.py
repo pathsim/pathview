@@ -7,7 +7,7 @@ import numpy as np
 from pathsim.blocks._block import Block
 from pathsim.utils.carrier import Carrier
 
-from pathview.converter import generate_python, load_registry, port_key
+from pathview.converter import generate_python, load_registry, port_key, with_port_structure
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from pathview_introspect import extract_block  # noqa: E402
@@ -15,8 +15,12 @@ from pathview_introspect import extract_block  # noqa: E402
 REGISTRY = load_registry(Path(__file__).parent.parent / "pathview" / "data" / "registry.json")
 
 
-def node(node_id, node_type, **params):
-    return {"id": node_id, "type": node_type, "name": node_id, "params": params}
+def node(node_id, node_type, inputs=(), outputs=(), **params):
+    """A node as saved before ports carried their structure: ports with display names only."""
+    return {
+        "id": node_id, "type": node_type, "name": node_id, "params": params,
+        "inputs": [{"name": name} for name in inputs], "outputs": [{"name": name} for name in outputs],
+    }
 
 
 def wire(source, source_port, target, target_port):
@@ -28,17 +32,35 @@ def wire(source, source_port, target, target_port):
 
 
 def test_port_key():
-    #labeled ports by label, variable ports by index
-    assert port_key(REGISTRY, "Atan2", "inputs", 1) == "b"
-    assert port_key(REGISTRY, "Atan2", "outputs", 0) == "y"
-    assert port_key(REGISTRY, "Scope", "inputs", 2) == 2
-    assert port_key(REGISTRY, "Unknown", "inputs", 0) == 0
+    #labeled ports by the label they carry, whatever their display name, others by index
+    atan = {"inputs": [{"name": "y", "key": "a"}, {"name": "denominator", "key": "b"}], "outputs": [{"name": "out 0", "key": "y"}]}
+    assert port_key(atan, "inputs", 1) == "b"
+    assert port_key(atan, "outputs", 0) == "y"
+    assert port_key({"inputs": [{"name": "in 0"}, {"name": "in 1"}, {"name": "in 2"}]}, "inputs", 2) == 2
+    assert port_key({}, "inputs", 0) == 0
+
+
+def test_port_structure_from_registry():
+    #saved display names do not tell the key, the registry does, by index
+    atan = with_port_structure(node("angle", "Atan2", inputs=["in 0", "in 1"], outputs=["out 0"]), REGISTRY)
+    assert [p["key"] for p in atan["inputs"]] == ["a", "b"]
+    assert atan["outputs"][0] == {"name": "out 0", "key": "y"}
+
+    #a key a port carries stays, variable ports and unknown types get none
+    kept = with_port_structure({**node("c", "Constant"), "outputs": [{"name": "out", "key": "kept"}]}, REGISTRY)
+    assert kept["outputs"][0]["key"] == "kept"
+    assert "key" not in with_port_structure(node("s", "Scope", inputs=["in 0"]), REGISTRY)["inputs"][0]
+    assert "key" not in with_port_structure(node("u", "Unknown", inputs=["in 0"]), REGISTRY)["inputs"][0]
+
+    #nodes inside subsystems as well
+    sub = {**node("sub", "Subsystem"), "graph": {"nodes": [node("c", "Constant", outputs=["out 0"])], "connections": []}}
+    assert with_port_structure(sub, REGISTRY)["graph"]["nodes"][0]["outputs"][0]["key"] == "out"
 
 
 def test_script_builds():
     pvm = {"version": "1.0.0", "graph": {
-        "nodes": [node("x", "Constant", value="1.0"), node("y", "Constant", value="2.0"),
-                  node("angle", "Atan2"), node("scope", "Scope")],
+        "nodes": [node("x", "Constant", outputs=["out 0"], value="1.0"), node("y", "Constant", outputs=["out 0"], value="2.0"),
+                  node("angle", "Atan2", inputs=["in 0", "in 1"], outputs=["out 0"]), node("scope", "Scope", inputs=["in 0"])],
         "connections": [wire("x", 0, "angle", 1), wire("y", 0, "angle", 0), wire("angle", 0, "scope", 0)],
     }}
     code = generate_python(pvm, REGISTRY)
@@ -87,7 +109,7 @@ def test_carrier_script_builds():
             {**node("st", "Stream"), "outputs": [{"name": "out"}]},
             {**node("tk", "Tank"), "inputs": [{"name": "in"}, {"name": "Q"}]},
             {**node("sel", "BusSelector", signals=["T"]), "inputs": [{"name": "in 0"}], "outputs": [{"name": "T"}]},
-            node("q", "Constant", value="4.0"), node("scope", "Scope"),
+            node("q", "Constant", outputs=["out 0"], value="4.0"), node("scope", "Scope", inputs=["in 0"]),
         ],
         "connections": [
             wire("st", 0, "tk", 0), wire("q", 0, "tk", 1),

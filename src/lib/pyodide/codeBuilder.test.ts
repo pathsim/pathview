@@ -2,10 +2,20 @@ import { afterAll, describe, it, expect } from 'vitest';
 import type { NodeInstance } from '$lib/nodes/types';
 import { defineNode } from '$lib/nodes/defineNode';
 import { nodeRegistry } from '$lib/nodes/registry';
+import { createPorts } from '$lib/stores/graph/helpers';
 import type { ExpandedConnection } from '$lib/bus/expand';
 import { generateNamedConnections, portKey } from './codeBuilder';
 
-const node = (id: string, type: string) => ({ id, type }) as NodeInstance;
+/** A node with the ports of its type, as a node added in the editor */
+const node = (id: string, type: string) => {
+	const ports = nodeRegistry.get(type)?.ports;
+	return {
+		id,
+		type,
+		inputs: createPorts(id, 'input', ports?.inputs ?? []),
+		outputs: createPorts(id, 'output', ports?.outputs ?? [])
+	} as NodeInstance;
+};
 const wire = (source: string, sourcePort: number, target: string, targetPort: number): ExpandedConnection => ({
 	id: `${source}-${target}-${targetPort}`,
 	sourceNodeId: source,
@@ -17,10 +27,16 @@ const signals = (...names: string[]) => names.map((name) => ({ name, structure: 
 
 describe('port keys', () => {
 	it('addresses labeled ports by label and variable ports by index', () => {
-		expect(portKey('Atan2', 'input', 1)).toBe('b');
-		expect(portKey('Atan2', 'output', 0)).toBe('y');
-		expect(portKey('Scope', 'input', 2)).toBe(2);
-		expect(portKey('Unknown', 'input', 0)).toBe(0);
+		expect(portKey(node('a', 'Atan2'), 'input', 1)).toBe('b');
+		expect(portKey(node('a', 'Atan2'), 'output', 0)).toBe('y');
+		expect(portKey(node('s', 'Scope'), 'input', 2)).toBe(2);
+		expect(portKey(node('u', 'Unknown'), 'input', 0)).toBe(0);
+	});
+
+	it('keeps the label when the user renames the port', () => {
+		const atan = node('a', 'Atan2');
+		atan.inputs[1] = { ...atan.inputs[1], name: 'denominator' };
+		expect(portKey(atan, 'input', 1)).toBe('b');
 	});
 
 	it('generates connections with the port keys', () => {
@@ -47,8 +63,9 @@ describe('carrier channels', () => {
 			blockClass: name,
 			inputs: [],
 			outputs: ['out'],
-			maxInputs: 0,
-			maxOutputs: 1,
+			labeled: true,
+			inputPolicy: 'fixed',
+			outputPolicy: 'fixed',
 			outputBuses: { out: [...bus] }
 		});
 		nodeRegistry.register(definition, SOURCE);

@@ -184,8 +184,8 @@
 	});
 
 	// Check if this node allows dynamic ports
-	const allowsDynamicInputs = $derived(typeDef?.ports.maxInputs === null);
-	const allowsDynamicOutputs = $derived(typeDef?.ports.maxOutputs === null);
+	const allowsDynamicInputs = $derived(typeDef?.ports.inputPolicy === 'variable');
+	const allowsDynamicOutputs = $derived(typeDef?.ports.outputPolicy === 'variable');
 	const syncPorts = $derived(typeDef?.ports.syncPorts ?? false);
 
 	// Rotation state (0, 1, 2, 3 = 0°, 90°, 180°, 270°) - stored in node params

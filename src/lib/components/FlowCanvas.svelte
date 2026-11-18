@@ -845,7 +845,7 @@
 						if (!targetNode) return;
 
 						const typeDef = nodeRegistry.get(targetNode.type);
-						if (!typeDef || typeDef.ports.maxInputs !== null) {
+						if (!typeDef || typeDef.ports.inputPolicy !== 'variable') {
 							// Can't create new port, abort
 							return;
 						}

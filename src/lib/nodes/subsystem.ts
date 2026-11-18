@@ -21,8 +21,8 @@ export const SubsystemDefinition = defineNode({
 	outputs: [],
 	minInputs: 0, // Ports controlled by Interface
 	minOutputs: 0,
-	maxInputs: null, // Dynamic based on Interface
-	maxOutputs: null,
+	inputPolicy: 'variable', // Dynamic based on Interface
+	outputPolicy: 'variable',
 	shape: 'rect',
 	params: {}
 });
@@ -44,8 +44,8 @@ export const InterfaceDefinition = defineNode({
 	outputs: [],
 	minInputs: 0, // Interface can have zero ports
 	minOutputs: 0,
-	maxInputs: null,
-	maxOutputs: null,
+	inputPolicy: 'variable',
+	outputPolicy: 'variable',
 	shape: 'rect',
 	params: {}
 });

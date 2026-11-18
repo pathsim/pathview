@@ -6,6 +6,8 @@ import { get } from 'svelte/store';
 import type { NodeInstance, Connection, Annotation } from '$lib/nodes/types';
 import { NODE_TYPES } from '$lib/constants/nodeTypes';
 import { applyPortLabelSync } from './ports';
+import { withPortStructure } from '$lib/nodes/ports';
+import { registryVersion } from '$lib/nodes/registry';
 import {
 	rootNodes,
 	rootConnections,
@@ -58,13 +60,31 @@ function syncPortLabelsRecursively(nodes: NodeInstance[]): NodeInstance[] {
 }
 
 /**
+ * Fill the port structure of nodes whose type registers after they were
+ * loaded, such as the blocks of a toolbox that installs after the file is
+ * shown (see `loadGraphFile`)
+ */
+registryVersion.subscribe(() => {
+	rootNodes.update((nodes) => {
+		let changed = false;
+		const filled = new Map<string, NodeInstance>();
+		for (const [id, node] of nodes) {
+			const next = withPortStructure(node);
+			changed ||= next !== node;
+			filled.set(id, next);
+		}
+		return changed ? filled : nodes;
+	});
+});
+
+/**
  * Load state from JSON
  */
 export function fromJSON(nodeList: NodeInstance[], connectionList: Connection[], annotationList?: Annotation[]): void {
 	if (!nodeList || !Array.isArray(nodeList)) {
 		rootNodes.set(new Map());
 	} else {
-		const synced = syncPortLabelsRecursively(nodeList);
+		const synced = syncPortLabelsRecursively(nodeList.map(withPortStructure));
 		rootNodes.set(new Map(synced.map(n => [n.id, n])));
 	}
 	rootConnections.set(connectionList || []);
