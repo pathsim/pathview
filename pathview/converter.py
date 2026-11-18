@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pathview.buses import expand_buses, port_bus
+from pathview.buses import channel_key, expand_buses, port_bus
 
 
 # =============================================================================
@@ -113,9 +113,8 @@ def port_reference(var_name: str, node: dict, direction: str, index: int, channe
     port = f"{var_name}[{json.dumps(port_key(node, direction, index))}]"
     if channel is None:
         return port
-    carrier = port_bus(node, direction, index) or []
-    name = carrier[channel]["name"] if channel < len(carrier) else None
-    return f"{port}[{channel if name is None or name == str(channel) else json.dumps(name)}]"
+    key = channel_key(port_bus(node, direction, index), channel)
+    return f"{port}[{channel if key is None else json.dumps(key)}]"
 
 
 def group_connections_by_source(connections: list[dict], nodes: list[dict], node_vars: dict[str, str]) -> list[dict]:

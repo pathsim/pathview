@@ -35,6 +35,14 @@ def port_bus(node: dict, direction: str, index: int):
     return ports[index].get("bus") if index < len(ports) else None
 
 
+def channel_key(carrier, channel: int) -> str | None:
+    """Name of a channel of a carrier port in pathsim: its key, or None for a
+    channel without key, as those of a pathsim `Vector`, whose signals are
+    named by their position. Same rule as `channelKey` in the editor."""
+    name = carrier[channel]["name"] if carrier and channel < len(carrier) else None
+    return None if name is None or name == str(channel) else name
+
+
 def is_bus_block(node: dict) -> bool:
     return node.get("type") in (BUS_CREATOR, BUS_SELECTOR)
 
